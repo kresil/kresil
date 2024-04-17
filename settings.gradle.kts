@@ -18,3 +18,5 @@ dependencyResolutionManagement {
 rootProject.name = "kresil"
 // lib
 include(":kresil-lib:lib")
+// apps
+include(":kresil-lib:apps:android-app")
