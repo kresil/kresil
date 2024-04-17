@@ -8,6 +8,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
+    @Suppress("UnstableApiUsage")
     repositories {
         google()
         mavenCentral()
@@ -16,3 +17,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "multiplatform-library-template"
 include(":library")
+rootProject.name = "kresil"
+include(":kresil-lib:lib")
