@@ -8,3 +8,5 @@ fun retryConfig(configure: RetryConfigBuilder.() -> Unit): RetryConfig {
     builder.configure()
     return builder.build()
 }
+
+fun defaultRetryConfig(): RetryConfig = retryConfig {}

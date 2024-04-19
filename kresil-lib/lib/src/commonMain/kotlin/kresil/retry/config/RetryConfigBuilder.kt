@@ -1,14 +1,14 @@
 package kresil.retry.config
 
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.milliseconds
 
 // TODO: revisit visibility concerns
 class RetryConfigBuilder {
 
     companion object {
         private const val DEFAULT_MAX_ATTEMPTS = 3
-        private val DEFAULT_DELAY = 3.seconds
+        private val DEFAULT_DELAY = 500.milliseconds
         private val DEFAULT_RETRY_PREDICATE: (Throwable) -> Boolean = { true }
     }
 

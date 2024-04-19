@@ -12,7 +12,7 @@ import kresil.retry.config.RetryConfig
 
 // TODO: add comments
 class Retry(
-    private val config: RetryConfig,
+    val config: RetryConfig,
 ) {
 
     companion object {
