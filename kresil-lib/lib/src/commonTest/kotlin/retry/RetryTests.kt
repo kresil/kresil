@@ -1,6 +1,5 @@
 package retry
 
-import service.RemoteService
 import exceptions.WebServiceException
 import io.mockative.Mock
 import io.mockative.classOf
@@ -19,12 +18,16 @@ import kotlinx.coroutines.withContext
 import kresil.retry.Retry
 import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
+import kresil.retry.defaultRetryConfig
 import kresil.retry.retryConfig
 import service.ConditionalSuccessRemoteService
+import service.RemoteService
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.fail
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -72,7 +75,7 @@ class RetryTests {
         }
 
         // wait for listeners to be registered using real time
-        delaysWithRealTime()
+        delayWithRealTime()
 
         launch {
             try {
@@ -163,7 +166,7 @@ class RetryTests {
         }
 
         // wait for listeners to be registered using real time
-        delaysWithRealTime()
+        delayWithRealTime()
 
         launch {
             try {
@@ -305,7 +308,7 @@ class RetryTests {
         }
 
         // wait for listeners to be registered using real time
-        delaysWithRealTime()
+        delayWithRealTime()
 
         try {
             // when: a suspend function is executed with the retry instance
@@ -324,8 +327,28 @@ class RetryTests {
 
     }
 
-    private suspend fun delaysWithRealTime(millisDuration: Long = ONE_SECOND) {
-        withContext(Dispatchers.Default) { // disables the test context in this scope, which uses virtual time
+    @Test
+    fun retryWithDefaultConfig() = runTest {
+        // given: a retry instance with default configuration
+        val retry = Retry(defaultRetryConfig())
+
+        // when: config is retrieved
+        val config = retry.config
+
+        // then: the default configuration is used
+        assertEquals(3, config.maxAttempts)
+        assertEquals(500.milliseconds, config.delay)
+        assertTrue(config.shouldRetry(Exception())) // should retry any exception
+        assertTrue(config.shouldRetry(RuntimeException()))
+        assertTrue(config.shouldRetry(WebServiceException("BAM!")))
+    }
+
+    /**
+     * Delays the coroutine execution with real time,
+     * since the test context (with `runTest`) uses virtual time to enable delay skipping behavior.
+     */
+    private suspend fun delayWithRealTime(millisDuration: Long = ONE_SECOND) {
+        withContext(Dispatchers.Default) {
             delay(millisDuration) // delay with real time
         }
     }
