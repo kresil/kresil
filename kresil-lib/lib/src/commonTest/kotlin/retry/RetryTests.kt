@@ -1,6 +1,6 @@
 package retry
 
-import RemoteService
+import service.RemoteService
 import exceptions.WebServiceException
 import io.mockative.Mock
 import io.mockative.classOf
@@ -8,20 +8,31 @@ import io.mockative.coEvery
 import io.mockative.coVerify
 import io.mockative.mock
 import io.mockative.once
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kresil.retry.Retry
+import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
 import kresil.retry.retryConfig
+import service.ConditionalSuccessRemoteService
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RetryTests {
+
+    companion object {
+        const val ONE_SECOND = 1_000L
+    }
 
     @Mock
     val remoteService = mock(classOf<RemoteService>())
@@ -48,8 +59,20 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
+        val remoteServiceException = WebServiceException("BAM!")
         coEvery { remoteService.suspendCall() }
-            .throws(WebServiceException("BAM!"))
+            .throws(remoteServiceException)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        val retryListenersJob = launch {
+            retry.onEvent {
+                eventsList.add(it)
+            }
+        }
+
+        // wait for listeners to be registered using real time
+        delaysWithRealTime()
 
         launch {
             try {
@@ -60,12 +83,12 @@ class RetryTests {
                             remoteService.suspendCall()
                         }
 
-                        // when: a suspend function is executed with the retry instance
+                        // when: a suspend function is executed with the retry instance [1]
                         decorated()
                     }
 
                     false -> {
-                        // when: a suspend function is executed with the retry instance
+                        // when: a suspend function is executed with the retry instance [2]
                         retry.executeSuspendFunction {
                             remoteService.suspendCall()
                         }
@@ -94,14 +117,26 @@ class RetryTests {
         // (delayDuration.inWholeNanoseconds * 0.01) // 1% error margin)
         // more info at: https://github.com/Kotlin/kotlinx.coroutines/tree/master/kotlinx-coroutines-test
 
-        // and: the method was invoked the exact number of times specified in maxAttempts
+        // and: the method was invoked the exact number of times specified in the retry configuration
         coVerify {
             remoteService.suspendCall()
         }.wasInvoked(exactly = maxAttempts)
+
+        // and: the retry events are emitted in the correct order
+        val retryonRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        assertContentEquals(
+            listOf(
+                *retryonRetryList.toTypedArray(),
+                RetryEvent.RetryOnError(remoteServiceException)
+            ),
+            eventsList
+        )
+
+        retryListenersJob.cancelAndJoin() // cancel all listeners
     }
 
     @Test
-    fun retryWithFaillingRetryPredicate() = runTest {
+    fun retryOnIgnoredError() = runTest {
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -115,8 +150,20 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
+        val remoteServiceException = RuntimeException("Surprise!")
         coEvery { remoteService.suspendCall() }
-            .throws(RuntimeException("Surprise!"))
+            .throws(remoteServiceException)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        val retryListenersJob = launch {
+            retry.onEvent {
+                eventsList.add(it)
+            }
+        }
+
+        // wait for listeners to be registered using real time
+        delaysWithRealTime()
 
         launch {
             try {
@@ -138,11 +185,149 @@ class RetryTests {
         val retryExecutionDuration = currentTime
         assertEquals(0, retryExecutionDuration)
 
-        // then: the method is invoked only once since there is no retry attempt
+        // and: the method is invoked only once since there is no retry attempt
         coVerify {
             remoteService.suspendCall()
         }.wasInvoked(exactly = once)
+
+        // and: the retry events are emitted in the correct order
+        assertContentEquals(
+            listOf(
+                RetryEvent.RetryOnIgnoredError(remoteServiceException)
+            ),
+            eventsList
+        )
+
+        retryListenersJob.cancelAndJoin() // cancel all listeners
     }
 
+    @Test
+    fun retryOnRetrySucess() = runTest {
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            maxAttempts(maxAttempts)
+            retryIf { it is WebServiceException }
+            delay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that throws an exception on the first call
+        val conditionalSuccessRemoteService =
+            ConditionalSuccessRemoteService(
+                succeedAfterAttempt = 1,
+                throwable = WebServiceException("BAM!")
+            )
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        val retryListenersJob = launch {
+            retry.onEvent {
+                eventsList.add(it)
+            }
+        }
+
+        launch {
+            try {
+                // when: a decorated suspend function is executed with the retry instance
+                retry.executeSuspendFunction {
+                    conditionalSuccessRemoteService.suspendCall()
+                }
+            } catch (e: WebServiceException) {
+                // expected
+            } catch (e: Exception) {
+                fail("Unexpected exception: $e")
+            }
+        }
+
+        testScheduler.advanceUntilIdle() // advance child coroutine to the end
+
+        // then: the retry events are emitted in the correct order
+        assertContentEquals(
+            listOf(
+                RetryEvent.RetryOnRetry(1),
+                RetryEvent.RetryOnSuccess,
+            ),
+            eventsList
+        )
+
+        retryListenersJob.cancelAndJoin() // cancel all listeners
+    }
+
+    @Test
+    fun registerCallbacksInRetryEvents() = runTest {
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            maxAttempts(maxAttempts)
+            retryIf { it is WebServiceException }
+            delay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        coEvery { remoteService.suspendCall() }
+            .throws(WebServiceException("BAM!"))
+
+        // and: all retry event listeners launched in parallel
+        val retryListenersJob = launch {
+            launch {
+                retry.onRetry { currentAttempt ->
+                    println("Executing attempt: $currentAttempt")
+                }
+            }
+            launch {
+                retry.onError { throwable ->
+                    println("RetryOnError: $throwable")
+                }
+            }
+            launch {
+                retry.onIgnoredError { throwable ->
+                    println("Ignored error: $throwable")
+                }
+            }
+            launch {
+                retry.onSuccess {
+                    println("RetryOnSuccess")
+                }
+            }
+            launch {
+                retry.onEvent {
+                    println("State change: $it")
+                }
+            }
+        }
+
+        // wait for listeners to be registered using real time
+        delaysWithRealTime()
+
+        try {
+            // when: a suspend function is executed with the retry instance
+            retry.executeSuspendFunction {
+                remoteService.suspendCall()
+            }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: event listeners are invoked (see logs)
+
+        retryListenersJob.cancelAndJoin() // cancel all listeners
+
+    }
+
+    private suspend fun delaysWithRealTime(millisDuration: Long = ONE_SECOND) {
+        withContext(Dispatchers.Default) { // disables the test context in this scope, which uses virtual time
+            delay(millisDuration) // delay with real time
+        }
+    }
 }
 
