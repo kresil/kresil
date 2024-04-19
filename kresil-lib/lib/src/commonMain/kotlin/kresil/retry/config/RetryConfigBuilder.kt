@@ -1,7 +1,7 @@
 package kresil.retry.config
 
-import kresil.duration.Duration
-import kresil.duration.seconds
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class RetryConfigBuilder {
 
@@ -12,7 +12,6 @@ class RetryConfigBuilder {
     }
 
     // TODO: add checks for illegal values
-
     private var maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
     private var delay: Duration = DEFAULT_DELAY
     private var retryIf: (Throwable) -> Boolean = DEFAULT_RETRY_PREDICATE

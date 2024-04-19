@@ -70,7 +70,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
-                implementation(libs.kotlinx.datetime)
+                implementation(libs.napier)
             }
         }
         val commonTest by getting {
@@ -113,6 +113,7 @@ kotlin {
             }
         }
     }
+
     dependencies {
         configurations
             .filter { it.name.startsWith("ksp") && it.name.contains("Test") }

@@ -1,13 +1,11 @@
 package kresil.retry.config
 
-import kresil.duration.Duration
+import kotlin.time.Duration
 
 data class RetryConfig(
     val maxAttempts: Int,
     val retryIf: (Throwable) -> Boolean,
     val delay: Duration
 ) {
-    fun shouldRetry(throwable: Throwable): Boolean {
-        return retryIf(throwable)
-    }
+    inline fun shouldRetry(throwable: Throwable) = retryIf(throwable)
 }
