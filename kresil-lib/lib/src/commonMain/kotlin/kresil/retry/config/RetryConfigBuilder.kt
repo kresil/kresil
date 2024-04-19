@@ -3,6 +3,7 @@ package kresil.retry.config
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+// TODO: revisit visibility concerns
 class RetryConfigBuilder {
 
     companion object {
