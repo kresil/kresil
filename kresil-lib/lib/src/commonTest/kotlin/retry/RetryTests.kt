@@ -18,7 +18,6 @@ import kotlinx.coroutines.withContext
 import kresil.retry.Retry
 import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
-import kresil.retry.defaultRetryConfig
 import kresil.retry.retryConfig
 import service.ConditionalSuccessRemoteService
 import service.RemoteService
@@ -330,7 +329,7 @@ class RetryTests {
     @Test
     fun retryWithDefaultConfig() = runTest {
         // given: a retry instance with default configuration
-        val retry = Retry(defaultRetryConfig())
+        val retry = Retry()
 
         // when: config is retrieved
         val config = retry.config
@@ -353,4 +352,3 @@ class RetryTests {
         }
     }
 }
-
