@@ -56,7 +56,7 @@ class Retry(
                 retryAttempt++
                 eventFlow.emit(RetryEvent.RetryOnRetry(retryAttempt))
                 Napier.i { "Delaying for ${config.delay}" }
-                delay(config.delay.inWholeNanoseconds)
+                delay(config.delay.inWholeMilliseconds)
             }
         }
     }
