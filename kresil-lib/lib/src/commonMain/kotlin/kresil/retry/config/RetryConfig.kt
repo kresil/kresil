@@ -7,5 +7,5 @@ data class RetryConfig(
     val retryIf: (Throwable) -> Boolean,
     val delay: Duration
 ) {
-    inline fun shouldRetry(throwable: Throwable) = retryIf(throwable)
+    val permittedRetryAttempts: Int = maxAttempts - 1
 }

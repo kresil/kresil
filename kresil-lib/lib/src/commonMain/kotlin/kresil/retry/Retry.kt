@@ -1,62 +1,66 @@
 package kresil.retry
 
-import io.github.aakira.napier.DebugAntilog
-import io.github.aakira.napier.Napier
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kresil.retry.config.RetryConfig
+import kotlin.coroutines.cancellation.CancellationException
 
 // TODO: add comments
 class Retry(
     val config: RetryConfig = defaultRetryConfig(),
 ) {
 
-    companion object {
+    private companion object {
         const val INITIAL_ATTEMPT = 0
     }
 
-    init {
-        Napier.base(DebugAntilog("Retry"))
-    }
-
+    // events
     private val eventFlow = MutableSharedFlow<RetryEvent>()
-
-    // TODO: consider making it public
     private val events: Flow<RetryEvent> = eventFlow.asSharedFlow()
 
     suspend fun <T> executeSuspendFunction(block: suspend () -> T) {
-        Napier.i { "Executing suspend function with retry" }
-        // TODO: attempts counter is not thread-safe, add atomicfu impl
-        var retryAttempt = INITIAL_ATTEMPT
-        // TODO: hold last exception with concurrency-safe data structure
-        while (true) {
-            try {
-                // reminder: the first attempt is not a retry attempt
-                if (retryAttempt > INITIAL_ATTEMPT) {
-                    Napier.i { "Retry attempt: $retryAttempt" }
+        coroutineScope {
+            val deferred = async {
+                var currentRetryAttempt = INITIAL_ATTEMPT
+                while (true) {
+                    try {
+                        block()
+                        eventFlow.emit(RetryEvent.RetryOnSuccess)
+                        return@async
+                    } catch (throwable: Throwable) {
+                        if (currentRetryAttempt >= config.permittedRetryAttempts) {
+                            eventFlow.emit(RetryEvent.RetryOnError(throwable))
+                            throw throwable
+                        }
+                        if (!config.retryIf(throwable)) {
+                            eventFlow.emit(RetryEvent.RetryOnIgnoredError(throwable))
+                            throw throwable
+                        }
+                        currentRetryAttempt++
+                        eventFlow.emit(RetryEvent.RetryOnRetry(currentRetryAttempt))
+                        delay(config.delay.inWholeMilliseconds)
+                    }
                 }
-                block()
-                eventFlow.emit(RetryEvent.RetryOnSuccess)
-                return
-            } catch (e: Throwable) {
-                if (retryAttempt >= config.maxAttempts - 1) {
-                    Napier.e { "Max attempts reached, propagating..." }
-                    eventFlow.emit(RetryEvent.RetryOnError(e))
-                    throw e
+            }
+            withContext(NonCancellable) {
+                deferred.join()
+                deferred.invokeOnCompletion { cause ->
+                    // means that the coroutine was cancelled normally
+                    if (cause != null && cause is CancellationException) {
+                        launch {
+                            eventFlow.emit(RetryEvent.RetryOnCancellation)
+                        }
+                    }
                 }
-                if (!config.shouldRetry(e)) {
-                    Napier.e { "Expected exception, propagating..." }
-                    eventFlow.emit(RetryEvent.RetryOnIgnoredError(e))
-                    throw e
-                }
-                retryAttempt++
-                eventFlow.emit(RetryEvent.RetryOnRetry(retryAttempt))
-                Napier.i { "Delaying for ${config.delay}" }
-                delay(config.delay.inWholeMilliseconds)
             }
         }
     }
@@ -68,7 +72,7 @@ class Retry(
     suspend fun onRetry(action: suspend (Int) -> Unit) =
         events
             .filterIsInstance<RetryEvent.RetryOnRetry>()
-            .map { it.attempt }
+            .map { it.currentAttempt }
             .collect { action(it) }
 
     suspend fun onError(action: suspend (Throwable) -> Unit) =
@@ -86,6 +90,12 @@ class Retry(
     suspend fun onSuccess(action: suspend () -> Unit) =
         events
             .filterIsInstance<RetryEvent.RetryOnSuccess>()
+            .collect { action() }
+
+    @Suppress("Unused")
+    suspend fun onCancellation(action: suspend () -> Unit) =
+        events
+            .filterIsInstance<RetryEvent.RetryOnCancellation>()
             .collect { action() }
 
     suspend fun onEvent(action: suspend (RetryEvent) -> Unit) =
