@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kresil.retry.config.RetryConfig
+import kresil.retry.exceptions.MaxRetriesExceededException
 import kotlin.coroutines.cancellation.CancellationException
 
 // TODO: add comments
@@ -33,21 +34,24 @@ class Retry(
                 var currentRetryAttempt = INITIAL_ATTEMPT
                 while (true) {
                     try {
-                        block()
+                        val result: Any? = block()
+                        if (config.shouldRetryOnResult(result)) {
+                            canRetry(currentRetryAttempt)
+                            currentRetryAttempt = onRetryAttempt(currentRetryAttempt)
+                            continue
+                        }
                         eventFlow.emit(RetryEvent.RetryOnSuccess)
                         return@async
                     } catch (throwable: Throwable) {
-                        if (currentRetryAttempt >= config.permittedRetryAttempts) {
-                            eventFlow.emit(RetryEvent.RetryOnError(throwable))
+                        if (throwable is MaxRetriesExceededException) {
                             throw throwable
                         }
-                        if (!config.retryIf(throwable)) {
+                        canRetry(currentRetryAttempt, throwable)
+                        if (!config.shouldRetry(throwable)) {
                             eventFlow.emit(RetryEvent.RetryOnIgnoredError(throwable))
                             throw throwable
                         }
-                        currentRetryAttempt++
-                        eventFlow.emit(RetryEvent.RetryOnRetry(currentRetryAttempt))
-                        delay(config.delay.inWholeMilliseconds)
+                        currentRetryAttempt = onRetryAttempt(currentRetryAttempt)
                     }
                 }
             }
@@ -63,6 +67,21 @@ class Retry(
                 }
             }
         }
+    }
+
+    private suspend fun canRetry(currentRetryAttempt: Int, throwable: Throwable? = null) {
+        if (currentRetryAttempt >= config.permittedRetryAttempts) {
+            val _throwable = throwable ?: MaxRetriesExceededException()
+            eventFlow.emit(RetryEvent.RetryOnError(_throwable))
+            throw _throwable
+        }
+    }
+
+    private suspend fun onRetryAttempt(previousRetryAttempt: Int): Int {
+        val currentRetryAttempt = previousRetryAttempt + 1
+        eventFlow.emit(RetryEvent.RetryOnRetry(currentRetryAttempt))
+        delay(config.delay.inWholeMilliseconds)
+        return currentRetryAttempt
     }
 
     fun <T> decorateSuspendFunction(block: suspend () -> T): suspend () -> Unit = {

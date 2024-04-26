@@ -7,15 +7,16 @@ import kotlin.time.Duration.Companion.milliseconds
 class RetryConfigBuilder {
 
     companion object {
-        private const val DEFAULT_MAX_ATTEMPTS = 3
-        private val DEFAULT_DELAY = 500.milliseconds
-        private val DEFAULT_RETRY_PREDICATE: (Throwable) -> Boolean = { true }
+        const val DEFAULT_MAX_ATTEMPTS = 3
+        val DEFAULT_DELAY = 500.milliseconds
+        val DEFAULT_RETRY_PREDICATE: (Throwable) -> Boolean = { true }
+        val DEFAULT_RETRY_ON_RESULT_PREDICATE: (Any?) -> Boolean = { false }
     }
 
-    // TODO: add checks for illegal values
     private var maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
     private var delay: Duration = DEFAULT_DELAY
     private var retryIf: (Throwable) -> Boolean = DEFAULT_RETRY_PREDICATE
+    private var retryOnResult: (Any?) -> Boolean = DEFAULT_RETRY_ON_RESULT_PREDICATE
 
     fun maxAttempts(value: Int) {
         maxAttempts = value
@@ -25,6 +26,10 @@ class RetryConfigBuilder {
         retryIf = predicate
     }
 
+    fun retryOnResult(predicate: (Any?) -> Boolean) {
+        retryOnResult = predicate
+    }
+
     fun delay(duration: Duration) {
         delay = duration
     }
@@ -32,6 +37,7 @@ class RetryConfigBuilder {
     fun build() = RetryConfig(
         maxAttempts,
         retryIf,
+        retryOnResult,
         delay
     )
 }
