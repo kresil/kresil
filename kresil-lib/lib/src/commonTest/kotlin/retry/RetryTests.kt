@@ -19,11 +19,13 @@ import kotlinx.coroutines.withContext
 import kresil.retry.Retry
 import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
+import kresil.retry.exceptions.MaxRetriesExceededException
 import kresil.retry.retryConfig
 import service.ConditionalSuccessRemoteService
 import service.RemoteService
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration
@@ -121,10 +123,10 @@ class RetryTests {
         }.wasInvoked(exactly = maxAttempts)
 
         // and: the retry events are emitted in the correct order
-        val retryonRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        val retryOnRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
         assertEquals(
             listOf(
-                *retryonRetryList.toTypedArray(),
+                *retryOnRetryList.toTypedArray(),
                 RetryEvent.RetryOnError(remoteServiceException)
             ),
             eventsList
@@ -393,6 +395,64 @@ class RetryTests {
             ),
             eventsList
         )
+
+        retryListenersJob.cancelAndJoin() // cancel all listeners
+    }
+
+    @Test
+    fun retryOnResult() = runTest {
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val result = null
+        val config: RetryConfig = retryConfig {
+            maxAttempts(maxAttempts)
+            retryIf { it is WebServiceException }
+            delay(delayDuration)
+            retryOnResult { it == result }
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that returns some result
+        coEvery { remoteService.suspendCall() }
+            .returns(result)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        val retryListenersJob = launch {
+            retry.onEvent {
+                eventsList.add(it)
+            }
+        }
+
+        delayWithRealTime() // wait for listeners to be registered using real time
+
+        launch {
+            try {
+                // when: a decorated suspend function is executed with the retry instance
+                retry.executeSuspendFunction {
+                    remoteService.suspendCall()
+                }
+            } catch (e: MaxRetriesExceededException) {
+                // expected
+                println("MaxRetriesExceededException: $e")
+            } catch (e: Exception) {
+                fail("Unexpected exception: $e")
+            }
+        }
+
+        testScheduler.advanceUntilIdle() // advance child coroutine to the end
+
+        // then: the retry events are emitted in the correct order
+        val retryAttempts = maxAttempts - 1 // the first attempt is not a retry
+        val retryOnRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        assertEquals(listOf(*retryOnRetryList.toTypedArray()), eventsList.take(retryAttempts))
+        eventsList.last().let {
+            assertIs<RetryEvent.RetryOnError>(it)
+            assertIs<MaxRetriesExceededException>(it.throwable)
+        }
 
         retryListenersJob.cancelAndJoin() // cancel all listeners
     }
