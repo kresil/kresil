@@ -1,5 +1,6 @@
 package kresil.retry
 
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -7,6 +8,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.context.RetryContextImpl
 
@@ -14,6 +17,7 @@ import kresil.retry.context.RetryContextImpl
 class Retry(
     val config: RetryConfig = defaultRetryConfig(),
 ) {
+    // events
     private val eventFlow = MutableSharedFlow<RetryEvent>()
     private val events: Flow<RetryEvent> = eventFlow.asSharedFlow()
 
@@ -37,7 +41,9 @@ class Retry(
                     }
                 }
             }
-            context.onCancellation(deferred)
+            withContext(NonCancellable) {
+                context.onCancellation(this, deferred)
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-package kresil.retry
+package kresil.retry.builders
 
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder

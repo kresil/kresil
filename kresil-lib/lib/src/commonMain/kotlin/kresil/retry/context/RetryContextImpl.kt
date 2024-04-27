@@ -1,11 +1,10 @@
 package kresil.retry.context
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
 import kresil.retry.exceptions.MaxRetriesExceededException
@@ -16,13 +15,14 @@ internal class RetryContextImpl(
 ) : RetryContext {
 
     private companion object {
-        const val INITIAL_ATTEMPT = 0
+        const val INITIAL_NON_RETRY_ATTEMPT = 0
     }
 
-    private var currentRetryAttempt = INITIAL_ATTEMPT
+    private var currentRetryAttempt = INITIAL_NON_RETRY_ATTEMPT
+    private var lastThrowable: Throwable? = null
 
     override suspend fun onResult(result: Any?): Boolean {
-        if (config.shouldRetryOnResult(result)) {
+        if (shouldRetryOnResult(result)) {
             canRetry(currentRetryAttempt)
             return true
         }
@@ -31,15 +31,17 @@ internal class RetryContextImpl(
 
     override suspend fun onRetry() {
         eventFlow.emit(RetryEvent.RetryOnRetry(++currentRetryAttempt))
-        delay(config.delay.inWholeMilliseconds)
+        val duration = config.delay(currentRetryAttempt, lastThrowable)
+        delay(duration.inWholeMilliseconds)
     }
 
     override suspend fun onError(throwable: Throwable) {
+        lastThrowable = throwable
         if (throwable is MaxRetriesExceededException) {
             throw throwable
         }
         canRetry(currentRetryAttempt, throwable)
-        if (!config.shouldRetry(throwable)) {
+        if (!shouldRetry(throwable)) {
             eventFlow.emit(RetryEvent.RetryOnIgnoredError(throwable))
             throw throwable
         }
@@ -49,15 +51,13 @@ internal class RetryContextImpl(
         eventFlow.emit(RetryEvent.RetryOnSuccess)
     }
 
-    override suspend fun onCancellation(deferred: Deferred<Unit>) {
-        withContext(NonCancellable) {
-            deferred.join()
-            deferred.invokeOnCompletion { cause ->
-                // means that the coroutine was cancelled normally
-                if (cause != null && cause is kotlin.coroutines.cancellation.CancellationException) {
-                    launch {
-                        eventFlow.emit(RetryEvent.RetryOnCancellation)
-                    }
+    override suspend fun onCancellation(scope: CoroutineScope, deferred: Deferred<Unit>) {
+        deferred.join()
+        deferred.invokeOnCompletion { cause ->
+            // means that the coroutine was cancelled normally
+            if (cause != null && cause is kotlin.coroutines.cancellation.CancellationException) {
+                scope.launch {
+                    eventFlow.emit(RetryEvent.RetryOnCancellation)
                 }
             }
         }
@@ -70,5 +70,8 @@ internal class RetryContextImpl(
             throw errorOrExceptionToThrow
         }
     }
+
+    private fun shouldRetryOnResult(result: Any?): Boolean = config.retryOnResult(result)
+    private fun shouldRetry(throwable: Throwable): Boolean = config.retryIf(throwable)
 
 }

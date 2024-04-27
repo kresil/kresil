@@ -1,5 +1,6 @@
 package kresil.retry.context
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 
 internal interface RetryContext {
@@ -7,5 +8,5 @@ internal interface RetryContext {
     suspend fun onRetry()
     suspend fun onError(throwable: Throwable)
     suspend fun onSuccess()
-    suspend fun onCancellation(deferred: Deferred<Unit>)
+    suspend fun onCancellation(scope: CoroutineScope, deferred: Deferred<Unit>)
 }
