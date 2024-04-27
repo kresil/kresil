@@ -355,7 +355,7 @@ class RetryTests {
         val initialDelayMillis = initialDelay.inWholeMilliseconds
         (1..config.maxAttempts).forEach { attempt ->
             val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt)).toLong()
-            assertEquals(nextDurationMillis.milliseconds, config.delay(attempt, null))
+            assertEquals(nextDurationMillis.milliseconds, config.delayStrategy(attempt, null))
         }
 
         // and: the permitted retry attempts is the max attempts minus one, since the first attempt is not a retry

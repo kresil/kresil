@@ -9,21 +9,33 @@ import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
 import kresil.retry.exceptions.MaxRetriesExceededException
 
-internal class RetryContextImpl(
+/**
+ * Represents the asynchronous context implementation of a retry mechanism.
+ * Besides defining context behaviour, this implementation is also responsible for:
+ * - state management;
+ * - event emission.
+ *
+ * For each retryable asynchronous operation, a new instance of this class must be created.
+ * @param config The configuration for the retry mechanism.
+ * @param eventFlow The shared flow to emit retry events to.
+ * @see [kresil.retry.Retry]
+ */
+internal class RetryAsyncContextImpl(
     private val config: RetryConfig,
     private val eventFlow: MutableSharedFlow<RetryEvent>,
-) : RetryContext {
+) : RetryAsyncContext {
 
     private companion object {
         const val INITIAL_NON_RETRY_ATTEMPT = 0
     }
 
+    // state
     private var currentRetryAttempt = INITIAL_NON_RETRY_ATTEMPT
     private var lastThrowable: Throwable? = null
 
     override suspend fun onResult(result: Any?): Boolean {
         if (shouldRetryOnResult(result)) {
-            canRetry(currentRetryAttempt)
+            continueOrPropagate(currentRetryAttempt)
             return true
         }
         return false
@@ -31,7 +43,9 @@ internal class RetryContextImpl(
 
     override suspend fun onRetry() {
         eventFlow.emit(RetryEvent.RetryOnRetry(++currentRetryAttempt))
-        val duration = config.delay(currentRetryAttempt, lastThrowable)
+        val duration = config.delayStrategy(currentRetryAttempt, lastThrowable)
+        // TODO: consider giving the user control of the delay function (default should be kotlinx.coroutines.delay)
+        // TODO: but be aware that user should be warned about cancellation awareness if delay is implemented in a custom way
         delay(duration.inWholeMilliseconds)
     }
 
@@ -40,7 +54,7 @@ internal class RetryContextImpl(
         if (throwable is MaxRetriesExceededException) {
             throw throwable
         }
-        canRetry(currentRetryAttempt, throwable)
+        continueOrPropagate(currentRetryAttempt, throwable)
         if (!shouldRetry(throwable)) {
             eventFlow.emit(RetryEvent.RetryOnIgnoredError(throwable))
             throw throwable
@@ -63,7 +77,17 @@ internal class RetryContextImpl(
         }
     }
 
-    private suspend fun canRetry(currentRetryAttempt: Int, throwable: Throwable? = null) {
+    /**
+     * Determines whether the retry mechanism should continue or propagate the error.
+     * If the current retry attempt is greater than or equal to the permitted retry attempts, the error is propagated.
+     * Otherwise, the retry mechanism continues.
+     * If no throwable is provided, it is assumed
+     * that the maximum number of attempts was reached
+     * when a retry on result was attempted and a [MaxRetriesExceededException] is thrown instead.
+     * @param currentRetryAttempt The current retry attempt.
+     * @param throwable The throwable to propagate.
+     */
+    private suspend fun continueOrPropagate(currentRetryAttempt: Int, throwable: Throwable? = null) {
         if (currentRetryAttempt >= config.permittedRetryAttempts) {
             val errorOrExceptionToThrow = throwable ?: MaxRetriesExceededException()
             eventFlow.emit(RetryEvent.RetryOnError(errorOrExceptionToThrow))
@@ -71,7 +95,8 @@ internal class RetryContextImpl(
         }
     }
 
-    private fun shouldRetryOnResult(result: Any?): Boolean = config.retryOnResult(result)
-    private fun shouldRetry(throwable: Throwable): Boolean = config.retryIf(throwable)
+    // utility functions
+    private inline fun shouldRetryOnResult(result: Any?): Boolean = config.retryOnResult(result)
+    private inline fun shouldRetry(throwable: Throwable): Boolean = config.retryIf(throwable)
 
 }
