@@ -139,6 +139,7 @@ class RetryTests {
 
     @Test
     fun retryOnIgnoredError() = runTest {
+
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -206,6 +207,7 @@ class RetryTests {
 
     @Test
     fun retryOnRetrySucess() = runTest {
+
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -263,6 +265,7 @@ class RetryTests {
 
     @Test
     fun registerCallbacksInRetryEvents() = runTest {
+
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -330,6 +333,7 @@ class RetryTests {
 
     @Test
     fun retryWithDefaultConfig() = runTest {
+
         // given: a retry instance with default configuration
         val retry = Retry()
 
@@ -364,6 +368,7 @@ class RetryTests {
 
     @Test
     fun cancelRetryExecution() = runTest {
+
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 2.seconds
@@ -423,6 +428,7 @@ class RetryTests {
 
     @Test
     fun retryOnResult() = runTest {
+
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -482,6 +488,7 @@ class RetryTests {
 
     @Test
     fun retryWithConstantDelay() = runTest {
+
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -522,6 +529,7 @@ class RetryTests {
 
     @Test
     fun retryWithInvalidConstantDelay() {
+
         // given: a retry configuration with an invalid constant delay
         val delayDuration = (-2).seconds
 
@@ -542,16 +550,16 @@ class RetryTests {
 
     @Test
     fun retryWithExponentialDelay() = runTest {
+
         // given: a retry configuration
         val maxAttempts = 6
         val initialDelay = 1.seconds
         val multiplier = 2.0
         val maxDelay = 10.seconds
-        // exponential delay will be: [1s, 2s, 4s, 8s, 10s, 10s]
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
             retryIf { it is WebServiceException }
-            exponentialDelay(initialDelay, multiplier, maxDelay)
+            exponentialDelay(initialDelay, multiplier, maxDelay) // will be: [1s, 2s, 4s, 8s, 10s, 10s]
         }
 
         // and: a retry instance
@@ -592,6 +600,7 @@ class RetryTests {
 
     @Test
     fun exponentialDelayInvalidMultiplier() {
+
         // given: a retry configuration with an invalid multiplier
         val multiplier = 1.0 // should be greater than 1
 
@@ -612,6 +621,7 @@ class RetryTests {
 
     @Test
     fun exponentialDelayWithInvalidInitialDelay() {
+
         // given: a retry configuration with an invalid initial delay
         val initialDelay = (-2).seconds
 
@@ -632,6 +642,7 @@ class RetryTests {
 
     @Test
     fun exponentialDelayWithInitialDelayGreaterThanMaxDelay() {
+
         // given: a retry configuration with an invalid initial delay
         val initialDelay = 10.seconds
         val maxDelay = 5.seconds
@@ -780,6 +791,50 @@ class RetryTests {
         assertEquals(listOf<Throwable?>(null, null), lastThrowableCollector)
 
         // and: the method is invoked the exact number of times specified in the retry configuration
+        coVerify {
+            remoteService.suspendCall()
+        }.wasInvoked(exactly = maxAttempts)
+    }
+
+    @Test
+    fun retryWithNoDelay() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            noDelay()
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        coEvery { remoteService.suspendCall() }
+            .throws(WebServiceException("BAM!"))
+
+        launch {
+            try {
+                // when: a decorated suspend function is executed with the retry instance
+                retry.executeSuspendFunction {
+                    remoteService.suspendCall()
+                }
+            } catch (e: WebServiceException) {
+                // expected
+            } catch (e: Exception) {
+                fail("Unexpected exception: $e")
+            }
+        }
+
+        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
+        testScheduler.advanceUntilIdle()
+
+        // then: the retry virtual time equals 0 since there is no delay
+        val retryExecutionDuration = currentTime
+        assertEquals(0, retryExecutionDuration)
+
+        // and: the method is invoked the amount of times specified in the retry configuration
         coVerify {
             remoteService.suspendCall()
         }.wasInvoked(exactly = maxAttempts)

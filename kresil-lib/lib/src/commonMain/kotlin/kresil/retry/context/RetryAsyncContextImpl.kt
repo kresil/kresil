@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
 import kresil.retry.exceptions.MaxRetriesExceededException
+import kotlin.time.Duration
 
 /**
  * Represents the asynchronous context implementation of a retry mechanism.
@@ -44,9 +45,10 @@ internal class RetryAsyncContextImpl(
     override suspend fun onRetry() {
         eventFlow.emit(RetryEvent.RetryOnRetry(++currentRetryAttempt))
         val duration = config.delayStrategy(currentRetryAttempt, lastThrowable)
+        if (duration == Duration.ZERO) return
         // TODO: consider giving the user control of the delay function (default should be kotlinx.coroutines.delay)
         // TODO: but be aware that user should be warned about cancellation awareness if delay is implemented in a custom way
-        delay(duration.inWholeMilliseconds)
+        delay(duration)
     }
 
     override suspend fun onError(throwable: Throwable) {

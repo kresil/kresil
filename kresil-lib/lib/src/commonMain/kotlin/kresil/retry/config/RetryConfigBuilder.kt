@@ -73,8 +73,10 @@ class RetryConfigBuilder internal constructor() {
     /**
      * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
      * @param duration the constant delay between retries.
+     * @throws IllegalArgumentException if the duration is less than or equal to 0.
      * @see [exponentialDelay]
      * @see [customDelay]
+     * @see [noDelay]
      */
     fun constantDelay(duration: Duration) {
         requirePositiveDuration(duration, "Delay")
@@ -98,8 +100,10 @@ class RetryConfigBuilder internal constructor() {
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1,
      * @see [constantDelay]
      * @see [customDelay]
+     * @see [noDelay]
      */
     fun exponentialDelay(
         initialDelay: Duration = 500L.milliseconds,
@@ -132,11 +136,24 @@ class RetryConfigBuilder internal constructor() {
      * - `attempt` is the current retry attempt. Starts at **1**.
      * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
+     * @throws IllegalArgumentException if the delay strategy returns a duration less than or equal to 0.
      * @see [exponentialDelay]
      * @see [constantDelay]
+     * @see [noDelay]
      **/
     fun customDelay(delayStrategy: RetryDelayStrategy) {
         this.delayStrategy = delayStrategy
+    }
+
+    /**
+     * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
+     * any sleep duration provider.
+     * @see [constantDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
+     */
+    fun noDelay() {
+        delayStrategy = { _, _ -> Duration.ZERO }
     }
 
     /**

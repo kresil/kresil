@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
-import kresil.retry.context.RetryAsyncContextImpl
 import kresil.retry.config.RetryConfigBuilder
+import kresil.retry.context.RetryAsyncContextImpl
 
 /**
  * Represents a retry mechanism that can be used to retry a suspend function.
