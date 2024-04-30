@@ -84,7 +84,7 @@ internal class RetryAsyncContextImpl(
     }
 
     // utility functions
-    private fun shouldRetryOnResult(result: Any?): Boolean = config.retryOnResult(result)
-    private fun shouldRetry(throwable: Throwable): Boolean = config.retryIf(throwable)
+    private fun shouldRetryOnResult(result: Any?): Boolean = config.retryOnResultPredicate(result)
+    private fun shouldRetry(throwable: Throwable): Boolean = config.retryPredicate(throwable)
 
 }

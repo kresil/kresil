@@ -1,10 +1,13 @@
 package kresil.retry
 
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
@@ -45,13 +48,16 @@ import kresil.retry.context.RetryAsyncContextImpl
  * } // and call it later with decoratedFunction()
  *
  * // listen to specific events
- * retry.onRetry { currentAttempt -> println("Attempt: $currentAttempt") }
+ * retry.onRetry { attempt -> println("Attempt: $attempt") }
  * retry.onError { throwable -> println("Error: $throwable") }
  * retry.onIgnoredError { throwable -> println("Ignored error: $throwable") }
  * retry.onSuccess { println("Success") }
  *
  * // listen to all events
  * retry.onEvent { event -> println(event) }
+ *
+ * // cancel all listeners
+ * retry.cancelListeners()
  * ```
  * @param config The configuration for the retry mechanism.
  * @see [RetryConfigBuilder]
@@ -61,8 +67,13 @@ class Retry(
 ) {
 
     // events
-    private val _mutableEventsFlow = MutableSharedFlow<RetryEvent>()
-    private val events: Flow<RetryEvent> = _mutableEventsFlow.asSharedFlow()
+    private val events = MutableSharedFlow<RetryEvent>()
+
+    // scope
+    private val scope = CoroutineScope(
+        // TODO: Is supervisor job needed? Connect this job with an outer parent?
+        Job() + Dispatchers.Default
+    )
 
     /**
      * Executes a suspend function with this retry mechanism.
@@ -70,7 +81,7 @@ class Retry(
      * @see [decorateSuspendFunction]
      */
     suspend fun <T> executeSuspendFunction(block: suspend () -> T) {
-        val context = RetryAsyncContextImpl(config, _mutableEventsFlow)
+        val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
                 val result: Any? = block()
@@ -104,35 +115,44 @@ class Retry(
      * Executes the given [action] when a retry is attempted.
      * The underlying event is emitted when a retry is attempted, **before entering the delay phase**.
      * @see [onEvent]
+     * @see [cancelListeners]
      */
     suspend fun onRetry(action: suspend (Int) -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnRetry>()
-            .map { it.currentAttempt }
-            .collect { action(it) }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnRetry>()
+                .map { it.attempt }
+                .collect { action(it) }
+        }
 
     /**
      * Executes the given [action] when an error occurs during a retry attempt.
      * The underlying event is emitted when an exception occurs during a retry attempt.
      * @see [onEvent]
+     * @see [cancelListeners]
      */
     suspend fun onError(action: suspend (Throwable) -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnError>()
-            .map { it.throwable }
-            .collect { action(it) }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnError>()
+                .map { it.throwable }
+                .collect { action(it) }
+        }
 
     /**
      * Executes the given [action] when an error is ignored during a retry attempt.
      * The underlying event is emitted when a retry is not needed to complete the operation
      * (e.g., the exception that occurred is not a retryable exception).
      * @see [onEvent]
+     * @see [cancelListeners]
      */
     suspend fun onIgnoredError(action: suspend (Throwable) -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnIgnoredError>()
-            .map { it.throwable }
-            .collect { action(it) }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnIgnoredError>()
+                .map { it.throwable }
+                .collect { action(it) }
+        }
 
     /**
      * Executes the given [action] when a retry is successful.
@@ -140,9 +160,11 @@ class Retry(
      * @see [onEvent]
      */
     suspend fun onSuccess(action: suspend () -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnSuccess>()
-            .collect { action() }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnSuccess>()
+                .collect { action() }
+        }
 
     /**
      * Executes the given [action] when a retry event occurs.
@@ -151,7 +173,19 @@ class Retry(
      * @see [onError]
      * @see [onIgnoredError]
      * @see [onSuccess]
+     * @see [cancelListeners]
      */
     suspend fun onEvent(action: suspend (RetryEvent) -> Unit) =
-        events.collect { action(it) }
+        scope.launch {
+            events.collect { action(it) }
+        }
+
+    /**
+     * Cancels all listeners registered with this retry mechanism.
+     */
+    fun cancelListeners() {
+        // does not cancel the underlying job (it would with scope.cancel())
+        scope.coroutineContext.cancelChildren()
+    }
+
 }
