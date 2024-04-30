@@ -1,14 +1,10 @@
 package kresil.retry
 
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
@@ -53,7 +49,6 @@ import kresil.retry.context.RetryAsyncContextImpl
  * retry.onError { throwable -> println("Error: $throwable") }
  * retry.onIgnoredError { throwable -> println("Ignored error: $throwable") }
  * retry.onSuccess { println("Success") }
- * retry.onCancellation { println("Cancelled") }
  *
  * // listen to all events
  * retry.onEvent { event -> println(event) }
@@ -66,39 +61,30 @@ class Retry(
 ) {
 
     // events
-    private val eventFlow = MutableSharedFlow<RetryEvent>()
-    private val events: Flow<RetryEvent> = eventFlow.asSharedFlow()
+    private val _mutableEventsFlow = MutableSharedFlow<RetryEvent>()
+    private val events: Flow<RetryEvent> = _mutableEventsFlow.asSharedFlow()
 
     /**
      * Executes a suspend function with this retry mechanism.
-     * This function is **cancellation aware** outside of the [block] execution.
-     * Even if the coroutine is cancelled, it will still emit the appropriate cancellation event.
      * @param block The suspend function to execute.
      * @see [decorateSuspendFunction]
      */
     suspend fun <T> executeSuspendFunction(block: suspend () -> T) {
-        coroutineScope {
-            val context = RetryAsyncContextImpl(config, eventFlow)
-            val deferred = async {
-                while (true) {
-                    try {
-                        val result: Any? = block()
-                        val shouldRetry = context.onResult(result)
-                        if (shouldRetry) {
-                            context.onRetry()
-                            continue
-                        }
-                        // TODO: should emit retry on success event if no retry was needed to complete?
-                        context.onSuccess()
-                        break
-                    } catch (throwable: Throwable) {
-                        context.onError(throwable)
-                        context.onRetry()
-                    }
+        val context = RetryAsyncContextImpl(config, _mutableEventsFlow)
+        while (true) {
+            try {
+                val result: Any? = block()
+                val shouldRetry = context.onResult(result)
+                if (shouldRetry) {
+                    context.onRetry()
+                    continue
                 }
-            }
-            withContext(NonCancellable) {
-                context.onCancellation(this, deferred)
+                // TODO: should emit retry on success event if no retry was needed to complete?
+                context.onSuccess()
+                break
+            } catch (throwable: Throwable) {
+                context.onError(throwable)
+                context.onRetry()
             }
         }
     }
@@ -106,8 +92,6 @@ class Retry(
     /**
      * Decorates a suspend function with this retry mechanism.
      * The decorated function can be called later and will execute the [block] function.
-     * This function is **cancellation aware* outside of the [block] execution.
-     * Even if the coroutine is cancelled, it will still emit the appropriate cancellation event.
      * @param block The suspend function to decorate.
      * @return A suspend function that will execute the decorated function.
      * @see [executeSuspendFunction]
@@ -161,23 +145,12 @@ class Retry(
             .collect { action() }
 
     /**
-     * Executes the given [action] when the retry execution is cancelled.
-     * The underlying event is emitted when the coroutine is cancelled before the retry execution is completed.
-     * @see [onEvent]
-     */
-    suspend fun onCancellation(action: suspend () -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnCancellation>()
-            .collect { action() }
-
-    /**
      * Executes the given [action] when a retry event occurs.
      * This function can be used to listen to all retry events.
      * @see [onRetry]
      * @see [onError]
      * @see [onIgnoredError]
      * @see [onSuccess]
-     * @see [onCancellation]
      */
     suspend fun onEvent(action: suspend (RetryEvent) -> Unit) =
         events.collect { action(it) }

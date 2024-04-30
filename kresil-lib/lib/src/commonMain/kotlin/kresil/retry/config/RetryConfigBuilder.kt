@@ -5,25 +5,30 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kresil.retry.builders.retryConfig
+import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryDelayStrategy
 
 /**
  * Specifies the delay strategy to use for retrying an operation.
- * The strategy is used to determine the delay between retries, where:
+ * Presents the same behaviour as a [RetryDelayStrategy],
+ * with the added ability to use a custom delay provider.
+ * The strategy is used to determine the delay duration between retries, where:
  * - `attempt` is the current retry attempt. Starts at **1**.
- * - `lastThrowable` is the last throwable caught.
- * @return the [Duration] to delay before the next retry.
+ * - `lastThrowable` is the last throwable caught, if any.
+ *
+ * If the return value is `null`, the delay is considered to be defined externally and the default delay provider is skipped.
  */
-internal typealias RetryDelayStrategy = (attempt: Int, lastThrowable: Throwable?) -> Duration
+typealias SuspendRetryDelayStrategy = suspend (attempt: Int, lastThrowable: Throwable?) -> Duration?
 
 /**
  * Predicate to determine if the operation should be retried based on the caught throwable.
  */
-internal typealias RetryPredicate = (Throwable) -> Boolean
+typealias RetryPredicate = (Throwable) -> Boolean
 
 /**
  * Predicate to determine if the operation should be retried based on the result of the operation.
  */
-internal typealias RetryOnResultPredicate = (Any?) -> Boolean
+typealias RetryOnResultPredicate = (Any?) -> Boolean
 
 /**
  * Builder for configuring a [RetryConfig] instance.
@@ -41,7 +46,7 @@ class RetryConfigBuilder internal constructor() {
         retryOnResult { false }
     }
 
-    private lateinit var delayStrategy: RetryDelayStrategy
+    private lateinit var delayStrategy: SuspendRetryDelayStrategy
     private lateinit var retryIf: RetryPredicate
     private lateinit var retryOnResultIf: RetryOnResultPredicate
 
@@ -87,20 +92,20 @@ class RetryConfigBuilder internal constructor() {
      * Configures the retry delay strategy to use the exponential backoff algorithm.
      * The delay between retries is calculated using the formula:
      *
-     * - `initialDelay * multiplier^attempt`, where `attempt` is the current retry attempt.
+     * `initialDelay * multiplier^attempt`, where `attempt` is the current retry attempt.
      *
      * Example:
      * ```
      * exponentialDelay(500.milliseconds, 2.0, 1.minutes)
+     * // Delay between retries will be as follows:
+     * // [500ms, 1s, 2s, 4s, 8s, 16s, 32s, 1m, 1m, 1m, ...]
      * ```
-     * Delay between retries:
-     * - **[500ms, 1s, 2s, 4s, 8s, 16s, 32s, 1m, 1m, 1m, ...]**
      *
      * **Note:** The delay is capped at the `maxDelay` value.
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1,
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1.
      * @see [constantDelay]
      * @see [customDelay]
      * @see [noDelay]
@@ -127,22 +132,41 @@ class RetryConfigBuilder internal constructor() {
      * Example:
      * ```
      * customDelay { attempt, lastThrowable ->
-     *      if (attempt % 2 == 0) 1.seconds
-     *      else if (lastThrowable is WebServiceException) 2.seconds
-     *      else 3.seconds
+     *      attempt % 2 == 0 -> 1.seconds
+     *      lastThrowable is WebServiceException -> 2.seconds
+     *      else -> 3.seconds
      * }
      * ```
      * Where:
      * - `attempt` is the current retry attempt. Starts at **1**.
      * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
-     * @throws IllegalArgumentException if the delay strategy returns a duration less than or equal to 0.
-     * @see [exponentialDelay]
+     * @see [customDelayProvider]
      * @see [constantDelay]
+     * @see [exponentialDelay]
      * @see [noDelay]
      **/
     fun customDelay(delayStrategy: RetryDelayStrategy) {
-        this.delayStrategy = delayStrategy
+        this.delayStrategy = { attempt, lastThrowable ->
+            delayStrategy(attempt, lastThrowable)
+        }
+    }
+
+    /**
+     * Configures the retry delay strategy to use a custom delay provider.
+     * In contrast to [customDelay], this method enables caller control over the delay provider (which is the
+     * [kotlinx.coroutines.delay] by default) and additional state between retries.
+     * See [RetryDelayProvider] for more information and examples of usage.
+     * @param delayProvider the custom delay provider to use.
+     * @see [exponentialDelay]
+     * @see [constantDelay]
+     * @see [customDelay]
+     * @see [noDelay]
+     */
+    fun customDelayProvider(delayProvider: RetryDelayProvider) {
+        this.delayStrategy = { attempt, lastThrowable ->
+            delayProvider.delay(attempt, lastThrowable)
+        }
     }
 
     /**
@@ -167,12 +191,12 @@ class RetryConfigBuilder internal constructor() {
     )
 
     /**
-     * Validates that the duration is greater than 0.
+     * Validates that the duration is in fact a positive duration.
      * @param duration the duration to validate.
      * @param qualifier the qualifier to use in the exception message.
      * @throws IllegalArgumentException if the duration is less than or equal to 0
      */
-    private inline fun requirePositiveDuration(duration: Duration, qualifier: String) {
+    private fun requirePositiveDuration(duration: Duration, qualifier: String) {
         require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
     }
 

@@ -1,7 +1,7 @@
 package kresil.retry
 
 /**
- * Represents all possible [Retry] events that can be triggered.
+ * Represents all possible [Retry] events that can be triggered in a [Retry] mechanism.
  */
 sealed class RetryEvent {
 
@@ -25,12 +25,6 @@ sealed class RetryEvent {
 
     /**
      * Represents a retry event that is triggered when a **retry succeeds**.
-     */ // TODO: should it be trigger by (first) non-retry completion?
-    data object RetryOnSuccess : RetryEvent()
-
-    /**
-     * Represents a retry event that is triggered when a **retry is cancelled**.
-     * In coroutine context, this event is triggered when the coroutine, where the retry is executed, is cancelled.
      */
-    data object RetryOnCancellation : RetryEvent()
+    data object RetryOnSuccess : RetryEvent()
 }

@@ -1,10 +1,7 @@
 package kresil.retry.context
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.launch
 import kresil.retry.RetryEvent
 import kresil.retry.config.RetryConfig
 import kresil.retry.exceptions.MaxRetriesExceededException
@@ -44,11 +41,12 @@ internal class RetryAsyncContextImpl(
 
     override suspend fun onRetry() {
         eventFlow.emit(RetryEvent.RetryOnRetry(++currentRetryAttempt))
-        val duration = config.delayStrategy(currentRetryAttempt, lastThrowable)
-        if (duration == Duration.ZERO) return
-        // TODO: consider giving the user control of the delay function (default should be kotlinx.coroutines.delay)
-        // TODO: but be aware that user should be warned about cancellation awareness if delay is implemented in a custom way
-        delay(duration)
+        val duration: Duration? = config.delayStrategy(currentRetryAttempt, lastThrowable)
+        when {
+            // skip default delay provider if duration is null (defined externally) or zero (no delay)
+            duration == null || duration <= Duration.ZERO -> return
+            else -> delay(duration)
+        }
     }
 
     override suspend fun onError(throwable: Throwable) {
@@ -65,18 +63,6 @@ internal class RetryAsyncContextImpl(
 
     override suspend fun onSuccess() {
         eventFlow.emit(RetryEvent.RetryOnSuccess)
-    }
-
-    override suspend fun onCancellation(scope: CoroutineScope, deferred: Deferred<Unit>) {
-        deferred.join()
-        deferred.invokeOnCompletion { cause ->
-            // means that the coroutine was cancelled normally
-            if (cause != null && cause is kotlin.coroutines.cancellation.CancellationException) {
-                scope.launch {
-                    eventFlow.emit(RetryEvent.RetryOnCancellation)
-                }
-            }
-        }
     }
 
     /**
@@ -98,7 +84,7 @@ internal class RetryAsyncContextImpl(
     }
 
     // utility functions
-    private inline fun shouldRetryOnResult(result: Any?): Boolean = config.retryOnResult(result)
-    private inline fun shouldRetry(throwable: Throwable): Boolean = config.retryIf(throwable)
+    private fun shouldRetryOnResult(result: Any?): Boolean = config.retryOnResult(result)
+    private fun shouldRetry(throwable: Throwable): Boolean = config.retryIf(throwable)
 
 }

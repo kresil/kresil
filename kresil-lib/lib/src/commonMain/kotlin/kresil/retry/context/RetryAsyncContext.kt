@@ -1,8 +1,5 @@
 package kresil.retry.context
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Job
 import kresil.retry.Retry
 
 /**
@@ -37,11 +34,5 @@ internal interface RetryAsyncContext {
      */
     suspend fun onSuccess()
 
-    /**
-     * Manages the cancellation of the asynchronous operation. Serves as a cleanup mechanism and should not delay the cancellation.
-     * @param scope The [CoroutineScope] associated with the asynchronous operation.
-     * @param deferred The [Deferred] instance representing the asynchronous operation coroutine context [Job].
-     */
-    suspend fun onCancellation(scope: CoroutineScope, deferred: Deferred<Unit>)
 }
 
