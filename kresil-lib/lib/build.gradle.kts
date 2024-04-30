@@ -4,6 +4,7 @@ plugins {
     id("module.publication")
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.google.ksp)
 }
 
 repositories {
@@ -68,12 +69,15 @@ kotlin {
         // use `by creating` if a source set does not exist yet
         val commonMain by getting {
             dependencies {
-
+                implementation(libs.kotlinx.coroutines.core)
+                // implementation(libs.napier)
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(libs.kotlin.test)
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.mockative)
             }
         }
 
@@ -101,15 +105,22 @@ kotlin {
                 implementation(libs.kotlin.stdlib.js)
             }
         }
+
         val jsTest by getting {
             dependsOn(commonTest)
             dependencies {
                 implementation(libs.kotlin.test.js)
             }
         }
-
     }
 
+    dependencies {
+        configurations
+            .filter { it.name.startsWith("ksp") && it.name.contains("Test") }
+            .forEach {
+                add(it.name, libs.mockative.processor)
+            }
+    }
 }
 
 android {
@@ -135,4 +146,3 @@ tasks.withType<AbstractTestTask> {
         exceptionFormat = TestExceptionFormat.FULL
     }
 }
-

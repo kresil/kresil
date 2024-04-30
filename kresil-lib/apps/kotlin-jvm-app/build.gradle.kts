@@ -8,6 +8,7 @@ repositories {
 
 dependencies {
     implementation(project(":kresil-lib:lib"))
+    implementation(libs.kotlinx.coroutines.core)
 }
 
 tasks.test {
