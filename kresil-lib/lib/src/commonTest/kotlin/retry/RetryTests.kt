@@ -8,16 +8,17 @@ import io.mockative.coEvery
 import io.mockative.coVerify
 import io.mockative.mock
 import io.mockative.once
-import io.mockative.twice
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.testTimeSource
 import kresil.retry.Retry
 import kresil.retry.RetryEvent
 import kresil.retry.builders.retryConfig
 import kresil.retry.config.RetryConfig
+import kresil.retry.config.RetryPredicate
+import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryDelayStrategy
 import kresil.retry.exceptions.MaxRetriesExceededException
 import service.ConditionalSuccessRemoteService
 import service.RemoteService
@@ -32,8 +33,9 @@ import kotlin.test.fail
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.ExperimentalTime
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 class RetryTests {
 
     @Mock
@@ -51,7 +53,7 @@ class RetryTests {
         val maxAttempts = 3
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
-            this.maxAttempts = maxAttempts  // includes the first non-retry currentAttempt
+            this.maxAttempts = maxAttempts  // includes the first non-retry attempt
             retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
@@ -61,50 +63,43 @@ class RetryTests {
 
         // and: a remote service that always throws an exception
         val remoteServiceException = WebServiceException("BAM!")
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(remoteServiceException)
 
         // and: event listeners are registered
         val eventsList = mutableListOf<RetryEvent>()
-        val retryListenersJob = launch {
-            retry.onEvent {
-                eventsList.add(it)
-            }
+        retry.onEvent {
+            eventsList.add(it)
         }
 
         // wait for listeners to be registered using real time
         delayWithRealTime()
 
-        launch {
-            try {
-                when (isDecorated) {
-                    true -> {
-                        // and: a decorated suspend function
-                        val decorated = retry.decorateSuspendFunction {
-                            remoteService.suspendCall()
-                        }
-
-                        // when: a suspend function is executed with the retry instance [1]
-                        decorated()
+        try {
+            when (isDecorated) {
+                true -> {
+                    // and: a decorated supplier
+                    val decorated = retry.decorateSupplier {
+                        remoteService.suspendSupplier()
                     }
 
-                    false -> {
-                        // when: a suspend function is executed with the retry instance [2]
-                        retry.executeSuspendFunction {
-                            remoteService.suspendCall()
-                        }
+                    // when: a suspend function is executed with the retry instance [1]
+                    decorated()
+                }
+
+                false -> {
+                    // when: a suspend function is executed with the retry instance [2]
+                    retry.executeSupplier {
+                        remoteService.suspendSupplier()
                     }
                 }
-                fail("suspend function should throw an exception")
-            } catch (e: WebServiceException) {
-                // expected
-            } catch (e: Exception) {
-                fail("unexpected exception: $e")
             }
+            fail("suspend function should throw an exception")
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: the retry virtual time equals the delay duration multipled by each retry attempt
         val retryExecutionDuration = currentTime
@@ -121,7 +116,7 @@ class RetryTests {
 
         // and: the method was invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
 
         // and: the retry events are emitted in the correct order
@@ -134,7 +129,7 @@ class RetryTests {
             eventsList
         )
 
-        retryListenersJob.cancelAndJoin() // cancel all listeners
+        retry.cancelListeners() // cancel all listeners
     }
 
     @Test
@@ -154,36 +149,29 @@ class RetryTests {
 
         // and: a remote service that always throws an exception
         val remoteServiceException = RuntimeException("Surprise!")
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(remoteServiceException)
 
         // and: event listeners are registered
         val eventsList = mutableListOf<RetryEvent>()
-        val retryListenersJob = launch {
-            retry.onEvent {
-                eventsList.add(it)
-            }
+        retry.onEvent {
+            eventsList.add(it)
         }
 
         // wait for listeners to be registered using real time
         delayWithRealTime()
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
-                }
-                fail("suspend function should throw an exception")
-            } catch (e: RuntimeException) {
-                // expected
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
+            fail("suspend function should throw an exception")
+        } catch (e: RuntimeException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: no delay is executed since the exception is not the one specified in the retry predicate
         val retryExecutionDuration = currentTime
@@ -191,7 +179,7 @@ class RetryTests {
 
         // and: the method is invoked only once since there is no retry attempt
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = once)
 
         // and: the retry events are emitted in the correct order
@@ -201,8 +189,6 @@ class RetryTests {
             ),
             eventsList
         )
-
-        retryListenersJob.cancelAndJoin() // cancel all listeners
     }
 
     @Test
@@ -229,27 +215,20 @@ class RetryTests {
 
         // and: event listeners are registered
         val eventsList = mutableListOf<RetryEvent>()
-        val retryListenersJob = launch {
-            retry.onEvent {
-                eventsList.add(it)
-            }
+        retry.onEvent {
+            eventsList.add(it)
         }
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    conditionalSuccessRemoteService.suspendCall()
-                }
-            } catch (e: WebServiceException) {
-                // expected
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                conditionalSuccessRemoteService.suspendSupplier()
             }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: the retry events are emitted in the correct order
         assertEquals(
@@ -260,7 +239,7 @@ class RetryTests {
             eventsList
         )
 
-        retryListenersJob.cancelAndJoin() // cancel all listeners
+        retry.cancelListeners() // cancel all listeners
     }
 
     @Test
@@ -279,36 +258,24 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
-        // and: all retry event listeners launched in parallel
-        val retryListenersJob = launch {
-            launch {
-                retry.onRetry { currentAttempt ->
-                    println("Executing currentAttempt: $currentAttempt")
-                }
-            }
-            launch {
-                retry.onError { throwable ->
-                    println("RetryOnError: $throwable")
-                }
-            }
-            launch {
-                retry.onIgnoredError { throwable ->
-                    println("Ignored error: $throwable")
-                }
-            }
-            launch {
-                retry.onSuccess {
-                    println("RetryOnSuccess")
-                }
-            }
-            launch {
-                retry.onEvent {
-                    println("State change: $it")
-                }
-            }
+        // and: event listeners are registered
+        retry.onRetry { currentAttempt ->
+            println("Executing attempt: $currentAttempt")
+        }
+        retry.onError { throwable ->
+            println("RetryOnError: $throwable")
+        }
+        retry.onIgnoredError { throwable ->
+            println("Ignored error: $throwable")
+        }
+        retry.onSuccess {
+            println("RetryOnSuccess")
+        }
+        retry.onEvent {
+            println("State change: $it")
         }
 
         // wait for listeners to be registered using real time
@@ -316,8 +283,8 @@ class RetryTests {
 
         try {
             // when: a suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -327,7 +294,7 @@ class RetryTests {
 
         // then: event listeners are invoked (see logs)
 
-        retryListenersJob.cancelAndJoin() // cancel all listeners
+        retry.cancelListeners() // cancel all listeners
 
     }
 
@@ -346,12 +313,12 @@ class RetryTests {
         assertEquals(expectedMaxAttempts, config.maxAttempts)
 
         // and: should retry any exception
-        assertTrue(config.retryIf(Exception()))
-        assertTrue(config.retryIf(RuntimeException()))
-        assertTrue(config.retryIf(WebServiceException("BAM!")))
+        assertTrue(config.retryPredicate(Exception()))
+        assertTrue(config.retryPredicate(RuntimeException()))
+        assertTrue(config.retryPredicate(WebServiceException("BAM!")))
 
         // and: should not retry on any result
-        assertFalse(config.retryOnResult(null))
+        assertFalse(config.retryOnResultPredicate(null))
 
         // and: should use exponential delay with default values
         val initialDelay = 500L.milliseconds
@@ -364,66 +331,6 @@ class RetryTests {
 
         // and: the permitted retry attempts is the max attempts minus one, since the first attempt is not a retry
         assertEquals(expectedMaxAttempts - 1, config.permittedRetryAttempts)
-    }
-
-    @Test
-    fun cancelRetryExecution() = runTest {
-
-        // given: a retry configuration
-        val maxAttempts = 3
-        val delayDuration = 2.seconds
-        val config: RetryConfig = retryConfig {
-            this.maxAttempts = maxAttempts
-            retryIf { it is WebServiceException }
-            constantDelay(delayDuration)
-        }
-
-        // and: a retry instance
-        val retry = Retry(config)
-
-        // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
-            .throws(WebServiceException("BAM!"))
-
-        // and: event listeners are registered
-        val eventsList = mutableListOf<RetryEvent>()
-        val retryListenersJob = launch {
-            retry.onEvent {
-                eventsList.add(it)
-            }
-        }
-
-        // when: a suspend function is executed with the retry instance
-        val job = launch {
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
-            }
-        }
-
-        // and: some time that exceeds the delay duration is advanced (to force a retry attempt but not complete)
-        testScheduler.advanceTimeBy(delayDuration + 1.seconds)
-
-        // then: the job is not completed yet and can be cancelled
-        job.cancelAndJoin()
-
-        // and: the method is invoked twice before the job is cancelled (first attempt + retry)
-        coVerify {
-            remoteService.suspendCall()
-        }.wasInvoked(exactly = twice)
-
-        println(eventsList)
-
-        // and: the retry events are emitted in the correct order
-        assertEquals(
-            listOf(
-                RetryEvent.RetryOnRetry(1),
-                RetryEvent.RetryOnRetry(2), // since the event is emitted before the delay
-                RetryEvent.RetryOnCancellation
-            ),
-            eventsList
-        )
-
-        retryListenersJob.cancelAndJoin() // cancel all listeners
     }
 
     @Test
@@ -444,35 +351,28 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that returns some result
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .returns(result)
 
         // and: event listeners are registered
         val eventsList = mutableListOf<RetryEvent>()
-        val retryListenersJob = launch {
-            retry.onEvent {
-                eventsList.add(it)
-            }
+        retry.onEvent {
+            eventsList.add(it)
         }
 
         delayWithRealTime() // wait for listeners to be registered using real time
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
-                }
-            } catch (e: MaxRetriesExceededException) {
-                // expected
-                println("MaxRetriesExceededException: $e")
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
+        } catch (e: MaxRetriesExceededException) {
+            // expected
+            println("MaxRetriesExceededException: $e")
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: the retry events are emitted in the correct order
         val retryAttempts = config.permittedRetryAttempts // the first attempt is not a retry
@@ -483,7 +383,7 @@ class RetryTests {
             assertIs<MaxRetriesExceededException>(it.throwable)
         }
 
-        retryListenersJob.cancelAndJoin() // cancel all listeners
+        retry.cancelListeners() // cancel all listeners
     }
 
     @Test
@@ -502,24 +402,19 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
-                }
-            } catch (e: WebServiceException) {
-                // expected
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: the retry virtual time equals the delay duration multipled by each retry attempt
         val retryExecutionDuration = currentTime
@@ -566,24 +461,19 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
-                }
-            } catch (e: WebServiceException) {
-                // expected
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: the retry virtual time equals the expected exponential delay
         val retryExecutionDuration = currentTime
@@ -694,30 +584,26 @@ class RetryTests {
         // and: a remote service that always throws an exception that is not always the same
         val unlaughableException = RuntimeException("*you hear giggles in the stacktrace*")
         val webServiceException = WebServiceException("BAM!")
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throwsMany( // throws the exceptions in the order they are defined in each call
                 unlaughableException,
                 unlaughableException,
                 webServiceException
             )
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
-                }
-            } catch (e: WebServiceException) {
-                // expected
-            } catch (e: RuntimeException) {
-                // expected
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
-            }
-        }
 
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
+            }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: RuntimeException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
 
         // then: the collectors contain the expected values
         assertEquals(listOf(1, 2, 3), attemptCollector)
@@ -735,7 +621,7 @@ class RetryTests {
 
         // and: the method is invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
 
@@ -746,7 +632,7 @@ class RetryTests {
         val attemptCollector = mutableListOf<Int>()
         val lastThrowableCollector = mutableListOf<Throwable?>()
 
-        // given: a retry configuration
+        // and: a retry configuration
         val maxAttempts = 3
         val result = null
         val constantDelay = 3.seconds
@@ -766,25 +652,20 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that returns some result
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .returns(result)
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
-                }
-            } catch (e: MaxRetriesExceededException) {
-                // expected
-                println("MaxRetriesExceededException: $e")
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
+        } catch (e: MaxRetriesExceededException) {
+            // expected
+            println("MaxRetriesExceededException: $e")
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: the collectors contain the expected values
         assertEquals(listOf(1, 2), attemptCollector)
@@ -792,7 +673,7 @@ class RetryTests {
 
         // and: the method is invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
 
@@ -811,32 +692,422 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
-        launch {
-            try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
-                }
-            } catch (e: WebServiceException) {
-                // expected
-            } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
         }
-
-        // and: the amount of time that exceeds the delay duration * retry attempts is advanced
-        testScheduler.advanceUntilIdle()
 
         // then: the retry virtual time equals 0 since there is no delay
         val retryExecutionDuration = currentTime
         assertEquals(0, retryExecutionDuration)
 
-        // and: the method is invoked the amount of times specified in the retry configuration
+        // and: the method is invoked the number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
+
+    @Test
+    fun retryWithStatefulCustomDelayProvider() = runTest {
+
+        // given: a stateful custom delay provider
+        val statefulDelayProvider = object : RetryDelayProvider {
+            var delayProviderRetryCounter = 0
+                private set
+
+            override suspend fun delay(attempt: Int, lastThrowable: Throwable?): Duration? {
+                val nextDuration = when {
+                    ++delayProviderRetryCounter % 2 == 0 -> 1.seconds
+                    else -> 2.seconds
+                }
+                println("Retry Attempt: $attempt, Delay duration: $nextDuration")
+                delayWithRealTime(nextDuration)
+                return null
+            }
+        }
+
+        // and: a retry configuration
+        val maxAttempts = 3
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            customDelayProvider(statefulDelayProvider)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        coEvery { remoteService.suspendSupplier() }
+            .throws(WebServiceException("BAM!"))
+
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
+            }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the delay provider is invoked the expected number of times
+        assertEquals(retry.config.permittedRetryAttempts, statefulDelayProvider.delayProviderRetryCounter)
+
+        // and: the method is invoked the exact number of times specified in the retry configuration
+        coVerify {
+            remoteService.suspendSupplier()
+        }.wasInvoked(exactly = maxAttempts)
+    }
+
+    @Test
+    fun retryWithStatelessCustomDelayProvider() = runTest {
+
+        // given: a stateless custom delay provider
+        val statelessDelayProvider = RetryDelayProvider { attempt, lastThrowable ->
+            val nextDuration = when {
+                attempt % 2 == 0 -> 1.seconds
+                else -> 2.seconds
+            }
+            println("Retry Attempt: $attempt, Delay duration: $nextDuration")
+            delayWithRealTime(nextDuration)
+            null
+        }
+
+        // and: a retry configuration
+        val maxAttempts = 3
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            customDelayProvider(statelessDelayProvider)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        coEvery { remoteService.suspendSupplier() }
+            .throws(WebServiceException("BAM!"))
+
+        try {
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
+            }
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // and: the method is invoked the exact number of times specified in the retry configuration
+        coVerify {
+            remoteService.suspendSupplier()
+        }.wasInvoked(exactly = maxAttempts)
+    }
+
+    @Test
+    fun retryWithStatelessCustomDelayProviderWithNoExternalDelayShouldMimicCustomDelayBehaviour() = runTest {
+
+        // given: collectors for the retry attempt, last throwable, and delay durations
+        val attemptCollector = mutableListOf<Int>()
+        val lastThrowableCollector = mutableListOf<Throwable?>()
+        val delayDurationsCollector = mutableListOf<Duration>()
+
+        // and: a retry configuration with custom delay
+        val maxAttempts = 4
+        val retryPredicate: RetryPredicate = { it is WebServiceException || it is RuntimeException }
+        val customDelayStrategy: RetryDelayStrategy = { attempt, lastThrowable ->
+            (if (attempt % 2 == 0) 1.seconds
+            else if (lastThrowable is WebServiceException) 2.seconds
+            else 3.seconds).also {
+                attemptCollector.add(attempt)
+                lastThrowableCollector.add(lastThrowable)
+                delayDurationsCollector.add(it)
+            }
+        }
+        val configWithCustomDelay = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf(retryPredicate)
+            customDelay(customDelayStrategy)
+        }
+
+        // and: a retry configuration with custom delay provider (stateless and with no external delay function)
+        val configWithStatelessCustomDelayProvider = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf(retryPredicate)
+            customDelayProvider(customDelayStrategy)
+        }
+
+        // when: both retry configurations are tested
+        val configList = listOf(configWithCustomDelay, configWithStatelessCustomDelayProvider)
+        configList.forEachIndexed { index, config ->
+
+            // setups
+            if (index > 0) { // reset lists for subsequent configuration
+                attemptCollector.clear()
+                lastThrowableCollector.clear()
+                delayDurationsCollector.clear()
+            }
+
+            // and: a retry instance is created
+            val retry = Retry(config)
+
+            // and: a remote service that always throws an exception that is not always the same
+            val unlaughableException = RuntimeException("*you hear giggles in the stacktrace*")
+            val webServiceException = WebServiceException("BAM!")
+            coEvery { remoteService.suspendSupplier() }
+                .throwsMany( // throws the exceptions in the order they are defined in each call
+                    unlaughableException,
+                    unlaughableException,
+                    webServiceException
+                )
+
+            // and: current time is marked
+            val beforeRetryMark = testTimeSource.markNow()
+
+            try {
+                // when: a decorated supplier is executed with the retry instance
+                retry.executeSupplier {
+                    remoteService.suspendSupplier()
+                }
+            } catch (e: WebServiceException) {
+                // expected
+            } catch (e: RuntimeException) {
+                // expected
+            } catch (e: Exception) {
+                fail("Unexpected exception: $e")
+            }
+
+            // then: the collectors contain the expected values
+            assertEquals(listOf(1, 2, 3), attemptCollector)
+            assertEquals(
+                listOf<Throwable?>(unlaughableException, unlaughableException, webServiceException),
+                lastThrowableCollector
+            )
+            val expectedDelayDurationsList = listOf(3.seconds, 1.seconds, 2.seconds)
+            assertEquals(expectedDelayDurationsList, delayDurationsCollector)
+
+            // and: the retry virtual time equals the custom delay
+            val afterRetryMark = testTimeSource.markNow()
+            val retryExecutionDuration = afterRetryMark - beforeRetryMark
+            val expectedDuration = expectedDelayDurationsList.sumOf { it.inWholeMilliseconds }
+            assertEquals(expectedDuration, retryExecutionDuration.inWholeMilliseconds)
+
+            // and: the method is invoked the exact number of times specified in the retry configuration
+            coVerify {
+                remoteService.suspendSupplier()
+            }.wasInvoked(exactly = maxAttempts)
+        }
+
+        // then: both retry configurations are equivalent in behaviour
+    }
+
+    @Test
+    fun retryListenersCancellationDoesNotCancelUnderlyingScope() = runTest {
+
+        // given: a retry instance
+        val retry = Retry()
+
+        // and: a listener
+        val eventListeners = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventListeners.add(it)
+        }
+        delayWithRealTime() // wait for listeners to be registered using real time
+
+        // and: a remote service that always throws an exception
+        val exception = WebServiceException("BAM!")
+        coEvery { remoteService.suspendSupplier() }
+            .throws(exception)
+
+        // when: a decorated supplier is executed with the retry instance
+        val decorated = retry.decorateSupplier {
+            remoteService.suspendSupplier()
+        }
+        try {
+            decorated()
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the listeners are invoked
+        assertEquals(
+            listOf(
+                RetryEvent.RetryOnRetry(1),
+                RetryEvent.RetryOnRetry(2),
+                RetryEvent.RetryOnError(exception)
+            ),
+            eventListeners
+        )
+
+        // when: all listeners are cancelled
+        retry.cancelListeners()
+
+        // and: another listener is registered
+        eventListeners.clear()
+        retry.onEvent {
+            eventListeners.add(it)
+        }
+
+        // and: the decorated supplier is executed again
+        try {
+            decorated()
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the new listener is invoked
+        assertEquals(
+            listOf(
+                RetryEvent.RetryOnRetry(1),
+                RetryEvent.RetryOnRetry(2),
+                RetryEvent.RetryOnError(exception)
+            ),
+            eventListeners
+        )
+
+    }
+
+    @Test
+    fun retryWithDecoratedFunction() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        val remoteServiceException = WebServiceException("BAM!")
+        val input = "input"
+        coEvery { remoteService.suspendFunction(input) }
+            .throws(remoteServiceException)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+
+        // wait for listeners to be registered using real time
+        delayWithRealTime()
+
+        try {
+            // when: a decorated function is executed with the retry instance
+            val decorated = retry.decorateFunction(remoteService::suspendFunction)
+            decorated(input)
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the retry virtual time equals the delay duration multipled by each retry attempt
+        val retryExecutionDuration = currentTime
+        val retryAttempts = config.permittedRetryAttempts
+        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts)
+
+        // and: the method was invoked the exact number of times specified in the retry configuration
+        coVerify {
+            remoteService.suspendFunction(input)
+        }.wasInvoked(exactly = maxAttempts)
+
+        // and: the retry events are emitted in the correct order
+        val retryOnRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        assertEquals(
+            listOf(
+                *retryOnRetryList.toTypedArray(),
+                RetryEvent.RetryOnError(remoteServiceException)
+            ),
+            eventsList
+        )
+
+        retry.cancelListeners() // cancel all listeners
+    }
+
+    @Test
+    fun retryWithDecoratedBiFunction() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        val remoteServiceException = WebServiceException("BAM!")
+        val input1 = "input1"
+        val input2 = "input2"
+        coEvery { remoteService.suspendBiFunction(input1, input2) }
+            .throws(remoteServiceException)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+
+        // wait for listeners to be registered using real time
+        delayWithRealTime()
+
+        try {
+            // when: a decorated bi-function is executed with the retry instance
+            val decorated = retry.decorateBiFunction(remoteService::suspendBiFunction)
+            decorated(input1, input2)
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the retry virtual time equals the delay duration multipled by each retry attempt
+        val retryExecutionDuration = currentTime
+        val retryAttempts = config.permittedRetryAttempts
+        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts)
+
+        // and: the method was invoked the exact number of times specified in the retry configuration
+        coVerify {
+            remoteService.suspendBiFunction(input1, input2)
+        }.wasInvoked(exactly = maxAttempts)
+
+        // and: the retry events are emitted in the correct order
+        val retryOnRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        assertEquals(
+            listOf(
+                *retryOnRetryList.toTypedArray(),
+                RetryEvent.RetryOnError(remoteServiceException)
+            ),
+            eventsList
+        )
+
+        retry.cancelListeners() // cancel all listeners
+    }
+
 }

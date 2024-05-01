@@ -38,10 +38,18 @@ class ConditionalSuccessRemoteService(
         require(succeedAfterAttempt > 0) { "succeedAfterAttempt must be greater than 0" }
     }
 
-    override suspend fun suspendCall(): String {
+    override suspend fun suspendSupplier(): String {
         if (++callCount > succeedAfterAttempt) {
             return "Success after $callCount attempts"
         }
         throw throwable
+    }
+
+    override suspend fun suspendFunction(input: String): String? {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun suspendBiFunction(a: String, b: String): String? {
+        TODO("Not yet implemented")
     }
 }

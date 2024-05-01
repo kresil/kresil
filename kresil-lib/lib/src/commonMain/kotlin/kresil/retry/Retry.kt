@@ -1,23 +1,26 @@
 package kresil.retry
 
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kresil.core.BiFunction
+import kresil.core.Supplier
+import kresil.core.Function
 import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.context.RetryAsyncContextImpl
 
 /**
- * Represents a retry mechanism that can be used to retry a suspend function.
+ * Represents a retry mechanism that can be used to retry an operation.
+ * Operations can be executed directly or decorated with this mechanism.
  *
- * Usage:
+ * Examples of usage:
  * ```
  * // use default policies
  * val retry = Retry(
@@ -38,25 +41,29 @@ import kresil.retry.context.RetryAsyncContextImpl
  *    }
  * )
  *
- * // execute a suspend function
- * retry.executeSuspendFunction {
- *    // your suspend function
+ * // execute a supplier
+ * retry.executeSupplier {
+ *    // operation
  * }
  *
- * // decorate a suspend function
- * val decoratedFunction = retry.decorateSuspendFunction {
- *   // your suspend function
- * } // and call it later with decoratedFunction()
+ * // decorate a supplier
+ * val decoratedSupplier = retry.decorateSupplier {
+ *    // operation
+ * }
+ * // and call it later
+ * val result = decoratedSupplier()
  *
  * // listen to specific events
- * retry.onRetry { currentAttempt -> println("Attempt: $currentAttempt") }
+ * retry.onRetry { attempt -> println("Attempt: $attempt") }
  * retry.onError { throwable -> println("Error: $throwable") }
  * retry.onIgnoredError { throwable -> println("Ignored error: $throwable") }
  * retry.onSuccess { println("Success") }
- * retry.onCancellation { println("Cancelled") }
  *
  * // listen to all events
  * retry.onEvent { event -> println(event) }
+ *
+ * // cancel all listeners
+ * retry.cancelListeners()
  * ```
  * @param config The configuration for the retry mechanism.
  * @see [RetryConfigBuilder]
@@ -66,89 +73,120 @@ class Retry(
 ) {
 
     // events
-    private val eventFlow = MutableSharedFlow<RetryEvent>()
-    private val events: Flow<RetryEvent> = eventFlow.asSharedFlow()
+    private val events = MutableSharedFlow<RetryEvent>()
+
+    // scope
+    private val scope = CoroutineScope(
+        // TODO: Is supervisor job needed? Connect this job with an outer parent?
+        Job() + Dispatchers.Default
+    )
 
     /**
-     * Executes a suspend function with this retry mechanism.
-     * This function is **cancellation aware** outside of the [block] execution.
-     * Even if the coroutine is cancelled, it will still emit the appropriate cancellation event.
-     * @param block The suspend function to execute.
-     * @see [decorateSuspendFunction]
+     * Executes a [BiFunction] with this retry mechanism.
+     * @param block The operation to execute.
+     * @see [decorateFunction]
      */
-    suspend fun <T> executeSuspendFunction(block: suspend () -> T) {
-        coroutineScope {
-            val context = RetryAsyncContextImpl(config, eventFlow)
-            val deferred = async {
-                while (true) {
-                    try {
-                        val result: Any? = block()
-                        val shouldRetry = context.onResult(result)
-                        if (shouldRetry) {
-                            context.onRetry()
-                            continue
-                        }
-                        // TODO: should emit retry on success event if no retry was needed to complete?
-                        context.onSuccess()
-                        break
-                    } catch (throwable: Throwable) {
-                        context.onError(throwable)
-                        context.onRetry()
-                    }
+    private suspend fun <A, B, R> executeBiFunction(a: A, b: B, block: BiFunction<A, B, R>): R? {
+        val context = RetryAsyncContextImpl(config, events)
+        while (true) {
+            try {
+                val result = block(a, b)
+                val shouldRetry = context.onResult(result)
+                if (shouldRetry) {
+                    context.onRetry()
+                    continue
                 }
-            }
-            withContext(NonCancellable) {
-                context.onCancellation(this, deferred)
+                // TODO: should emit retry on success event if no retry was needed to complete?
+                context.onSuccess()
+                return result
+            } catch (throwable: Throwable) {
+                context.onError(throwable)
+                context.onRetry()
             }
         }
     }
 
     /**
-     * Decorates a suspend function with this retry mechanism.
-     * The decorated function can be called later and will execute the [block] function.
-     * This function is **cancellation aware* outside of the [block] execution.
-     * Even if the coroutine is cancelled, it will still emit the appropriate cancellation event.
-     * @param block The suspend function to decorate.
-     * @return A suspend function that will execute the decorated function.
-     * @see [executeSuspendFunction]
+     * Executes a [Supplier] with this retry mechanism.
+     * @param block The operation to execute.
+     * @see [decorateSupplier]
      */
-    fun <T> decorateSuspendFunction(block: suspend () -> T): suspend () -> Unit = {
-        executeSuspendFunction(block)
+    suspend fun <R> executeSupplier(block: Supplier<R>): R? {
+        return executeBiFunction(Unit, Unit) { _, _ -> block() }
+    }
+
+    /**
+     * Decorates a [Supplier] with this retry mechanism.
+     * @param block The operation to decorate and execute later.
+     * @see [decorateSupplier]
+     * @see [decorateFunction]
+     */
+    fun <A, B, R> decorateBiFunction(block: BiFunction<A, B, R>): BiFunction<A, B, R> {
+        return { a, b -> executeBiFunction(a, b, block) }
+    }
+
+    /**
+     * Decorates a [Function] with this retry mechanism.
+     * @param block The operation to decorate and execute later.
+     * @see [decorateSupplier]
+     * @see [decorateBiFunction]
+     */
+    fun <A, B> decorateFunction(block: Function<A, B>): Function<A, B> {
+        return { executeBiFunction(it, Unit) { a, _ -> block(a) } }
+    }
+
+    /**
+     * Decorates a [Supplier] with this retry mechanism.
+     * @param block The operation to decorate and execute later.
+     * @see [decorateBiFunction]
+     * @see [decorateFunction]
+     */
+    fun <B> decorateSupplier(block: Supplier<B>): Supplier<B> {
+        return { executeBiFunction(Unit, Unit) { _, _ -> block() } }
     }
 
     /**
      * Executes the given [action] when a retry is attempted.
      * The underlying event is emitted when a retry is attempted, **before entering the delay phase**.
      * @see [onEvent]
+     * @see [cancelListeners]
      */
     suspend fun onRetry(action: suspend (Int) -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnRetry>()
-            .map { it.currentAttempt }
-            .collect { action(it) }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnRetry>()
+                .map { it.attempt }
+                .collect { action(it) }
+        }
 
     /**
      * Executes the given [action] when an error occurs during a retry attempt.
      * The underlying event is emitted when an exception occurs during a retry attempt.
      * @see [onEvent]
+     * @see [cancelListeners]
      */
     suspend fun onError(action: suspend (Throwable) -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnError>()
-            .map { it.throwable }
-            .collect { action(it) }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnError>()
+                .map { it.throwable }
+                .collect { action(it) }
+        }
 
     /**
      * Executes the given [action] when an error is ignored during a retry attempt.
      * The underlying event is emitted when a retry is not needed to complete the operation
      * (e.g., the exception that occurred is not a retryable exception).
      * @see [onEvent]
+     * @see [cancelListeners]
      */
     suspend fun onIgnoredError(action: suspend (Throwable) -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnIgnoredError>()
-            .map { it.throwable }
-            .collect { action(it) }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnIgnoredError>()
+                .map { it.throwable }
+                .collect { action(it) }
+        }
 
     /**
      * Executes the given [action] when a retry is successful.
@@ -156,19 +194,11 @@ class Retry(
      * @see [onEvent]
      */
     suspend fun onSuccess(action: suspend () -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnSuccess>()
-            .collect { action() }
-
-    /**
-     * Executes the given [action] when the retry execution is cancelled.
-     * The underlying event is emitted when the coroutine is cancelled before the retry execution is completed.
-     * @see [onEvent]
-     */
-    suspend fun onCancellation(action: suspend () -> Unit) =
-        events
-            .filterIsInstance<RetryEvent.RetryOnCancellation>()
-            .collect { action() }
+        scope.launch {
+            events
+                .filterIsInstance<RetryEvent.RetryOnSuccess>()
+                .collect { action() }
+        }
 
     /**
      * Executes the given [action] when a retry event occurs.
@@ -177,8 +207,20 @@ class Retry(
      * @see [onError]
      * @see [onIgnoredError]
      * @see [onSuccess]
-     * @see [onCancellation]
+     * @see [cancelListeners]
      */
     suspend fun onEvent(action: suspend (RetryEvent) -> Unit) =
-        events.collect { action(it) }
+        scope.launch {
+            events.collect { action(it) }
+        }
+
+    /**
+     * Cancels all listeners registered with this retry mechanism.
+     * Subsequent registrations will not be affected.
+     */
+    fun cancelListeners() {
+        // does not cancel the underlying job (it would with scope.cancel())
+        scope.coroutineContext.cancelChildren()
+    }
+
 }
