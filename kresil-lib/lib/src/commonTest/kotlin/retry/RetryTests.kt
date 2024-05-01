@@ -63,7 +63,7 @@ class RetryTests {
 
         // and: a remote service that always throws an exception
         val remoteServiceException = WebServiceException("BAM!")
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(remoteServiceException)
 
         // and: event listeners are registered
@@ -78,9 +78,9 @@ class RetryTests {
         try {
             when (isDecorated) {
                 true -> {
-                    // and: a decorated suspend function
-                    val decorated = retry.decorateSuspendFunction {
-                        remoteService.suspendCall()
+                    // and: a decorated supplier
+                    val decorated = retry.decorateSupplier {
+                        remoteService.suspendSupplier()
                     }
 
                     // when: a suspend function is executed with the retry instance [1]
@@ -89,8 +89,8 @@ class RetryTests {
 
                 false -> {
                     // when: a suspend function is executed with the retry instance [2]
-                    retry.executeSuspendFunction {
-                        remoteService.suspendCall()
+                    retry.executeSupplier {
+                        remoteService.suspendSupplier()
                     }
                 }
             }
@@ -116,7 +116,7 @@ class RetryTests {
 
         // and: the method was invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
 
         // and: the retry events are emitted in the correct order
@@ -149,7 +149,7 @@ class RetryTests {
 
         // and: a remote service that always throws an exception
         val remoteServiceException = RuntimeException("Surprise!")
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(remoteServiceException)
 
         // and: event listeners are registered
@@ -162,9 +162,9 @@ class RetryTests {
         delayWithRealTime()
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
             fail("suspend function should throw an exception")
         } catch (e: RuntimeException) {
@@ -179,7 +179,7 @@ class RetryTests {
 
         // and: the method is invoked only once since there is no retry attempt
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = once)
 
         // and: the retry events are emitted in the correct order
@@ -220,9 +220,9 @@ class RetryTests {
         }
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                conditionalSuccessRemoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                conditionalSuccessRemoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -258,7 +258,7 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
         // and: event listeners are registered
@@ -283,8 +283,8 @@ class RetryTests {
 
         try {
             // when: a suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -351,7 +351,7 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that returns some result
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .returns(result)
 
         // and: event listeners are registered
@@ -363,9 +363,9 @@ class RetryTests {
         delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: MaxRetriesExceededException) {
             // expected
@@ -402,13 +402,13 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -461,13 +461,13 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -584,7 +584,7 @@ class RetryTests {
         // and: a remote service that always throws an exception that is not always the same
         val unlaughableException = RuntimeException("*you hear giggles in the stacktrace*")
         val webServiceException = WebServiceException("BAM!")
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throwsMany( // throws the exceptions in the order they are defined in each call
                 unlaughableException,
                 unlaughableException,
@@ -593,9 +593,9 @@ class RetryTests {
 
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -621,7 +621,7 @@ class RetryTests {
 
         // and: the method is invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
 
@@ -652,13 +652,13 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that returns some result
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .returns(result)
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: MaxRetriesExceededException) {
             // expected
@@ -673,7 +673,7 @@ class RetryTests {
 
         // and: the method is invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
 
@@ -692,13 +692,13 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -712,7 +712,7 @@ class RetryTests {
 
         // and: the method is invoked the number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
 
@@ -723,6 +723,7 @@ class RetryTests {
         val statefulDelayProvider = object : RetryDelayProvider {
             var delayProviderRetryCounter = 0
                 private set
+
             override suspend fun delay(attempt: Int, lastThrowable: Throwable?): Duration? {
                 val nextDuration = when {
                     ++delayProviderRetryCounter % 2 == 0 -> 1.seconds
@@ -746,13 +747,13 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -765,7 +766,7 @@ class RetryTests {
 
         // and: the method is invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
 
@@ -795,13 +796,13 @@ class RetryTests {
         val retry = Retry(config)
 
         // and: a remote service that always throws an exception
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated suspend function is executed with the retry instance
-            retry.executeSuspendFunction {
-                remoteService.suspendCall()
+            // when: a decorated supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // expected
@@ -811,7 +812,7 @@ class RetryTests {
 
         // and: the method is invoked the exact number of times specified in the retry configuration
         coVerify {
-            remoteService.suspendCall()
+            remoteService.suspendSupplier()
         }.wasInvoked(exactly = maxAttempts)
     }
 
@@ -865,7 +866,7 @@ class RetryTests {
             // and: a remote service that always throws an exception that is not always the same
             val unlaughableException = RuntimeException("*you hear giggles in the stacktrace*")
             val webServiceException = WebServiceException("BAM!")
-            coEvery { remoteService.suspendCall() }
+            coEvery { remoteService.suspendSupplier() }
                 .throwsMany( // throws the exceptions in the order they are defined in each call
                     unlaughableException,
                     unlaughableException,
@@ -876,9 +877,9 @@ class RetryTests {
             val beforeRetryMark = testTimeSource.markNow()
 
             try {
-                // when: a decorated suspend function is executed with the retry instance
-                retry.executeSuspendFunction {
-                    remoteService.suspendCall()
+                // when: a decorated supplier is executed with the retry instance
+                retry.executeSupplier {
+                    remoteService.suspendSupplier()
                 }
             } catch (e: WebServiceException) {
                 // expected
@@ -905,7 +906,7 @@ class RetryTests {
 
             // and: the method is invoked the exact number of times specified in the retry configuration
             coVerify {
-                remoteService.suspendCall()
+                remoteService.suspendSupplier()
             }.wasInvoked(exactly = maxAttempts)
         }
 
@@ -927,13 +928,12 @@ class RetryTests {
 
         // and: a remote service that always throws an exception
         val exception = WebServiceException("BAM!")
-        coEvery { remoteService.suspendCall() }
+        coEvery { remoteService.suspendSupplier() }
             .throws(exception)
 
-
-        // when: a decorated suspend function is executed with the retry instance
-        val decorated = retry.decorateSuspendFunction {
-            remoteService.suspendCall()
+        // when: a decorated supplier is executed with the retry instance
+        val decorated = retry.decorateSupplier {
+            remoteService.suspendSupplier()
         }
         try {
             decorated()
@@ -962,7 +962,7 @@ class RetryTests {
             eventListeners.add(it)
         }
 
-        // and: the decorated suspend function is executed again
+        // and: the decorated supplier is executed again
         try {
             decorated()
         } catch (e: WebServiceException) {
@@ -981,6 +981,133 @@ class RetryTests {
             eventListeners
         )
 
+    }
+
+    @Test
+    fun retryWithDecoratedFunction() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        val remoteServiceException = WebServiceException("BAM!")
+        val input = "input"
+        coEvery { remoteService.suspendFunction(input) }
+            .throws(remoteServiceException)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+
+        // wait for listeners to be registered using real time
+        delayWithRealTime()
+
+        try {
+            // when: a decorated function is executed with the retry instance
+            val decorated = retry.decorateFunction(remoteService::suspendFunction)
+            decorated(input)
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the retry virtual time equals the delay duration multipled by each retry attempt
+        val retryExecutionDuration = currentTime
+        val retryAttempts = config.permittedRetryAttempts
+        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts)
+
+        // and: the method was invoked the exact number of times specified in the retry configuration
+        coVerify {
+            remoteService.suspendFunction(input)
+        }.wasInvoked(exactly = maxAttempts)
+
+        // and: the retry events are emitted in the correct order
+        val retryOnRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        assertEquals(
+            listOf(
+                *retryOnRetryList.toTypedArray(),
+                RetryEvent.RetryOnError(remoteServiceException)
+            ),
+            eventsList
+        )
+
+        retry.cancelListeners() // cancel all listeners
+    }
+
+    @Test
+    fun retryWithDecoratedBiFunction() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        val remoteServiceException = WebServiceException("BAM!")
+        val input1 = "input1"
+        val input2 = "input2"
+        coEvery { remoteService.suspendBiFunction(input1, input2) }
+            .throws(remoteServiceException)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+
+        // wait for listeners to be registered using real time
+        delayWithRealTime()
+
+        try {
+            // when: a decorated bi-function is executed with the retry instance
+            val decorated = retry.decorateBiFunction(remoteService::suspendBiFunction)
+            decorated(input1, input2)
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the retry virtual time equals the delay duration multipled by each retry attempt
+        val retryExecutionDuration = currentTime
+        val retryAttempts = config.permittedRetryAttempts
+        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts)
+
+        // and: the method was invoked the exact number of times specified in the retry configuration
+        coVerify {
+            remoteService.suspendBiFunction(input1, input2)
+        }.wasInvoked(exactly = maxAttempts)
+
+        // and: the retry events are emitted in the correct order
+        val retryOnRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        assertEquals(
+            listOf(
+                *retryOnRetryList.toTypedArray(),
+                RetryEvent.RetryOnError(remoteServiceException)
+            ),
+            eventsList
+        )
+
+        retry.cancelListeners() // cancel all listeners
     }
 
 }

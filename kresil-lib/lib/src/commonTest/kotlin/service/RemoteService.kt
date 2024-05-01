@@ -1,8 +1,10 @@
 package service
 
 /**
- * Represents a remote service that can be called remotely.
+ * Represents a service that can be called remotely.
  */
-fun interface RemoteService {
-    suspend fun suspendCall(): String?
+interface RemoteService {
+    suspend fun suspendSupplier(): String?
+    suspend fun suspendFunction(input: String): String?
+    suspend fun suspendBiFunction(a: String, b: String): String?
 }
