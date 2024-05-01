@@ -8,15 +8,19 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kresil.core.BiFunction
+import kresil.core.Supplier
+import kresil.core.Function
 import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.context.RetryAsyncContextImpl
 
 /**
- * Represents a retry mechanism that can be used to retry a suspend function.
+ * Represents a retry mechanism that can be used to retry an operation.
+ * Operations can be executed directly or decorated with this mechanism.
  *
- * Usage:
+ * Examples of usage:
  * ```
  * // use default policies
  * val retry = Retry(
@@ -37,15 +41,17 @@ import kresil.retry.context.RetryAsyncContextImpl
  *    }
  * )
  *
- * // execute a suspend function
- * retry.executeSuspendFunction {
- *    // your suspend function
+ * // execute a supplier
+ * retry.executeSupplier {
+ *    // operation
  * }
  *
- * // decorate a suspend function
- * val decoratedFunction = retry.decorateSuspendFunction {
- *   // your suspend function
- * } // and call it later with decoratedFunction()
+ * // decorate a supplier
+ * val decoratedSupplier = retry.decorateSupplier {
+ *    // operation
+ * }
+ * // and call it later
+ * val result = decoratedSupplier()
  *
  * // listen to specific events
  * retry.onRetry { attempt -> println("Attempt: $attempt") }
@@ -76,15 +82,15 @@ class Retry(
     )
 
     /**
-     * Executes a suspend function with this retry mechanism.
-     * @param block The suspend function to execute.
-     * @see [decorateSuspendFunction]
+     * Executes a [BiFunction] with this retry mechanism.
+     * @param block The operation to execute.
+     * @see [decorateFunction]
      */
-    suspend fun <T> executeSuspendFunction(block: suspend () -> T) {
+    private suspend fun <A, B, R> executeBiFunction(a: A, b: B, block: BiFunction<A, B, R>): R? {
         val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
-                val result: Any? = block()
+                val result = block(a, b)
                 val shouldRetry = context.onResult(result)
                 if (shouldRetry) {
                     context.onRetry()
@@ -92,7 +98,7 @@ class Retry(
                 }
                 // TODO: should emit retry on success event if no retry was needed to complete?
                 context.onSuccess()
-                break
+                return result
             } catch (throwable: Throwable) {
                 context.onError(throwable)
                 context.onRetry()
@@ -101,14 +107,42 @@ class Retry(
     }
 
     /**
-     * Decorates a suspend function with this retry mechanism.
-     * The decorated function can be called later and will execute the [block] function.
-     * @param block The suspend function to decorate.
-     * @return A suspend function that will execute the decorated function.
-     * @see [executeSuspendFunction]
+     * Executes a [Supplier] with this retry mechanism.
+     * @param block The operation to execute.
+     * @see [decorateSupplier]
      */
-    fun <T> decorateSuspendFunction(block: suspend () -> T): suspend () -> Unit = {
-        executeSuspendFunction(block)
+    suspend fun <R> executeSupplier(block: Supplier<R>): R? {
+        return executeBiFunction(Unit, Unit) { _, _ -> block() }
+    }
+
+    /**
+     * Decorates a [Supplier] with this retry mechanism.
+     * @param block The operation to decorate and execute later.
+     * @see [decorateSupplier]
+     * @see [decorateFunction]
+     */
+    fun <A, B, R> decorateBiFunction(block: BiFunction<A, B, R>): BiFunction<A, B, R> {
+        return { a, b -> executeBiFunction(a, b, block) }
+    }
+
+    /**
+     * Decorates a [Function] with this retry mechanism.
+     * @param block The operation to decorate and execute later.
+     * @see [decorateSupplier]
+     * @see [decorateBiFunction]
+     */
+    fun <A, B> decorateFunction(block: Function<A, B>): Function<A, B> {
+        return { executeBiFunction(it, Unit) { a, _ -> block(a) } }
+    }
+
+    /**
+     * Decorates a [Supplier] with this retry mechanism.
+     * @param block The operation to decorate and execute later.
+     * @see [decorateBiFunction]
+     * @see [decorateFunction]
+     */
+    fun <B> decorateSupplier(block: Supplier<B>): Supplier<B> {
+        return { executeBiFunction(Unit, Unit) { _, _ -> block() } }
     }
 
     /**
@@ -182,6 +216,7 @@ class Retry(
 
     /**
      * Cancels all listeners registered with this retry mechanism.
+     * Subsequent registrations will not be affected.
      */
     fun cancelListeners() {
         // does not cancel the underlying job (it would with scope.cancel())
