@@ -16,9 +16,16 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "kresil"
-// lib
+// kresil lib
 include(":kresil-lib:lib")
-// apps
+// kresil lib-apps
 include(":kresil-lib:apps:android-app")
 include(":kresil-lib:apps:jvm-app")
 include(":kresil-lib:apps:kotlin-jvm-app")
+
+// ktor-plugins lib
+include(":ktor-plugins:lib")
+// ktor-plugins lib-apps
+include(":ktor-plugins:apps:android-app")
+include(":ktor-plugins:apps:jvm-app")
+include(":ktor-plugins:apps:kotlin-jvm-app")
