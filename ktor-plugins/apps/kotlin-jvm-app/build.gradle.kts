@@ -7,7 +7,7 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":kresil-lib:lib"))
+    implementation(project(":ktor-plugins:lib"))
     implementation(libs.kotlinx.coroutines.core)
 }
 

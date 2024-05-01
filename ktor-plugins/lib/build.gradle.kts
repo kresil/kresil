@@ -69,14 +69,13 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
-                // implementation(libs.napier)
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.server.core)
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(libs.kotlin.test)
-                implementation(libs.kotlinx.coroutines.test)
-                implementation(libs.mockative)
             }
         }
 

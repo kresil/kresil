@@ -11,7 +11,7 @@ compose-material3 = "1.2.1"
 mockative = "2.2.0"
 google-ksp = "1.9.23-1.0.20"
 nexus-publish = "2.0.0-rc-1"
-napier = "2.7.1"
+ktor = "2.3.10"
 
 [libraries]
 # kotlin
@@ -28,11 +28,12 @@ compose-ui = { module = "androidx.compose.ui:ui", version.ref = "compose" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = "compose" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "compose" }
 compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
+# ktor
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 # mockative
 mockative = { module = "io.mockative:mockative", version.ref = "mockative" }
 mockative-processor = { module = "io.mockative:mockative-processor", version.ref = "mockative" }
 # other
-napier = { module = "io.github.aakira:napier", version.ref = "napier" }
 nexus-publish = { module = "io.github.gradle-nexus.publish-plugin:io.github.gradle-nexus.publish-plugin.gradle.plugin", version.ref = "nexus-publish" }
 
 [plugins]
