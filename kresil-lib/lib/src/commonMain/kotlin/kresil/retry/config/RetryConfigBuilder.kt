@@ -16,7 +16,7 @@ import kresil.retry.delay.RetryDelayStrategy
  * - `attempt` is the current retry attempt. Starts at **1**.
  * - `lastThrowable` is the last throwable caught, if any.
  *
- * If the return value is `null`, the delay is considered to be defined externally and the default delay provider is skipped.
+ * If the return value is `null`, the delay is considered to be **defined externally** and the **default delay provider is skipped**.
  */
 typealias SuspendRetryDelayStrategy = suspend (attempt: Int, lastThrowable: Throwable?) -> Duration?
 
@@ -155,7 +155,7 @@ class RetryConfigBuilder internal constructor() {
     /**
      * Configures the retry delay strategy to use a custom delay provider.
      * In contrast to [customDelay], this method enables caller control over the delay provider (which is the
-     * [kotlinx.coroutines.delay] by default) and additional state between retries.
+     * [kotlinx.coroutines.delay] by default) and optional additional state between retries.
      * See [RetryDelayProvider] for more information and examples of usage.
      * @param delayProvider the custom delay provider to use.
      * @see [exponentialDelay]
