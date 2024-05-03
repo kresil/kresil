@@ -1,20 +1,17 @@
 package kresil.retry
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kresil.core.BiFunction
-import kresil.core.Supplier
-import kresil.core.Function
+import kresil.core.operations.BiFunction
+import kresil.core.events.FlowEventListenerImpl
+import kresil.core.operations.Function
+import kresil.core.operations.Supplier
 import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.context.RetryAsyncContextImpl
+import kresil.retry.event.RetryEvent
 
 /**
  * Represents a retry mechanism that can be used to retry an operation.
@@ -70,16 +67,7 @@ import kresil.retry.context.RetryAsyncContextImpl
  */
 class Retry(
     val config: RetryConfig = defaultRetryConfig(),
-) {
-
-    // events
-    private val events = MutableSharedFlow<RetryEvent>()
-
-    // scope
-    private val scope = CoroutineScope(
-        // TODO: Is supervisor job needed? Connect this job with an outer parent?
-        Job() + Dispatchers.Default
-    )
+) : FlowEventListenerImpl<RetryEvent>() {
 
     /**
      * Executes a [BiFunction] with this retry mechanism.
@@ -199,28 +187,5 @@ class Retry(
                 .filterIsInstance<RetryEvent.RetryOnSuccess>()
                 .collect { action() }
         }
-
-    /**
-     * Executes the given [action] when a retry event occurs.
-     * This function can be used to listen to all retry events.
-     * @see [onRetry]
-     * @see [onError]
-     * @see [onIgnoredError]
-     * @see [onSuccess]
-     * @see [cancelListeners]
-     */
-    suspend fun onEvent(action: suspend (RetryEvent) -> Unit) =
-        scope.launch {
-            events.collect { action(it) }
-        }
-
-    /**
-     * Cancels all listeners registered with this retry mechanism.
-     * Subsequent registrations will not be affected.
-     */
-    fun cancelListeners() {
-        // does not cancel the underlying job (it would with scope.cancel())
-        scope.coroutineContext.cancelChildren()
-    }
 
 }

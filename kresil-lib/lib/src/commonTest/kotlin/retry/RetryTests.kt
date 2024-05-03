@@ -13,7 +13,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
 import kresil.retry.Retry
-import kresil.retry.RetryEvent
+import kresil.retry.event.RetryEvent
 import kresil.retry.builders.retryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryPredicate
