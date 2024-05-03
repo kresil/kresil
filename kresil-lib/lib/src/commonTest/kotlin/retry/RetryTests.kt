@@ -13,7 +13,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
 import kresil.retry.Retry
-import kresil.retry.RetryEvent
+import kresil.retry.event.RetryEvent
 import kresil.retry.builders.retryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryPredicate
@@ -79,17 +79,17 @@ class RetryTests {
             when (isDecorated) {
                 true -> {
                     // and: a decorated supplier
-                    val decorated = retry.decorateSupplier {
+                    val decorated = retry.decorateNSupplier {
                         remoteService.suspendSupplier()
                     }
 
-                    // when: a suspend function is executed with the retry instance [1]
+                    // when: a function is executed with the retry instance [1]
                     decorated()
                 }
 
                 false -> {
-                    // when: a suspend function is executed with the retry instance [2]
-                    retry.executeSupplier {
+                    // when: a function is executed with the retry instance [2]
+                    retry.executeNSupplier {
                         remoteService.suspendSupplier()
                     }
                 }
@@ -162,8 +162,8 @@ class RetryTests {
         delayWithRealTime()
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
             fail("suspend function should throw an exception")
@@ -220,8 +220,8 @@ class RetryTests {
         }
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 conditionalSuccessRemoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -238,6 +238,51 @@ class RetryTests {
             ),
             eventsList
         )
+
+        retry.cancelListeners() // cancel all listeners
+    }
+
+    @Test
+    fun operationSuccessWithoutRetry() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always returns a result
+        val result = "Success!"
+        coEvery { remoteService.suspendSupplier() }
+            .returns(result)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+
+        // wait for listeners to be registered using real time
+        delayWithRealTime()
+
+        // when: a decorated supplier is executed with the retry instance
+        retry.executeNSupplier {
+            remoteService.suspendSupplier()
+        }
+
+        // then: no retry events are emitted
+        assertEquals(emptyList(), eventsList)
+
+        // and: the method is invoked only once since there is no retry attempt
+        coVerify {
+            remoteService.suspendSupplier()
+        }.wasInvoked(exactly = once)
 
         retry.cancelListeners() // cancel all listeners
     }
@@ -283,7 +328,7 @@ class RetryTests {
 
         try {
             // when: a suspend function is executed with the retry instance
-            retry.executeSupplier {
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -363,8 +408,8 @@ class RetryTests {
         delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: MaxRetriesExceededException) {
@@ -406,8 +451,8 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -465,8 +510,8 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -593,8 +638,8 @@ class RetryTests {
 
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -656,8 +701,8 @@ class RetryTests {
             .returns(result)
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: MaxRetriesExceededException) {
@@ -696,8 +741,8 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -751,8 +796,8 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -800,8 +845,8 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
-            retry.executeSupplier {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
@@ -878,7 +923,7 @@ class RetryTests {
 
             try {
                 // when: a decorated supplier is executed with the retry instance
-                retry.executeSupplier {
+                retry.executeNSupplier {
                     remoteService.suspendSupplier()
                 }
             } catch (e: WebServiceException) {
@@ -932,7 +977,7 @@ class RetryTests {
             .throws(exception)
 
         // when: a decorated supplier is executed with the retry instance
-        val decorated = retry.decorateSupplier {
+        val decorated = retry.decorateNSupplier {
             remoteService.suspendSupplier()
         }
         try {
@@ -1015,7 +1060,7 @@ class RetryTests {
 
         try {
             // when: a decorated function is executed with the retry instance
-            val decorated = retry.decorateFunction(remoteService::suspendFunction)
+            val decorated = retry.decorateNFunction(remoteService::suspendFunction)
             decorated(input)
         } catch (e: WebServiceException) {
             // expected
@@ -1079,7 +1124,7 @@ class RetryTests {
 
         try {
             // when: a decorated bi-function is executed with the retry instance
-            val decorated = retry.decorateBiFunction(remoteService::suspendBiFunction)
+            val decorated = retry.decorateNBiFunction(remoteService::suspendBiFunction)
             decorated(input1, input2)
         } catch (e: WebServiceException) {
             // expected
