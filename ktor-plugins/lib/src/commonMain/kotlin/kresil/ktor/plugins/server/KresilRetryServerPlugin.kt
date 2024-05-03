@@ -1,4 +1,4 @@
-package kresil.ktor.server.plugins
+package kresil.ktor.plugins.server
 
 import io.ktor.server.application.*
 import io.ktor.server.config.*
@@ -21,4 +21,3 @@ class CustomHeaderConfiguration(config: ApplicationConfig) {
     var headerName: String = config.tryGetString("header_name") ?: "Custom-Header-Name"
     var headerValue: String = config.tryGetString("header_value") ?: "Default value"
 }
-
