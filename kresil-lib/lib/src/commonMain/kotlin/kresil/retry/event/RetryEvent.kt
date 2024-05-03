@@ -1,4 +1,6 @@
-package kresil.retry
+package kresil.retry.event
+
+import kresil.retry.Retry
 
 /**
  * Represents all possible [Retry] events that can be triggered in a [Retry] mechanism.

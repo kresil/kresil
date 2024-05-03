@@ -2,7 +2,7 @@ package kresil.retry.context
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kresil.retry.RetryEvent
+import kresil.retry.event.RetryEvent
 import kresil.retry.config.RetryConfig
 import kresil.retry.exceptions.MaxRetriesExceededException
 import kotlin.time.Duration
@@ -20,10 +20,13 @@ import kotlin.time.Duration
  */
 internal class RetryAsyncContextImpl(
     private val config: RetryConfig,
-    private val eventFlow: MutableSharedFlow<RetryEvent>,
+    private val eventFlow: MutableSharedFlow<RetryEvent>
 ) : RetryAsyncContext {
 
-    private companion object {
+    override val retryAttempt: Int
+        get() = currentRetryAttempt
+
+    companion object {
         const val INITIAL_NON_RETRY_ATTEMPT = 0
     }
 
