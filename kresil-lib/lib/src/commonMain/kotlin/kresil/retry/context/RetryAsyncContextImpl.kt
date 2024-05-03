@@ -20,10 +20,13 @@ import kotlin.time.Duration
  */
 internal class RetryAsyncContextImpl(
     private val config: RetryConfig,
-    private val eventFlow: MutableSharedFlow<RetryEvent>,
+    private val eventFlow: MutableSharedFlow<RetryEvent>
 ) : RetryAsyncContext {
 
-    private companion object {
+    override val retryAttempt: Int
+        get() = currentRetryAttempt
+
+    companion object {
         const val INITIAL_NON_RETRY_ATTEMPT = 0
     }
 

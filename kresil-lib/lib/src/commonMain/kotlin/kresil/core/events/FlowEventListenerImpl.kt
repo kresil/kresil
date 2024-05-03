@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
  * Represents a listener mechanism that can be used to listen to events of type [Event].
  * Provides
  */
-open class FlowEventListenerImpl<Event> : FlowEventListener<Event> {
+open class FlowEventListenerImpl<Event> internal constructor() : FlowEventListener<Event> {
 
     override val events = MutableSharedFlow<Event>()
 

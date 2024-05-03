@@ -162,7 +162,7 @@ class RetryTests {
         delayWithRealTime()
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -220,7 +220,7 @@ class RetryTests {
         }
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 conditionalSuccessRemoteService.suspendSupplier()
             }
@@ -238,6 +238,51 @@ class RetryTests {
             ),
             eventsList
         )
+
+        retry.cancelListeners() // cancel all listeners
+    }
+
+    @Test
+    fun operationSuccessWithoutRetry() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always returns a result
+        val result = "Success!"
+        coEvery { remoteService.suspendSupplier() }
+            .returns(result)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+
+        // wait for listeners to be registered using real time
+        delayWithRealTime()
+
+        // when: a decorated supplier is executed with the retry instance
+        retry.executeNSupplier {
+            remoteService.suspendSupplier()
+        }
+
+        // then: no retry events are emitted
+        assertEquals(emptyList(), eventsList)
+
+        // and: the method is invoked only once since there is no retry attempt
+        coVerify {
+            remoteService.suspendSupplier()
+        }.wasInvoked(exactly = once)
 
         retry.cancelListeners() // cancel all listeners
     }
@@ -363,7 +408,7 @@ class RetryTests {
         delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -406,7 +451,7 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -465,7 +510,7 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -593,7 +638,7 @@ class RetryTests {
 
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -656,7 +701,7 @@ class RetryTests {
             .returns(result)
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -696,7 +741,7 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -751,7 +796,7 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
@@ -800,7 +845,7 @@ class RetryTests {
             .throws(WebServiceException("BAM!"))
 
         try {
-            // when: a decorated supplier is executed with the retry instance
+             // when: a supplier is executed with the retry instance
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }

@@ -93,8 +93,9 @@ class Retry(
                     context.onRetry()
                     continue
                 }
-                // TODO: should emit retry on success event if no retry was needed to complete?
-                context.onSuccess()
+                if (context.retryAttempt > RetryAsyncContextImpl.INITIAL_NON_RETRY_ATTEMPT) {
+                    context.onSuccess()
+                }
                 return result
             } catch (throwable: Throwable) {
                 context.onError(throwable)
@@ -262,5 +263,18 @@ class Retry(
                 .filterIsInstance<RetryEvent.RetryOnSuccess>()
                 .collect { action() }
         }
+
+    /**
+     * Executes the given [action] when a retry event occurs.
+     * This function can be used to listen to all retry events.
+     * @see [onRetry]
+     * @see [onError]
+     * @see [onIgnoredError]
+     * @see [onSuccess]
+     * @see [cancelListeners]
+     */
+    override suspend fun onEvent(action: suspend (RetryEvent) -> Unit) {
+        super.onEvent(action)
+    }
 
 }
