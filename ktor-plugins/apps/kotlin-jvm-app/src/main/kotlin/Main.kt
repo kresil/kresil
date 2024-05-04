@@ -17,15 +17,24 @@ import kotlinx.coroutines.launch
 import kresil.ktor.plugins.client.KresilRetryPlugin
 import kotlin.time.Duration.Companion.seconds
 
+class NetworkError : Exception()
+
 suspend fun main() {
     val serverJob = CoroutineScope(Dispatchers.Default).launch { startSlowServer() }
 
     val client = HttpClient(CIO) {
+        /*install(HttpTimeout) {
+            requestTimeoutMillis = 10
+            connectTimeoutMillis = 10
+            socketTimeoutMillis = 10
+        }*/
         install(KresilRetryPlugin) {
+            addRetryPredicate { it is NetworkError } // should not alter behavior of the plugin
             maxAttempts = 3
-            constantDelay(5.seconds)
-            retryIf { true }
-            retryOnResult { true }
+            constantDelay(2.seconds)
+            retryOnCall { _, httpResponse ->
+                httpResponse.status.value in 500..599
+            }
         }
         // install(HttpRequestRetry)
     }
