@@ -2,6 +2,7 @@ package application
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -14,27 +15,27 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kresil.ktor.plugins.client.KresilRetryPlugin
+import kresil.ktor.plugins.retry.client.KresilRetryPlugin
 import kotlin.time.Duration.Companion.seconds
 
 class NetworkError : Exception()
 
 suspend fun main() {
-    val serverJob = CoroutineScope(Dispatchers.Default).launch { startSlowServer() }
-
+    val serverJob = CoroutineScope(Dispatchers.Default).launch { startUnreliableServer() }
     val client = HttpClient(CIO) {
-        /*install(HttpTimeout) {
+        install(KresilRetryPlugin) {
+            retryOnTimeout()
+            addRetryPredicate { it is NetworkError } // should not alter behavior of the plugin
+            maxAttempts = 4 // to retry 3 times (4 attempts in total)
+            constantDelay(2.seconds)
+            retryOnCall { _, response ->
+                response.status.value in 500..599
+            }
+        }
+        install(HttpTimeout) {
             requestTimeoutMillis = 10
             connectTimeoutMillis = 10
             socketTimeoutMillis = 10
-        }*/
-        install(KresilRetryPlugin) {
-            addRetryPredicate { it is NetworkError } // should not alter behavior of the plugin
-            maxAttempts = 3
-            constantDelay(2.seconds)
-            retryOnCall { _, httpResponse ->
-                httpResponse.status.value in 500..599
-            }
         }
         // install(HttpRequestRetry)
     }
@@ -55,7 +56,7 @@ suspend fun main() {
     serverJob.cancelAndJoin()
 }
 
-suspend fun startSlowServer() {
+suspend fun startUnreliableServer() {
     var requestCount = 0
     embeddedServer(Netty, port = 8080) {
         routing {
@@ -65,8 +66,7 @@ suspend fun startSlowServer() {
                 requestCount += 1
                 when (requestCount) {
                     in 1..2 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
-                    in 3..10 -> call.respondText("Server is back online!")
-                    else -> call.respondText("Server is overloaded", status = HttpStatusCode.ServiceUnavailable)
+                    else -> call.respondText("Server is back online!")
                 }
             }
         }
