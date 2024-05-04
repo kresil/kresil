@@ -2,7 +2,6 @@ package application
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -24,20 +23,22 @@ suspend fun main() {
     val serverJob = CoroutineScope(Dispatchers.Default).launch { startUnreliableServer() }
     val client = HttpClient(CIO) {
         install(KresilRetryPlugin) {
+            beforeOpCallback { println("Attempt: $it") }
             retryOnTimeout()
             addRetryPredicate { it is NetworkError } // should not alter behavior of the plugin
             maxAttempts = 4 // to retry 3 times (4 attempts in total)
             constantDelay(2.seconds)
-            retryOnCall { _, response ->
-                response.status.value in 500..599
+            retryOnServerErrors()
+            // TODO: how can I retrieve the current retry count?
+            modifyRequest { request, attempt ->
+                request.headers.append("X_RETRY_COUNT", attempt.toString())
             }
         }
-        install(HttpTimeout) {
+        /*install(HttpTimeout) {
             requestTimeoutMillis = 10
             connectTimeoutMillis = 10
             socketTimeoutMillis = 10
-        }
-        // install(HttpRequestRetry)
+        }*/
     }
 
     client.post {

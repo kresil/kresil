@@ -7,12 +7,12 @@ import io.ktor.client.statement.*
 import io.ktor.client.utils.*
 import kresil.lib.retry.config.RetryConfigBuilder
 
-// TODO: add modify request between retries
-// TODO: propagate cancellation of subsequent requests in case of cancellation of the first request
+// TODO: add support for listeners callbacks
 // TODO: add support for retry on a per-request level
 class RetryPluginBuilder : RetryConfigBuilder() {
 
     var shouldRetryOnCall: (HttpRequest, HttpResponse) -> Boolean = { _, _ -> false }
+    var modifyRequest: (HttpRequestBuilder) -> Unit = { }
 
     fun retryOnCall(block: (HttpRequest, HttpResponse) -> Boolean) {
         shouldRetryOnCall = block
@@ -25,6 +25,14 @@ class RetryPluginBuilder : RetryConfigBuilder() {
     }
 
     fun retryOnTimeout() = addRetryPredicate { it.isTimeoutException() }
+
+    fun modifyRequest(block: (builder: HttpRequestBuilder, attempt: Int) -> Unit) {
+        beforeOpCallback { attempt ->
+            modifyRequest = { builder ->
+                block(builder, attempt)
+            }
+        }
+    }
 }
 
 /**
