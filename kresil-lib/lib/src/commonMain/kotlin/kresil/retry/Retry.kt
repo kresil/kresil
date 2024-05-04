@@ -22,7 +22,7 @@ import kresil.retry.event.RetryEvent
  *
  * Examples of usage:
  * ```
- * // use default policies
+ * // use predefined retry policies
  * val retry = Retry(
  *    retryConfig {
  *         maxAttempts = 3 // initial call + 2 retries
@@ -34,7 +34,7 @@ import kresil.retry.event.RetryEvent
  * val retry = Retry(
  *    retryConfig {
  *       maxAttempts = 5
- *       retryIf { it is NetworkError }
+ *       addRetryPredicate { it is NetworkError }
  *       retryOnResultIf { it is "success" }
  *       constantDelay(500.milliseconds)
  *       // customDelay { attempt, lastThrowable -> ... }
@@ -87,15 +87,14 @@ class Retry(
         val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
+                context.beforeOperationCall()
                 val result = block(inputA, inputB)
                 val shouldRetry = context.onResult(result)
                 if (shouldRetry) {
                     context.onRetry()
                     continue
                 }
-                if (context.retryAttempt > RetryAsyncContextImpl.INITIAL_NON_RETRY_ATTEMPT) {
-                    context.onSuccess()
-                }
+                context.onSuccess()
                 return result
             } catch (throwable: Throwable) {
                 context.onError(throwable)

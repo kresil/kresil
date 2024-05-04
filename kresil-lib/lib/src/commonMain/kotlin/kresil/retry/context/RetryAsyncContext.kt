@@ -34,10 +34,11 @@ internal interface RetryAsyncContext {
      */
     suspend fun onSuccess()
 
+
     /**
-     * The current retry attempt number.
+     * Applies logic before the operation is called in each attempt.
      */
-    val retryAttempt: Int
+    suspend fun beforeOperationCall()
 
 }
 
