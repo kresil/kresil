@@ -1,6 +1,8 @@
-package kresil.ktor.plugins.retry.exceptions
+package kresil.ktor.plugins.retry.client.exceptions
+
+import kresil.ktor.plugins.retry.client.builder.RetryPluginBuilder
 
 /**
- * Represents an internal exception thrown when a retry is attempted because should retry on call predicate was met.
+ * Represents an internal exception indicating that a retry is attempted due to the satisfaction of the [RetryPluginBuilder.shouldRetryOnCall] predicate.
  */
 internal class RetryOnCallException : Exception()

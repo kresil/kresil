@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kresil.ktor.plugins.retry.client.KresilRetryPlugin
-import kotlin.time.Duration.Companion.seconds
 
 class NetworkError : Exception()
 
@@ -23,14 +22,12 @@ suspend fun main() {
     val serverJob = CoroutineScope(Dispatchers.Default).launch { startUnreliableServer() }
     val client = HttpClient(CIO) {
         install(KresilRetryPlugin) {
-            beforeOpCallback { println("Attempt: $it") }
-            retryOnTimeout()
+            /*retryOnTimeout()
             addRetryPredicate { it is NetworkError } // should not alter behavior of the plugin
-            maxAttempts = 4 // to retry 3 times (4 attempts in total)
             constantDelay(2.seconds)
-            retryOnServerErrors()
-            // TODO: how can I retrieve the current retry count?
-            modifyRequest { request, attempt ->
+            retryOnServerErrors()*/
+            maxAttempts = 5
+            modifyRequestOnRetry { request, attempt ->
                 request.headers.append("X_RETRY_COUNT", attempt.toString())
             }
         }
@@ -39,6 +36,7 @@ suspend fun main() {
             connectTimeoutMillis = 10
             socketTimeoutMillis = 10
         }*/
+        // install(HttpRequestRetry)
     }
 
     client.post {
@@ -66,7 +64,7 @@ suspend fun startUnreliableServer() {
                 println("Server received: $text")
                 requestCount += 1
                 when (requestCount) {
-                    in 1..2 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
+                    in 1..4 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
                     else -> call.respondText("Server is back online!")
                 }
             }
