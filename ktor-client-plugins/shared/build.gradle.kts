@@ -1,5 +1,3 @@
-import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-
 plugins {
     id("module.publication")
     alias(libs.plugins.kotlinMultiplatform)
@@ -24,6 +22,14 @@ kotlin {
             }
         }
     }
+    js(compiler = IR) {
+        binaries.executable() // necessary for the IR compiler
+        useEsModules() // or useCommonJs()
+        browser {
+        }
+        nodejs {
+        }
+    }
     val hostOs = System.getProperty("os.name")
     val isArm64 = System.getProperty("os.arch") == "aarch64"
     val isMingwX64 = hostOs.startsWith("Windows")
@@ -45,16 +51,7 @@ kotlin {
     }*/
 
     sourceSets {
-        /**
-         * - common
-         *    - jvm
-         *    - android
-         *    - native
-         *      - linuxX64
-         *    - js
-         *      - node
-         *      - browser
-         */
+
 
         // Source Set Category: Common
         // use `by creating` if a source set does not exist yet
@@ -89,6 +86,20 @@ kotlin {
         val androidUnitTest by getting {
             dependsOn(commonTest)
         }
+
+        val jsMain by getting {
+            dependsOn(commonMain)
+            dependencies {
+                implementation(libs.kotlin.stdlib.js)
+            }
+        }
+
+        val jsTest by getting {
+            dependsOn(commonTest)
+            dependencies {
+                implementation(libs.kotlin.test.js)
+            }
+        }
     }
 }
 
@@ -103,18 +114,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-dependencies {
-    implementation(project(":kresil-lib:lib"))
-}
 
 tasks.withType<Test> {
     useJUnitPlatform()
-}
-
-tasks.withType<AbstractTestTask> {
-    // see all logs even from passed tests
-    testLogging {
-        events("standardOut", "started", "passed", "skipped", "failed")
-        exceptionFormat = TestExceptionFormat.FULL
-    }
 }

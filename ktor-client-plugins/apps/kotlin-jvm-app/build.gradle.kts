@@ -7,7 +7,7 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":ktor-plugins:shared"))
+    implementation(project(":ktor-client-plugins:shared"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.client.cio)
