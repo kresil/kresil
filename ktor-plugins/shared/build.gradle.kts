@@ -24,14 +24,6 @@ kotlin {
             }
         }
     }
-    js(compiler = IR) {
-        binaries.executable() // necessary for the IR compiler
-        useEsModules() // or useCommonJs()
-        browser {
-        }
-        nodejs {
-        }
-    }
     val hostOs = System.getProperty("os.name")
     val isArm64 = System.getProperty("os.arch") == "aarch64"
     val isMingwX64 = hostOs.startsWith("Windows")
@@ -68,9 +60,10 @@ kotlin {
         // use `by creating` if a source set does not exist yet
         val commonMain by getting {
             dependencies {
+                // api (former compile) is used to expose the dependency to the consumers
+                api(project(":kresil-lib:lib"))
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.ktor.client.core)
-                implementation(libs.ktor.server.core)
             }
         }
         val commonTest by getting {
@@ -96,28 +89,6 @@ kotlin {
         val androidUnitTest by getting {
             dependsOn(commonTest)
         }
-
-        val jsMain by getting {
-            dependsOn(commonMain)
-            dependencies {
-                implementation(libs.kotlin.stdlib.js)
-            }
-        }
-
-        val jsTest by getting {
-            dependsOn(commonTest)
-            dependencies {
-                implementation(libs.kotlin.test.js)
-            }
-        }
-    }
-
-    dependencies {
-        configurations
-            .filter { it.name.startsWith("ksp") && it.name.contains("Test") }
-            .forEach {
-                add(it.name, libs.mockative.processor)
-            }
     }
 }
 
@@ -131,6 +102,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+}
+dependencies {
+    implementation(project(":kresil-lib:lib"))
 }
 
 tasks.withType<Test> {

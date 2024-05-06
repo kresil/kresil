@@ -40,7 +40,7 @@ typealias BeforeOperationCallback = (attempt: Int) -> Unit
  * Builder for configuring a [RetryConfig] instance.
  * Use [retryConfig] to create a [RetryConfig] instance.
  */
-open class RetryConfigBuilder internal constructor() {
+open class RetryConfigBuilder {
 
     private companion object {
         const val DEFAULT_MAX_ATTEMPTS = 3

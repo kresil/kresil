@@ -5,8 +5,8 @@ import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.client.utils.*
-import kresil.lib.retry.config.RetryConfigBuilder
 import kresil.ktor.plugins.retry.client.KresilRetryPlugin
+import kresil.retry.config.RetryConfigBuilder
 
 // TODO: add support for listeners callbacks (what is the use case for this?)
 // TODO: add support for retry on a per-request level

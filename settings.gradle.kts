@@ -24,7 +24,7 @@ include(":kresil-lib:apps:jvm-app")
 include(":kresil-lib:apps:kotlin-jvm-app")
 
 // ktor-plugins lib
-include(":ktor-plugins:lib")
+include(":ktor-plugins:shared")
 // ktor-plugins lib-apps
 include(":ktor-plugins:apps:android-app")
 include(":ktor-plugins:apps:jvm-app")

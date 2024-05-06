@@ -7,11 +7,10 @@ import io.ktor.client.request.*
 import kotlinx.coroutines.CompletableJob
 import kresil.ktor.plugins.retry.client.builder.RetryPluginBuilder
 import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
-import kresil.lib.retry.Retry
+import kresil.retry.Retry
 
 /**
- * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism configuration.
- * Based on the [HttpRequestRetry] plugin provided by Ktor.
+ * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism configuration and the [HttpRequestRetry] plugin provided by Ktor.
  * Examples of usage:
  * ```
  * // use predefined retry policies
@@ -61,7 +60,7 @@ val KresilRetryPlugin = createClientPlugin(
 }
 
 /**
- * Creates a copy of the given HTTP request builder, preserving its configuration, and guarantees that any completion or failure of the original request is mirrored onto the copy.
+ * Creates a copy of the given HTTP request builder, preserving its configuration but not the execution context, and guarantees that any completion or failure of the original request is mirrored onto the copy.
  */
 private fun copyRequestAndPropagateCompletion(request: HttpRequestBuilder): HttpRequestBuilder {
     val subRequest = HttpRequestBuilder().takeFrom(request)
