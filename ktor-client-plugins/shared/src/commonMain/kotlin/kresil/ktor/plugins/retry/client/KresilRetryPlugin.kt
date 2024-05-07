@@ -8,6 +8,7 @@ import kotlinx.coroutines.CompletableJob
 import kresil.ktor.plugins.retry.client.builder.RetryPluginBuilder
 import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 import kresil.retry.Retry
+import kresil.retry.config.RetryConfigBuilder
 
 /**
  * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism configuration and the [HttpRequestRetry] plugin provided by Ktor.
@@ -34,9 +35,11 @@ import kresil.retry.Retry
  */
 val KresilRetryPlugin = createClientPlugin(
     name = "KresilRetryPlugin",
-    createConfiguration = ::RetryPluginBuilder
+    createConfiguration = {
+        val retryConfigBuilder = RetryConfigBuilder()
+        RetryPluginBuilder(retryConfigBuilder)
+    },
 ) {
-    pluginConfig.addRetryPredicate { it is RetryOnCallException }
     val retryConfig = pluginConfig.build()
     val retry = Retry(retryConfig)
     on(Send) { request -> // is invoked every time a request is sent
@@ -51,6 +54,7 @@ val KresilRetryPlugin = createClientPlugin(
             println("Request headers: ${call.request.headers}")
             println("Response call: ${call.response}")
             if (pluginConfig.shouldRetryOnCall(call.request, call.response)) {
+                // force retry
                 throw RetryOnCallException()
             }
         }

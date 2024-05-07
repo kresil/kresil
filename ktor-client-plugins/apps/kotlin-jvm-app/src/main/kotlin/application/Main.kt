@@ -22,13 +22,13 @@ suspend fun main() {
     val serverJob = CoroutineScope(Dispatchers.Default).launch { startUnreliableServer() }
     val client = HttpClient(CIO) {
         install(KresilRetryPlugin) {
-            /*retryOnTimeout()
-            addRetryPredicate { it is NetworkError } // should not alter behavior of the plugin
-            constantDelay(2.seconds)
-            retryOnServerErrors()*/
+            retryOnTimeout()
+            retryOnException { it is NetworkError } // should not alter behavior of the plugin
+            // constantDelay(2.seconds)
+            retryOnServerErrors()
             maxAttempts = 5
             modifyRequestOnRetry { request, attempt ->
-                request.headers.append("X_RETRY_COUNT", attempt.toString())
+                request.headers.append("RETRY_COUNT", attempt.toString())
             }
         }
         /*install(HttpTimeout) {
@@ -64,7 +64,7 @@ suspend fun startUnreliableServer() {
                 println("Server received: $text")
                 requestCount += 1
                 when (requestCount) {
-                    in 1..4 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
+                    in 1..10 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
                     else -> call.respondText("Server is back online!")
                 }
             }
