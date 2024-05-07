@@ -16,9 +16,9 @@ import kresil.retry.delay.RetryDelayStrategy
  * - `attempt` is the current retry attempt. Starts at **1**.
  * - `lastThrowable` is the last throwable caught, if any.
  *
- * If the return value is `null`, the delay is considered to be **defined externally** and the **default delay provider is skipped**.
+ * If the return value is `Duration.ZERO`, the delay is considered to be **defined externally** and the **default delay provider is skipped**.
  */
-typealias SuspendRetryDelayStrategy = suspend (attempt: Int, lastThrowable: Throwable?) -> Duration?
+typealias SuspendRetryDelayStrategy = suspend (attempt: Int, lastThrowable: Throwable?) -> Duration
 
 /**
  * Predicate to determine if the operation should be retried based on the caught throwable.
@@ -67,6 +67,7 @@ class RetryConfigBuilder {
      * Configures the retry predicate.
      * The predicate is used to determine if, based on the caught throwable, the operation should be retried.
      * @param predicate the predicate to use.
+     * @see retryOnResult
      */
     fun retryIf(predicate: RetryPredicate) {
         retryPredicate = predicate
@@ -85,7 +86,7 @@ class RetryConfigBuilder {
      * Configures the retry on result predicate.
      * The predicate is used to determine if, based on the result of the operation, the operation should be retried.
      * @param predicate the predicate to use.
-     * @see retryPredicate
+     * @see retryIf
      */
     fun retryOnResult(predicate: RetryOnResultPredicate) {
         retryOnResultPredicate = predicate
@@ -97,6 +98,7 @@ class RetryConfigBuilder {
      * @throws IllegalArgumentException if the duration is less than or equal to 0.
      * @see [exponentialDelay]
      * @see [customDelay]
+     * @see [customDelayProvider]
      * @see [noDelay]
      */
     fun constantDelay(duration: Duration) {
@@ -124,6 +126,7 @@ class RetryConfigBuilder {
      * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1.
      * @see [constantDelay]
      * @see [customDelay]
+     * @see [customDelayProvider]
      * @see [noDelay]
      */
     fun exponentialDelay(
@@ -191,6 +194,7 @@ class RetryConfigBuilder {
      * @see [constantDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
+     * @see [customDelayProvider]
      */
     fun noDelay() {
         delayStrategy = { _, _ -> Duration.ZERO }

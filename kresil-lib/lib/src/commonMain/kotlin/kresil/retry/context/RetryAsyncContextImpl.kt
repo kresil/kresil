@@ -44,10 +44,12 @@ internal class RetryAsyncContextImpl(
 
     override suspend fun onRetry() {
         eventFlow.emit(RetryEvent.RetryOnRetry(++currentRetryAttempt))
-        val duration: Duration? = config.delayStrategy(currentRetryAttempt, lastThrowable)
+        val duration: Duration = config.delayStrategy(currentRetryAttempt, lastThrowable)
         when {
-            // skip default delay provider if duration is null (defined externally) or zero (no delay)
-            duration == null || duration <= Duration.ZERO -> return
+            // skip default delay provider if duration zero:
+            // 1. could mean that the delay is defined externally
+            // 2. could mean that the delay is not needed (no delay strategy)
+            duration == Duration.ZERO -> return
             else -> delay(duration)
         }
     }

@@ -769,14 +769,14 @@ class RetryTests {
             var delayProviderRetryCounter = 0
                 private set
 
-            override suspend fun delay(attempt: Int, lastThrowable: Throwable?): Duration? {
+            override suspend fun delay(attempt: Int, lastThrowable: Throwable?): Duration {
                 val nextDuration = when {
                     ++delayProviderRetryCounter % 2 == 0 -> 1.seconds
                     else -> 2.seconds
                 }
                 println("Retry Attempt: $attempt, Delay duration: $nextDuration")
                 delayWithRealTime(nextDuration)
-                return null
+                return Duration.ZERO // to skip the default delay provider
             }
         }
 
@@ -826,7 +826,7 @@ class RetryTests {
             }
             println("Retry Attempt: $attempt, Delay duration: $nextDuration")
             delayWithRealTime(nextDuration)
-            null
+            Duration.ZERO // to skip the default delay provider
         }
 
         // and: a retry configuration
