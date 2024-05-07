@@ -22,13 +22,19 @@ jobs:
     strategy:
       matrix:
         include:
+          # js (both node and browser)
+          - target: jsTest
+            os: ubuntu-latest
+          # jvm
           - target: jvmTest
             os: ubuntu-latest
-          - target: linuxX64Test
-            os: ubuntu-latest
+          # android
           - target: testDebugUnitTest
             os: ubuntu-latest
           - target: testReleaseUnitTest
+            os: ubuntu-latest
+          # native (depends on the host OS)
+          - target: nativeTest
             os: ubuntu-latest
     runs-on: ${{ matrix.os }}
 
