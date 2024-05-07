@@ -40,7 +40,7 @@ typealias BeforeOperationCallback = (attempt: Int) -> Unit
  * Builder for configuring a [RetryConfig] instance.
  * Use [retryConfig] to create a [RetryConfig] instance.
  */
-open class RetryConfigBuilder {
+class RetryConfigBuilder {
 
     private companion object {
         const val DEFAULT_MAX_ATTEMPTS = 3
@@ -48,13 +48,13 @@ open class RetryConfigBuilder {
 
     private lateinit var delayStrategy: SuspendRetryDelayStrategy
     private lateinit var beforeOperationCallback: BeforeOperationCallback
-    // TODO(ensure JS target compatibility, might need an array instead of a list)
-    private var retryPredicateList: MutableList<RetryPredicate> = mutableListOf()
+    private lateinit var retryPredicate: RetryPredicate
     private lateinit var retryOnResultPredicate: RetryOnResultPredicate
 
     init {
         exponentialDelay()
-        retryPredicateList.add { true }
+        beforeOperCallback { }
+        retryIf { true }
         retryOnResult { false }
     }
 
@@ -64,22 +64,12 @@ open class RetryConfigBuilder {
     var maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
 
     /**
-     * Adds a retry predicate to the list of retry predicates.
+     * Configures the retry predicate.
      * The predicate is used to determine if, based on the caught throwable, the operation should be retried.
      * @param predicate the predicate to use.
      */
-    fun addRetryPredicate(predicate: RetryPredicate) {
-        removeDefaultPredicateIfPresent()
-        retryPredicateList.add(predicate)
-    }
-
-    /**
-     * Removes the default predicate if it is the only one in the list.
-     */
-    private fun removeDefaultPredicateIfPresent() {
-        if (retryPredicateList.size == 1 && retryPredicateList.first() == { true }) {
-            retryPredicateList.clear()
-        }
+    fun retryIf(predicate: RetryPredicate) {
+        retryPredicate = predicate
     }
 
     /**
@@ -87,7 +77,7 @@ open class RetryConfigBuilder {
      * Receives the current retry attempt as an argument.
      * @param callback the callback to execute.
      */
-    fun beforeOpCallback(callback: BeforeOperationCallback) {
+    fun beforeOperCallback(callback: BeforeOperationCallback) {
         beforeOperationCallback = callback
     }
 
@@ -95,7 +85,7 @@ open class RetryConfigBuilder {
      * Configures the retry on result predicate.
      * The predicate is used to determine if, based on the result of the operation, the operation should be retried.
      * @param predicate the predicate to use.
-     * @see retryPredicateList
+     * @see retryPredicate
      */
     fun retryOnResult(predicate: RetryOnResultPredicate) {
         retryOnResultPredicate = predicate
@@ -190,14 +180,14 @@ open class RetryConfigBuilder {
      * @see [noDelay]
      */
     fun customDelayProvider(delayProvider: RetryDelayProvider) {
-        this.delayStrategy = { attempt, lastThrowable ->
+        delayStrategy = { attempt, lastThrowable ->
             delayProvider.delay(attempt, lastThrowable)
         }
     }
 
     /**
      * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
-     * any sleep duration provider.
+     * any custom delay provider.
      * @see [constantDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
@@ -211,7 +201,7 @@ open class RetryConfigBuilder {
      */
     fun build() = RetryConfig(
         maxAttempts,
-        retryPredicateList,
+        retryPredicate,
         retryOnResultPredicate,
         delayStrategy,
         beforeOperationCallback

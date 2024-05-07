@@ -1,4 +1,3 @@
-/*
 package retry
 
 import exceptions.WebServiceException
@@ -55,7 +54,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts  // includes the first non-retry attempt
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -141,7 +140,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -200,7 +199,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -251,7 +250,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -296,7 +295,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -359,9 +358,9 @@ class RetryTests {
         assertEquals(expectedMaxAttempts, config.maxAttempts)
 
         // and: should retry any exception
-        assertTrue(config.retryPredicateList.any { it(Exception()) })
-        assertTrue(config.retryPredicateList.any { it(RuntimeException()) })
-        assertTrue(config.retryPredicateList.any { it(WebServiceException("BAM!")) })
+        assertTrue(config.retryPredicate(Exception()))
+        assertTrue(config.retryPredicate(RuntimeException()))
+        assertTrue(config.retryPredicate(WebServiceException("BAM!")))
 
         // and: should not retry on any result
         assertFalse(config.retryOnResultPredicate(null))
@@ -388,7 +387,7 @@ class RetryTests {
         val result = null
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
             retryOnResult { it == result }
         }
@@ -440,7 +439,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -499,7 +498,7 @@ class RetryTests {
         val maxDelay = 10.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             exponentialDelay(initialDelay, multiplier, maxDelay) // will be: [1s, 2s, 4s, 8s, 10s, 10s]
         }
 
@@ -610,7 +609,7 @@ class RetryTests {
         val maxAttempts = 4
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException || it is RuntimeException }
+            retryIf { it is WebServiceException || it is RuntimeException }
             // simulates delay on each retry attempt: [3s, 1s, 2s]
             // since maxAttempts is 4 and the first attempt is not a retry
             customDelay { attempt, lastThrowable ->
@@ -684,7 +683,7 @@ class RetryTests {
         val constantDelay = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             customDelay { attempt, lastThrowable ->
                 constantDelay.also {
                     attemptCollector.add(attempt)
@@ -730,7 +729,7 @@ class RetryTests {
         val maxAttempts = 3
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             noDelay()
         }
 
@@ -785,7 +784,7 @@ class RetryTests {
         val maxAttempts = 3
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             customDelayProvider(statefulDelayProvider)
         }
 
@@ -834,7 +833,7 @@ class RetryTests {
         val maxAttempts = 3
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             customDelayProvider(statelessDelayProvider)
         }
 
@@ -884,14 +883,14 @@ class RetryTests {
         }
         val configWithCustomDelay = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate(retryPredicate)
+            retryIf(retryPredicate)
             customDelay(customDelayStrategy)
         }
 
         // and: a retry configuration with custom delay provider (stateless and with no external delay function)
         val configWithStatelessCustomDelayProvider = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate(retryPredicate)
+            retryIf(retryPredicate)
             customDelayProvider(customDelayStrategy)
         }
 
@@ -1037,7 +1036,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -1100,7 +1099,7 @@ class RetryTests {
         val delayDuration = 3.seconds
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
-            addRetryPredicate { it is WebServiceException }
+            retryIf { it is WebServiceException }
             constantDelay(delayDuration)
         }
 
@@ -1157,4 +1156,3 @@ class RetryTests {
     }
 
 }
-*/
