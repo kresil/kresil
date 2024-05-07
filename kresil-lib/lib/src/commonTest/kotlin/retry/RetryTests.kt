@@ -71,9 +71,7 @@ class RetryTests {
         retry.onEvent {
             eventsList.add(it)
         }
-
-        // wait for listeners to be registered using real time
-        delayWithRealTime()
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
             when (isDecorated) {
@@ -157,9 +155,7 @@ class RetryTests {
         retry.onEvent {
             eventsList.add(it)
         }
-
-        // wait for listeners to be registered using real time
-        delayWithRealTime()
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
              // when: a supplier is executed with the retry instance
@@ -218,6 +214,7 @@ class RetryTests {
         retry.onEvent {
             eventsList.add(it)
         }
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
              // when: a supplier is executed with the retry instance
@@ -267,9 +264,7 @@ class RetryTests {
         retry.onEvent {
             eventsList.add(it)
         }
-
-        // wait for listeners to be registered using real time
-        delayWithRealTime()
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         // when: a decorated supplier is executed with the retry instance
         retry.executeNSupplier {
@@ -322,7 +317,6 @@ class RetryTests {
         retry.onEvent {
             println("State change: $it")
         }
-
         // wait for listeners to be registered using real time
         delayWithRealTime()
 
@@ -404,7 +398,6 @@ class RetryTests {
         retry.onEvent {
             eventsList.add(it)
         }
-
         delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
@@ -1006,6 +999,7 @@ class RetryTests {
         retry.onEvent {
             eventListeners.add(it)
         }
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         // and: the decorated supplier is executed again
         try {
@@ -1054,9 +1048,7 @@ class RetryTests {
         retry.onEvent {
             eventsList.add(it)
         }
-
-        // wait for listeners to be registered using real time
-        delayWithRealTime()
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
             // when: a decorated function is executed with the retry instance
@@ -1118,9 +1110,7 @@ class RetryTests {
         retry.onEvent {
             eventsList.add(it)
         }
-
-        // wait for listeners to be registered using real time
-        delayWithRealTime()
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         try {
             // when: a decorated bi-function is executed with the retry instance
