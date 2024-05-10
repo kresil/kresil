@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kresil.ktor.plugins.retry.client.KresilRetryPlugin
+import kresil.ktor.plugins.retry.client.kRetry
 
 class NetworkError : Exception()
 
@@ -26,9 +27,10 @@ suspend fun main() {
             retryOnException { it is NetworkError } // should not alter behavior of the plugin
             // constantDelay(2.seconds)
             retryOnServerErrors()
+            noDelay()
             maxAttempts = 5
             modifyRequestOnRetry { request, attempt ->
-                request.headers.append("RETRY_COUNT", attempt.toString())
+                request.headers.append("GLOBAL_RETRY_COUNT", attempt.toString())
             }
         }
         /*install(HttpTimeout) {
@@ -42,13 +44,11 @@ suspend fun main() {
     client.post {
         url("http://127.0.0.1:8080/")
         setBody("Hello, Kresil!")
-        /*retry {
-            retryOnServerErrors(maxRetries = Int.MAX_VALUE)
-            constantDelay(2.seconds.inWholeMilliseconds)
-            modifyRequest {
-                it.setBody(TextContent("With Different body ...", ContentType.Text.Plain))
+        kRetry {
+            modifyRequestOnRetry { builder, attempt ->
+                builder.headers.append("REQUEST_RETRY_COUNT", attempt.toString())
             }
-        }*/
+        }
     }
 
     client.close()
@@ -64,7 +64,7 @@ suspend fun startUnreliableServer() {
                 println("Server received: $text")
                 requestCount += 1
                 when (requestCount) {
-                    in 1..10 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
+                    in 1..4 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
                     else -> call.respondText("Server is back online!")
                 }
             }

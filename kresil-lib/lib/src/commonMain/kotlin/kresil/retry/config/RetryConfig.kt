@@ -14,7 +14,7 @@ import kresil.retry.builders.retryConfig
  * @param beforeOperationCallback the callback to execute before the operation is called.
  * @see [Retry]
  */
-data class RetryConfig internal constructor(
+data class RetryConfig(
     val maxAttempts: Int,
     val retryPredicate: RetryPredicate,
     val retryOnResultPredicate: RetryOnResultPredicate,
