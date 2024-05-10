@@ -1,24 +1,13 @@
 package kresil.retry.config
 
+import kresil.core.builders.ConfigBuilder
+import kresil.retry.builders.retryConfig
+import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryDelayStrategy
 import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kresil.retry.builders.retryConfig
-import kresil.retry.delay.RetryDelayProvider
-import kresil.retry.delay.RetryDelayStrategy
-
-/**
- * Specifies the delay strategy to use for retrying an operation.
- * Presents the same behaviour as a [RetryDelayStrategy],
- * with the added ability to use a custom delay provider.
- * The strategy is used to determine the delay duration between retries, where:
- * - `attempt` is the current retry attempt. Starts at **1**.
- * - `lastThrowable` is the last throwable caught, if any.
- *
- * If the return value is `Duration.ZERO`, the delay is considered to be **defined externally** and the **default delay provider is skipped**.
- */
-typealias SuspendRetryDelayStrategy = suspend (attempt: Int, lastThrowable: Throwable?) -> Duration
 
 /**
  * Predicate to determine if the operation should be retried based on the caught throwable.
@@ -38,30 +27,19 @@ typealias BeforeOperationCallback = (attempt: Int) -> Unit
 
 /**
  * Builder for configuring a [RetryConfig] instance.
- * Use [retryConfig] to create a [RetryConfig] instance.
+ * Use [retryConfig] to create one.
  */
-class RetryConfigBuilder {
+class RetryConfigBuilder(override val baseConfig: RetryConfig = defaultRetryConfig) : ConfigBuilder<RetryConfig> {
 
-    private companion object {
-        const val DEFAULT_MAX_ATTEMPTS = 3
-    }
-
-    private lateinit var delayStrategy: SuspendRetryDelayStrategy
-    private lateinit var beforeOperationCallback: BeforeOperationCallback
-    private lateinit var retryPredicate: RetryPredicate
-    private lateinit var retryOnResultPredicate: RetryOnResultPredicate
-
-    init {
-        exponentialDelay()
-        beforeOperCallback { }
-        retryIf { true }
-        retryOnResult { false }
-    }
+    private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
+    private var beforeOperationCallback: BeforeOperationCallback = baseConfig.beforeOperationCallback
+    private var retryPredicate: RetryPredicate = baseConfig.retryPredicate
+    private var retryOnResultPredicate: RetryOnResultPredicate = baseConfig.retryOnResultPredicate
 
     /**
      * The maximum number of attempts **(including the initial call as the first attempt)**.
      */
-    var maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
+    var maxAttempts: Int = baseConfig.maxAttempts
 
     /**
      * Configures the retry predicate.
@@ -136,13 +114,8 @@ class RetryConfigBuilder {
     ) {
         requirePositiveDuration(initialDelay, "Initial delay")
         require(multiplier > 1.0) { "Multiplier must be greater than 1" }
-        val initialDelayMillis = initialDelay.inWholeMilliseconds
-        val maxDelayMillis = maxDelay.inWholeMilliseconds
-        require(initialDelayMillis < maxDelayMillis) { "Max delay must be greater than initial delay" }
-        delayStrategy = { attempt, _ ->
-            val nextDurationMillis = initialDelayMillis * multiplier.pow(attempt)
-            nextDurationMillis.milliseconds.coerceAtMost(maxDelayMillis.milliseconds)
-        }
+        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
+        delayStrategy = internalExponentialDelay(initialDelay, multiplier, maxDelay)
     }
 
     /**
@@ -203,22 +176,51 @@ class RetryConfigBuilder {
     /**
      * Builds the [RetryConfig] instance with the configured properties.
      */
-    fun build() = RetryConfig(
+    override fun build() = RetryConfig(
         maxAttempts,
         retryPredicate,
         retryOnResultPredicate,
         delayStrategy,
         beforeOperationCallback
     )
-
-    /**
-     * Validates that the duration is in fact a positive duration.
-     * @param duration the duration to validate.
-     * @param qualifier the qualifier to use in the exception message.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0
-     */
-    private fun requirePositiveDuration(duration: Duration, qualifier: String) {
-        require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
-    }
-
 }
+
+/**
+ * Internal helper function to create an exponential delay strategy.
+ * @param initialDelay the initial delay before the first retry.
+ * @param multiplier the multiplier to increase the delay between retries.
+ * @param maxDelay the maximum delay between retries.
+ */
+private fun internalExponentialDelay(
+    initialDelay: Duration,
+    multiplier: Double,
+    maxDelay: Duration,
+): RetryDelayStrategy = { attempt, _ ->
+    val nextDurationMillis = initialDelay * multiplier.pow(attempt)
+    nextDurationMillis.coerceAtMost(maxDelay)
+}
+
+/**
+ * Validates that the duration is in fact a positive duration.
+ * @param duration the duration to validate.
+ * @param qualifier the qualifier to use in the exception message.
+ * @throws IllegalArgumentException if the duration is less than or equal to 0
+ */
+private fun requirePositiveDuration(duration: Duration, qualifier: String) {
+    require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
+}
+
+/**
+ * The default retry configuration.
+ */
+private val defaultRetryConfig = RetryConfig(
+    maxAttempts = 3,
+    retryPredicate = { true },
+    retryOnResultPredicate = { false },
+    delayStrategy = internalExponentialDelay(
+        initialDelay = 500.milliseconds,
+        multiplier = 2.0,
+        maxDelay = 1.minutes
+    ),
+    beforeOperationCallback = { }
+)

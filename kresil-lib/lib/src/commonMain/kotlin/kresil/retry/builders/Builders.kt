@@ -7,11 +7,14 @@ import kresil.retry.Retry
 /**
  * Creates a [RetryConfig] instance using the provided configuration.
  */
-fun retryConfig(configure: RetryConfigBuilder.() -> Unit): RetryConfig {
-    val builder = RetryConfigBuilder()
-    builder.configure()
-    return builder.build()
-}
+fun retryConfig(configure: RetryConfigBuilder.() -> Unit): RetryConfig =
+    RetryConfigBuilder().apply(configure).build()
+
+/**
+ * Creates a [RetryConfig] instance using the provided configuration which will be based on the received configuration.
+ */
+fun retryConfig(baseConfig: RetryConfig, configure: RetryConfigBuilder.() -> Unit): RetryConfig =
+    RetryConfigBuilder(baseConfig).apply(configure).build()
 
 /**
  * Creates a [RetryConfig] instance using the default configuration.

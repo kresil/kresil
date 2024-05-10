@@ -1145,4 +1145,26 @@ class RetryTests {
         retry.cancelListeners() // cancel all listeners
     }
 
+    @Test
+    fun overrideAConfiguration() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val baseConfig: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+        }
+
+        // when: the configuration is overridden
+        val newMaxAttempts = 5
+        val newConfig = retryConfig(baseConfig) {
+            this.maxAttempts = newMaxAttempts
+        }
+
+        // then: the new configuration is used
+        assertEquals(newMaxAttempts, newConfig.maxAttempts)
+    }
+
 }

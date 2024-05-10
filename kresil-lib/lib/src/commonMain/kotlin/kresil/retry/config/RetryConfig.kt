@@ -2,6 +2,7 @@ package kresil.retry.config
 
 import kresil.retry.Retry
 import kresil.retry.builders.retryConfig
+import kresil.retry.delay.RetryDelayStrategy
 
 /**
  * Represents a configuration for retrying an operation.
@@ -18,7 +19,7 @@ data class RetryConfig(
     val maxAttempts: Int,
     val retryPredicate: RetryPredicate,
     val retryOnResultPredicate: RetryOnResultPredicate,
-    val delayStrategy: SuspendRetryDelayStrategy,
+    val delayStrategy: RetryDelayStrategy,
     val beforeOperationCallback: BeforeOperationCallback
 ) {
 
