@@ -6,22 +6,20 @@ import io.ktor.client.plugins.api.*
 import io.ktor.client.request.*
 import io.ktor.util.*
 import kotlinx.coroutines.CompletableJob
-import kresil.ktor.plugins.retry.client.builder.ModifyRequestOnRetry
-import kresil.ktor.plugins.retry.client.builder.RetryOnCallPredicate
-import kresil.ktor.plugins.retry.client.builder.RetryPluginBuilder
 import kresil.ktor.plugins.retry.client.builder.RetryPluginConfig
-import kresil.ktor.plugins.retry.client.builder.RetryPluginPerReqBuilder
+import kresil.ktor.plugins.retry.client.builder.RetryPluginConfigBuilder
 import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 import kresil.retry.Retry
-import kresil.retry.config.BeforeOperationCallback
-import kresil.retry.config.RetryConfig
-import kresil.retry.config.RetryPredicate
-import kresil.retry.config.SuspendRetryDelayStrategy
+import kresil.retry.builders.retryConfig
 
-// TODO: update comments for per-request configuration
-// TODO: kRetry requires plugin to be installed first (warned in the docs)
+// TODO: find another way to store global configuration
+private lateinit var globalConfig: RetryPluginConfig
+
 /**
- * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism configuration and the [HttpRequestRetry] plugin provided by Ktor.
+ * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism
+ * configuration and the [HttpRequestRetry] plugin provided by Ktor.
+ * Configuration can be done globally when installing the plugin,
+ * or on a per-request basis with the [kRetry] function.
  * Examples of usage:
  * ```
  * // use predefined retry policies
@@ -46,68 +44,37 @@ import kresil.retry.config.SuspendRetryDelayStrategy
  */
 val KresilRetryPlugin = createClientPlugin(
     name = "KresilRetryPlugin",
-    createConfiguration = ::RetryPluginBuilder
+    createConfiguration = {
+        RetryPluginConfigBuilder(baseConfig = defaultRetryPluginConfig)
+    }
 ) {
-    val globalPluginConfig = pluginConfig.build()
+    globalConfig = pluginConfig.build()
     on(Send) { request ->  // is invoked every time a request is sent
-        // grab the per-request configuration settings
-        val maxAttemptsSource = if (request.attributes.contains(RetryMaxAttemptsPerRequestAttributeKey))
-            "Per-request" else "Global"
-        println("Max attempts source: $maxAttemptsSource")
-        val maxAttempts = request.attributes.getOrNull(RetryMaxAttemptsPerRequestAttributeKey) ?: globalPluginConfig.retryConfig.maxAttempts
-        println("Max attempts: $maxAttempts")
-        val retryPredicateSource = if (request.attributes.contains(RetryPredicatePerRequestAttributeKey))
-            "Per-request" else "Global"
-        println("Retry predicate source: $retryPredicateSource")
-        val retryPredicate = request.attributes.getOrNull(RetryPredicatePerRequestAttributeKey) ?: globalPluginConfig.retryConfig.retryPredicate
-        val delayStrategySource = if (request.attributes.contains(RetryDelayStrategyPerRequestAttributeKey))
-            "Per-request" else "Global"
-        println("Delay strategy source: $delayStrategySource")
-        val delayStrategy = request.attributes.getOrNull(RetryDelayStrategyPerRequestAttributeKey) ?: globalPluginConfig.retryConfig.delayStrategy
-        val beforeOperationCallBackSource = if (request.attributes.contains(BeforeOperationCallbackPerRequestAttributeKey))
-            "Per-request" else "Global"
-        println("Before operation callback source: $beforeOperationCallBackSource")
-        val beforeOperationCallback = request.attributes.getOrNull(BeforeOperationCallbackPerRequestAttributeKey) ?: globalPluginConfig.retryConfig.beforeOperationCallback
-        val shouldRetryOnCallSource = if (request.attributes.contains(RetryOnCallPerRequestAttributeKey))
-            "Per-request" else "Global"
-        println("Should retry on call source: $shouldRetryOnCallSource")
-        val shouldRetryOnCall = request.attributes.getOrNull(RetryOnCallPerRequestAttributeKey) ?: globalPluginConfig.retryOnCallPredicate
-        val modifyRequestSource = if (request.attributes.contains(ModifyRequestPerRequestAttributeKey))
-            "Per-request" else "Global"
-        println("Modify request source: $modifyRequestSource")
-        val modifyRequest = request.attributes.getOrNull(ModifyRequestPerRequestAttributeKey) ?: globalPluginConfig.modifyRequestOnRetry
-
-        // get the immutable global retry config from the builder
-        println("Global configuration: $globalPluginConfig")
-        val requestRetryConfig = RetryPluginConfig(
-            RetryConfig(
-                maxAttempts,
-                retryPredicate,
-                globalPluginConfig.retryConfig.retryOnResultPredicate,
-                delayStrategy,
-                beforeOperationCallback,
-            ),
-            modifyRequest,
-            shouldRetryOnCall
-        )
-        val retry = Retry(globalPluginConfig.retryConfig)
+        val requestPluginBuilder: RetryPluginConfigBuilder = request.attributes
+            .getOrNull(RetryPluginConfigBuilderPerRequestAttributeKey)
+            ?: pluginConfig
+        val requestPluginConfig: RetryPluginConfig = requestPluginBuilder.build()
+        val retry = Retry(requestPluginConfig.retryConfig)
         retry.onEvent { event ->
             println("Received event: $event")
         }
         lateinit var call: HttpClientCall
-        retry.executeSupplier {
-            val subRequest = copyRequestAndPropagateCompletion(request)
-            requestRetryConfig.modifyRequestOnRetry(subRequest)
-            call = proceed(subRequest) // proceed with the modified request
-            println("Request headers: ${call.request.headers}")
-            println("Response call: ${call.response}")
-            if (requestRetryConfig.retryOnCallPredicate(call)) {
-                throw RetryOnCallException()
+        try {
+            retry.executeSupplier {
+                val subRequest = copyRequestAndPropagateCompletion(request)
+                requestPluginConfig.modifyRequestOnRetry(subRequest)
+                call = proceed(subRequest) // proceed with the modified request
+                println("Request headers: ${call.request.headers}")
+                println("Response call: ${call.response}")
+                if (requestPluginConfig.retryOnCallPredicate(call.request, call.response)) {
+                    throw RetryOnCallException()
+                }
             }
+        } finally {
+            retry.cancelListeners()
         }
         call
     }
-    // onClose { retry.cancelListeners() }
 }
 
 /**
@@ -127,32 +94,25 @@ private fun copyRequestAndPropagateCompletion(request: HttpRequestBuilder): Http
 
 /**
  * Configures the [KresilRetryPlugin] on a per-request level.
- * The configuration declared in this block will override the global configuration, or inherit it if not specified.
+ * The configuration declared in this block will override the global configuration, or inherit from it if not specified.
  */
-fun HttpRequestBuilder.kRetry(block: RetryPluginPerReqBuilder.() -> Unit) {
-    val retryPerReqBuilder = RetryPluginPerReqBuilder().apply(block)
-    val configuration = retryPerReqBuilder.build()
-    println("Per-request configuration: $configuration")
-    // save the per-request configuration settings
-    /*attributes.put(RetryMaxAttemptsPerRequestAttributeKey, configuration.maxAttempts)
-    attributes.put(RetryPredicatePerRequestAttributeKey, configuration.retryPredicate)
-    attributes.put(RetryDelayStrategyPerRequestAttributeKey, configuration.delayStrategy)
-    attributes.put(BeforeOperationCallbackPerRequestAttributeKey, configuration.beforeOperationCallback)
-    attributes.put(RetryOnCallPerRequestAttributeKey, configuration.retryOnCallPredicate)
-    attributes.put(ModifyRequestPerRequestAttributeKey, configuration.modifyRequest)*/
+fun HttpRequestBuilder.kRetry(configure: RetryPluginConfigBuilder.() -> Unit) {
+    val block = RetryPluginConfigBuilder(globalConfig).apply(configure)
+    attributes.put(RetryPluginConfigBuilderPerRequestAttributeKey, block)
 }
 
-private val RetryMaxAttemptsPerRequestAttributeKey =
-    AttributeKey<Int>("MaxAttemptsPerRequestAttributeKey")
-private val RetryPredicatePerRequestAttributeKey =
-    AttributeKey<RetryPredicate>("RetryPredicatePerRequestAttributeKey")
-private val RetryDelayStrategyPerRequestAttributeKey =
-    AttributeKey<SuspendRetryDelayStrategy>("RetryDelayStrategyPerRequestAttributeKey")
-private val BeforeOperationCallbackPerRequestAttributeKey =
-    AttributeKey<BeforeOperationCallback>("BeforeOperationCallbackPerRequestAttributeKey")
-private val RetryOnCallPerRequestAttributeKey =
-    AttributeKey<RetryOnCallPredicate>("RetryOnCallPerRequestAttributeKey")
-private val ModifyRequestPerRequestAttributeKey =
-    AttributeKey<ModifyRequestOnRetry>(
-        "ModifyRequestPerRequestAttributeKey"
+private val RetryPluginConfigBuilderPerRequestAttributeKey =
+    AttributeKey<RetryPluginConfigBuilder>(
+        "RetryPluginConfigBuilderPerRequestAttributeKey"
     )
+
+private val defaultRetryPluginConfig = RetryPluginConfig(
+    retryConfig = retryConfig {
+        maxAttempts = 8
+        retryIf { it is RetryOnCallException }
+        retryOnResult { false }
+        noDelay()
+    },
+    modifyRequestOnRetry = { println("No modification on retry") },
+    retryOnCallPredicate = { _, _ -> false }
+)

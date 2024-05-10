@@ -1,14 +1,13 @@
 package kresil.ktor.plugins.retry.client.builder
 
-import io.ktor.client.call.*
 import io.ktor.client.network.sockets.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.client.utils.*
 import io.ktor.http.*
+import kresil.core.builders.ConfigBuilder
 import kresil.ktor.plugins.retry.client.KresilRetryPlugin
-import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.config.RetryPredicate
 import kresil.retry.delay.RetryDelayProvider
@@ -17,19 +16,24 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
-internal typealias RetryOnCallPredicate = (call: HttpClientCall) -> Boolean
-internal typealias ModifyRequestOnRetry = (requestBuilder: HttpRequestBuilder) -> Unit
+internal typealias RetryOnCallPredicate = (HttpRequest, HttpResponse) -> Boolean
+internal typealias ModifyRequestOnRetry = (HttpRequestBuilder) -> Unit
 
 /**
- * Builder for configuring the [KresilRetryPlugin] on a global level.
+ * Builder for configuring the [KresilRetryPlugin].
  */
-open class RetryPluginBuilder {
+class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : ConfigBuilder<RetryPluginConfig> {
 
-    private val retryConfigBuilder: RetryConfigBuilder = RetryConfigBuilder()
-    protected var retryPredicateList: MutableList<RetryPredicate> = mutableListOf()
-    protected val shouldRetryOnCallList: MutableList<(HttpRequest, HttpResponse) -> Boolean> =
-        mutableListOf()
-    private var modifyRequest: ModifyRequestOnRetry = {}
+    // TODO: add disable retry functionality
+    private val retryConfigBuilder: RetryConfigBuilder = RetryConfigBuilder(baseConfig.retryConfig)
+    private var retryPredicateList: MutableList<RetryPredicate> = mutableListOf(baseConfig.retryConfig.retryPredicate)
+    private val shouldRetryOnCallList: MutableList<RetryOnCallPredicate> = mutableListOf(baseConfig.retryOnCallPredicate)
+    private var modifyRequest: ModifyRequestOnRetry = baseConfig.modifyRequestOnRetry
+
+    /**
+     * The maximum number of attempts **(including the initial call as the first attempt)**.
+     */
+    var maxAttempts: Int = baseConfig.retryConfig.maxAttempts
 
     /**
      * Determines if the HTTP call should be retried based on the configured predicates.
@@ -37,8 +41,8 @@ open class RetryPluginBuilder {
      * @see retryIfIdempotent
      * @see retryOnCall
      */
-    internal fun shouldRetryOnCall(call: HttpClientCall): Boolean {
-        return shouldRetryOnCallList.any { it(call.request, call.response) }
+    internal fun shouldRetryOnCall(request: HttpRequest, response: HttpResponse): Boolean {
+        return shouldRetryOnCallList.any { it(request, response) }
     }
 
     /**
@@ -88,15 +92,6 @@ open class RetryPluginBuilder {
             }
         }
     }
-
-    /**
-     * The maximum number of attempts **(including the initial call as the first attempt)**.
-     */
-    var maxAttempts: Int = retryConfigBuilder.maxAttempts
-        set(value) {
-            retryConfigBuilder.maxAttempts = value
-            field = value
-        }
 
     /**
      * Configures the retry predicate.
@@ -202,20 +197,17 @@ open class RetryPluginBuilder {
         retryConfigBuilder.noDelay()
     }
 
-    fun build(): RetryPluginConfig {
-        retryPredicateList.add { it is RetryOnCallException }
-        retryConfigBuilder.retryIf { joinAllConfiguredPredicates(it) }
+    override fun build(): RetryPluginConfig {
+        retryConfigBuilder.retryIf { aggregateRetryPredicates(it) }
         return RetryPluginConfig(
             retryConfig = retryConfigBuilder.build(),
             modifyRequestOnRetry = modifyRequest,
-            retryOnCallPredicate = { shouldRetryOnCall(it) }
+            retryOnCallPredicate = { request, response -> shouldRetryOnCall(request, response) }
         )
     }
 
-    private fun joinAllConfiguredPredicates(throwable: Throwable): Boolean {
-        // add builder custom exception to be thrown on retry
-        val retryBuilderPredicate: RetryPredicate = { throwable is RetryOnCallException }
-        retryPredicateList.add(retryBuilderPredicate)
+    private fun aggregateRetryPredicates(throwable: Throwable): Boolean {
+        retryPredicateList.add(baseConfig.retryConfig.retryPredicate)
         return retryPredicateList.any { it(throwable) }
     }
 
