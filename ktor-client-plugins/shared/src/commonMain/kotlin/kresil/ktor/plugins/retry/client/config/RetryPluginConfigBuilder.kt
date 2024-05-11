@@ -1,4 +1,4 @@
-package kresil.ktor.plugins.retry.client.builder
+package kresil.ktor.plugins.retry.client.config
 
 import io.ktor.client.network.sockets.*
 import io.ktor.client.plugins.*
@@ -7,7 +7,6 @@ import io.ktor.client.statement.*
 import io.ktor.client.utils.*
 import io.ktor.http.*
 import kresil.core.builders.ConfigBuilder
-import kresil.ktor.plugins.retry.client.KresilRetryPlugin
 import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.config.RetryPredicate
 import kresil.retry.delay.RetryDelayProvider
@@ -15,6 +14,7 @@ import kresil.retry.delay.RetryDelayStrategy
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kresil.ktor.plugins.retry.client.KresilRetryPlugin
 
 internal typealias RetryOnCallPredicate = (HttpRequest, HttpResponse) -> Boolean
 internal typealias ModifyRequestOnRetry = (HttpRequestBuilder) -> Unit
@@ -24,7 +24,6 @@ internal typealias ModifyRequestOnRetry = (HttpRequestBuilder) -> Unit
  */
 class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : ConfigBuilder<RetryPluginConfig> {
 
-    // TODO: add disable retry functionality
     private val retryConfigBuilder: RetryConfigBuilder = RetryConfigBuilder(baseConfig.retryConfig)
     private var retryPredicateList: MutableList<RetryPredicate> = mutableListOf(baseConfig.retryConfig.retryPredicate)
     private val shouldRetryOnCallList: MutableList<RetryOnCallPredicate> = mutableListOf(baseConfig.retryOnCallPredicate)
@@ -34,6 +33,11 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * The maximum number of attempts **(including the initial call as the first attempt)**.
      */
     var maxAttempts: Int = baseConfig.retryConfig.maxAttempts
+        set(value) {
+            // connect value change with the retry config builder
+            retryConfigBuilder.maxAttempts = value
+            field = value
+        }
 
     /**
      * Determines if the HTTP call should be retried based on the configured predicates.
@@ -41,7 +45,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * @see retryIfIdempotent
      * @see retryOnCall
      */
-    internal fun shouldRetryOnCall(request: HttpRequest, response: HttpResponse): Boolean {
+    fun shouldRetryOnCall(request: HttpRequest, response: HttpResponse): Boolean {
         return shouldRetryOnCallList.any { it(request, response) }
     }
 
@@ -79,7 +83,9 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * See [HttpTimeout] plugin for more information on possible timeout exceptions.
      * If this method is used, [HttpTimeout] plugin should be installed after this plugin.
      */
-    fun retryOnTimeout() = retryPredicateList.add(Throwable::isTimeoutException)
+    fun retryOnTimeout() {
+        retryPredicateList.add(Throwable::isTimeoutException)
+    }
 
     /**
      * Modifies the request between retries, before it is sent.
@@ -195,6 +201,16 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      */
     fun noDelay() {
         retryConfigBuilder.noDelay()
+    }
+
+    /**
+     * Disables the retry plugin.
+     */
+    fun disableRetry() {
+        maxAttempts = 1
+        retryConfigBuilder.exceptionHandler {
+            // do nothing (overrides the default exception handler which propagates caught exceptions)
+        }
     }
 
     override fun build(): RetryPluginConfig {

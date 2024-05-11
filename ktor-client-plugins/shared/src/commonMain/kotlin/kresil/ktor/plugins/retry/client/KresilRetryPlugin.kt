@@ -6,8 +6,8 @@ import io.ktor.client.plugins.api.*
 import io.ktor.client.request.*
 import io.ktor.util.*
 import kotlinx.coroutines.CompletableJob
-import kresil.ktor.plugins.retry.client.builder.RetryPluginConfig
-import kresil.ktor.plugins.retry.client.builder.RetryPluginConfigBuilder
+import kresil.ktor.plugins.retry.client.config.RetryPluginConfig
+import kresil.ktor.plugins.retry.client.config.RetryPluginConfigBuilder
 import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 import kresil.retry.Retry
 import kresil.retry.builders.retryConfig
@@ -54,13 +54,14 @@ val KresilRetryPlugin = createClientPlugin(
             .getOrNull(RetryPluginConfigBuilderPerRequestAttributeKey)
             ?: pluginConfig
         val requestPluginConfig: RetryPluginConfig = requestPluginBuilder.build()
+        println("Request plugin config: $requestPluginConfig")
         val retry = Retry(requestPluginConfig.retryConfig)
         retry.onEvent { event ->
             println("Received event: $event")
         }
         lateinit var call: HttpClientCall
         try {
-            retry.executeSupplier {
+            retry.executeNSupplier {
                 val subRequest = copyRequestAndPropagateCompletion(request)
                 requestPluginConfig.modifyRequestOnRetry(subRequest)
                 call = proceed(subRequest) // proceed with the modified request
@@ -95,10 +96,14 @@ private fun copyRequestAndPropagateCompletion(request: HttpRequestBuilder): Http
 /**
  * Configures the [KresilRetryPlugin] on a per-request level.
  * The configuration declared in this block will override the global configuration, or inherit from it if not specified.
+ * @param disable if set to `true`, the request will not be retried
  */
-fun HttpRequestBuilder.kRetry(configure: RetryPluginConfigBuilder.() -> Unit) {
-    val block = RetryPluginConfigBuilder(globalConfig).apply(configure)
-    attributes.put(RetryPluginConfigBuilderPerRequestAttributeKey, block)
+fun HttpRequestBuilder.kRetry(disable: Boolean = false, configure: RetryPluginConfigBuilder.() -> Unit = {}) {
+    val builder = RetryPluginConfigBuilder(baseConfig = globalConfig).apply(configure)
+    if (disable) {
+        builder.disableRetry()
+    }
+    attributes.put(RetryPluginConfigBuilderPerRequestAttributeKey, builder)
 }
 
 private val RetryPluginConfigBuilderPerRequestAttributeKey =

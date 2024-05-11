@@ -1,4 +1,4 @@
-package kresil.ktor.plugins.retry.client.builder
+package kresil.ktor.plugins.retry.client.config
 
 import kresil.retry.config.RetryConfig
 
