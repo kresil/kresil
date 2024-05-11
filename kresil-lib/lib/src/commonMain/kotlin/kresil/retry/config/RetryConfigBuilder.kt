@@ -3,7 +3,7 @@ package kresil.retry.config
 import kresil.core.builders.ConfigBuilder
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
-import kotlin.math.pow
+import kresil.retry.delay.RetryDelayStrategyOptions
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -38,6 +38,10 @@ class RetryConfigBuilder(
     override val baseConfig: RetryConfig = defaultRetryConfig
 ) : ConfigBuilder<RetryConfig> {
 
+    // delay helper
+    private val retryDelayStrategyOptions = RetryDelayStrategyOptions
+
+    // state
     private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
     private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
     private var beforeOperationCallback: BeforeOperationCallback = baseConfig.beforeOperationCallback
@@ -87,6 +91,7 @@ class RetryConfigBuilder(
      * @see [customDelayProvider]
      * @see [noDelay]
      */
+    @Throws(IllegalArgumentException::class)
     fun constantDelay(duration: Duration) {
         requirePositiveDuration(duration, "Delay")
         delayStrategy = { _, _ -> duration }
@@ -109,12 +114,13 @@ class RetryConfigBuilder(
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1.
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the multiplier is less than or equal to 1.0.
      * @see [constantDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
      * @see [noDelay]
      */
+    @Throws(IllegalArgumentException::class)
     fun exponentialDelay(
         initialDelay: Duration = 500L.milliseconds,
         multiplier: Double = 2.0, // not using constant to be readable for the user
@@ -123,7 +129,7 @@ class RetryConfigBuilder(
         requirePositiveDuration(initialDelay, "Initial delay")
         require(multiplier > 1.0) { "Multiplier must be greater than 1" }
         require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategy = internalExponentialDelay(initialDelay, multiplier, maxDelay)
+        delayStrategy = retryDelayStrategyOptions.exponential(initialDelay, multiplier, maxDelay)
     }
 
     /**
@@ -147,9 +153,7 @@ class RetryConfigBuilder(
      * @see [noDelay]
      **/
     fun customDelay(delayStrategy: RetryDelayStrategy) {
-        this.delayStrategy = { attempt, lastThrowable ->
-            delayStrategy(attempt, lastThrowable)
-        }
+        this.delayStrategy = delayStrategy
     }
 
     /**
@@ -164,9 +168,7 @@ class RetryConfigBuilder(
      * @see [noDelay]
      */
     fun customDelayProvider(delayProvider: RetryDelayProvider) {
-        delayStrategy = { attempt, lastThrowable ->
-            delayProvider.delay(attempt, lastThrowable)
-        }
+        delayStrategy = retryDelayStrategyOptions.customProvider(delayProvider)
     }
 
     /**
@@ -178,7 +180,7 @@ class RetryConfigBuilder(
      * @see [customDelayProvider]
      */
     fun noDelay() {
-        delayStrategy = { _, _ -> Duration.ZERO }
+        delayStrategy = retryDelayStrategyOptions.noDelay()
     }
 
     /**
@@ -189,6 +191,7 @@ class RetryConfigBuilder(
     fun exceptionHandler(callback: ExceptionHandler) {
         exceptionHandler = callback
     }
+
     /**
      * Builds the [RetryConfig] instance with the configured properties.
      */
@@ -200,32 +203,17 @@ class RetryConfigBuilder(
         beforeOperationCallback,
         exceptionHandler
     )
-}
 
-/**
- * Internal helper function to create an exponential delay strategy.
- * @param initialDelay the initial delay before the first retry.
- * @param multiplier the multiplier to increase the delay between retries.
- * @param maxDelay the maximum delay between retries.
- */
-private fun internalExponentialDelay(
-    initialDelay: Duration,
-    multiplier: Double,
-    maxDelay: Duration,
-): RetryDelayStrategy = { attempt, _ ->
-    val nextDurationMillis = initialDelay * multiplier.pow(attempt)
-    nextDurationMillis.coerceAtMost(maxDelay)
-}
-
-/**
- * Validates that the duration is in fact a positive duration.
- * @param duration the duration to validate.
- * @param qualifier the qualifier to use in the exception message.
- * @throws IllegalArgumentException if the duration is less than or equal to 0
- */
-@Throws(IllegalArgumentException::class)
-private fun requirePositiveDuration(duration: Duration, qualifier: String) {
-    require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
+    /**
+     * Validates that the duration is in fact a positive duration.
+     * @param duration the duration to validate.
+     * @param qualifier the qualifier to use in the exception message.
+     * @throws IllegalArgumentException if the duration is less than or equal to 0
+     */
+    @Throws(IllegalArgumentException::class)
+    private fun requirePositiveDuration(duration: Duration, qualifier: String) {
+        require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
+    }
 }
 
 /**
@@ -235,7 +223,7 @@ private val defaultRetryConfig = RetryConfig(
     maxAttempts = 3,
     retryPredicate = { true },
     retryOnResultPredicate = { false },
-    delayStrategy = internalExponentialDelay(
+    delayStrategy = RetryDelayStrategyOptions.exponential(
         initialDelay = 500.milliseconds,
         multiplier = 2.0,
         maxDelay = 1.minutes
