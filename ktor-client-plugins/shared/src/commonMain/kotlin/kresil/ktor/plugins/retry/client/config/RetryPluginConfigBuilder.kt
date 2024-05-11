@@ -40,18 +40,10 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
         }
 
     /**
-     * Determines if the HTTP call should be retried based on the configured predicates.
-     * @see retryOnServerErrors
-     * @see retryIfIdempotent
-     * @see retryOnCall
-     */
-    fun shouldRetryOnCall(request: HttpRequest, response: HttpResponse): Boolean {
-        return shouldRetryOnCallList.any { it(request, response) }
-    }
-
-    /**
      * Configures a predicate to determine if an HTTP call should be retried based on the respective request and response.
      * @see retryOnServerErrors
+     * @see retryOnServerErrorsIfIdempotent
+     * @see retryOnTimeout
      */
     fun retryOnCall(block: (request: HttpRequest, response: HttpResponse) -> Boolean) {
         shouldRetryOnCallList.add(block)
@@ -59,6 +51,9 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
 
     /**
      * Retries the HTTP call if the response status code is in the range: **500-599**.
+     * @see [retryOnCall]
+     * @see [retryOnServerErrorsIfIdempotent]
+     * @see [retryOnTimeout]
      */
     fun retryOnServerErrors() {
         retryOnCall { _, response ->
@@ -67,14 +62,20 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
     }
 
     /**
-     * Retries the HTTP call if the request method is idempotent (i.e., the intended effect on the server of multiple identical requests with that method is the same as the effect for a single such request).
+     * Retries the HTTP call if the request method is idempotent
+     * (i.e.,
+     * the intended effect on the server of multiple identical requests with that method is the same as the effect for a single such request)
+     * and the response status code is in the specified [range].
      * Idempotent methods supported by Ktor are: `GET`, `HEAD`, `OPTIONS`, `PUT`, `DELETE`.
+     * @see [retryOnCall]
+     * @see [retryOnServerErrors]
+     * @see [retryOnTimeout]
      */
-    internal fun retryIfIdempotent() {
-        retryOnCall { request, _ ->
+    fun retryOnServerErrorsIfIdempotent(range: IntRange = 500..599) {
+        retryOnCall { request, response ->
             request.method in listOf(
                 HttpMethod.Get, HttpMethod.Delete, HttpMethod.Head, HttpMethod.Options, HttpMethod.Put
-            )
+            ) && response.status.value in range
         }
     }
 
@@ -82,6 +83,9 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * Retries the HTTP call if the exception thrown is a timeout exception.
      * See [HttpTimeout] plugin for more information on possible timeout exceptions.
      * If this method is used, [HttpTimeout] plugin should be installed after this plugin.
+     * @see [retryOnCall]
+     * @see [retryOnServerErrors]
+     * @see [retryOnServerErrorsIfIdempotent]
      */
     fun retryOnTimeout() {
         retryPredicateList.add(Throwable::isTimeoutException)
@@ -100,8 +104,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
     }
 
     /**
-     * Configures the retry predicate.
-     * The predicate is used to determine if, based on the caught throwable, the operation should be retried.
+     * Configures the retry predicate, used to determine if, based on the caught throwable, the underlying request should be retried.
      * @param predicate the predicate to use.
      */
     fun retryOnException(predicate: RetryPredicate) {
@@ -109,16 +112,60 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
     }
 
     /**
-     * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
-     * @param duration the constant delay between retries.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0.
+     * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
+     * any custom delay provider.
+     * @see [constantDelay]
+     * @see [linearDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
+     */
+    fun noDelay() {
+        retryConfigBuilder.noDelay()
+    }
+
+    /**
+     * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
+     * @param duration the constant delay between retries.
+     * @throws IllegalArgumentException if the duration is less than or equal to 0.
      * @see [noDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
+     * @see [customDelayProvider]
      */
     fun constantDelay(duration: Duration) {
         retryConfigBuilder.constantDelay(duration)
+    }
+
+    /**
+     * Configures the retry delay strategy to use a linear delay.
+     * The delay between retries is calculated using the formula:
+     *
+     * `initialDelay * attempt`, where `attempt` is the current retry attempt.
+     *
+     * Example:
+     * ```
+     * linearDelay(500.milliseconds, 4.seconds)
+     * // Delay between retries will be as follows:
+     * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
+     * ```
+     *
+     * **Note:** The delay is capped at the `maxDelay` value.
+     * @param initialDelay the initial delay before the first retry.
+     * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
+     * @see [noDelay]
+     * @see [constantDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
+     * @see [customDelayProvider]
+     */
+    fun linearDelay(
+        initialDelay: Duration = 500L.milliseconds,
+        maxDelay: Duration = 1.minutes
+    ) {
+        retryConfigBuilder.linearDelay(initialDelay, maxDelay)
     }
 
     /**
@@ -139,10 +186,11 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
      * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1.
+     * @see [noDelay]
      * @see [constantDelay]
+     * @see [linearDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
-     * @see [noDelay]
      */
     fun exponentialDelay(
         initialDelay: Duration = 500L.milliseconds,
@@ -167,10 +215,11 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * - `attempt` is the current retry attempt. Starts at **1**.
      * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
-     * @see [customDelayProvider]
-     * @see [constantDelay]
-     * @see [exponentialDelay]
      * @see [noDelay]
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelayProvider]
      **/
     fun customDelay(delayStrategy: RetryDelayStrategy) {
         retryConfigBuilder.customDelay(delayStrategy)
@@ -182,25 +231,14 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * [kotlinx.coroutines.delay] by default) and optional additional state between retries.
      * See [RetryDelayProvider] for more information and examples of usage.
      * @param delayProvider the custom delay provider to use.
-     * @see [exponentialDelay]
-     * @see [constantDelay]
-     * @see [customDelay]
      * @see [noDelay]
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
      */
     fun customDelayProvider(delayProvider: RetryDelayProvider) {
         retryConfigBuilder.customDelayProvider(delayProvider)
-    }
-
-    /**
-     * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
-     * any custom delay provider.
-     * @see [constantDelay]
-     * @see [exponentialDelay]
-     * @see [customDelay]
-     * @see [customDelayProvider]
-     */
-    fun noDelay() {
-        retryConfigBuilder.noDelay()
     }
 
     /**
@@ -222,9 +260,19 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
         )
     }
 
+    /**
+     * Aggregates all configured retry predicates to determine if the HTTP call should be retried based on the caught throwable.
+     */
     private fun aggregateRetryPredicates(throwable: Throwable): Boolean {
         retryPredicateList.add(baseConfig.retryConfig.retryPredicate)
         return retryPredicateList.any { it(throwable) }
+    }
+
+    /**
+     * Determines if the HTTP call should be retried based on the request and response.
+     */
+    private fun shouldRetryOnCall(request: HttpRequest, response: HttpResponse): Boolean {
+        return shouldRetryOnCallList.any { it(request, response) }
     }
 
 }

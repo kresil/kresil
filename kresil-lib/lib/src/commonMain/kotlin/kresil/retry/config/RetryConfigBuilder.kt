@@ -83,18 +83,64 @@ class RetryConfigBuilder(
     }
 
     /**
-     * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
-     * @param duration the constant delay between retries.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0.
+     * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
+     * any custom delay provider.
+     * @see [constantDelay]
+     * @see [linearDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
+     */
+    fun noDelay() {
+        delayStrategy = retryDelayStrategyOptions.noDelay()
+    }
+
+    /**
+     * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
+     * @param duration the constant delay between retries.
+     * @throws IllegalArgumentException if the duration is less than or equal to 0.
      * @see [noDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
+     * @see [customDelayProvider]
      */
     @Throws(IllegalArgumentException::class)
     fun constantDelay(duration: Duration) {
         requirePositiveDuration(duration, "Delay")
         delayStrategy = { _, _ -> duration }
+    }
+
+    /**
+     * Configures the retry delay strategy to use a linear delay.
+     * The delay between retries is calculated using the formula:
+     *
+     * `initialDelay * attempt`, where `attempt` is the current retry attempt.
+     *
+     * Example:
+     * ```
+     * linearDelay(500.milliseconds, 4.seconds)
+     * // Delay between retries will be as follows:
+     * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
+     * ```
+     *
+     * **Note:** The delay is capped at the `maxDelay` value.
+     * @param initialDelay the initial delay before the first retry.
+     * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
+     * @see [constantDelay]
+     * @see [customDelay]
+     * @see [customDelayProvider]
+     * @see [noDelay]
+     */
+    @Throws(IllegalArgumentException::class)
+    fun linearDelay(
+        initialDelay: Duration = 500L.milliseconds,
+        maxDelay: Duration = 1.minutes
+    ) {
+        requirePositiveDuration(initialDelay, "Initial delay")
+        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
+        delayStrategy = retryDelayStrategyOptions.linear(initialDelay, maxDelay)
     }
 
     /**
@@ -115,10 +161,11 @@ class RetryConfigBuilder(
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
      * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the multiplier is less than or equal to 1.0.
+     * @see [noDelay]
      * @see [constantDelay]
+     * @see [linearDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
-     * @see [noDelay]
      */
     @Throws(IllegalArgumentException::class)
     fun exponentialDelay(
@@ -147,10 +194,11 @@ class RetryConfigBuilder(
      * - `attempt` is the current retry attempt. Starts at **1**.
      * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
-     * @see [customDelayProvider]
-     * @see [constantDelay]
-     * @see [exponentialDelay]
      * @see [noDelay]
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelayProvider]
      **/
     fun customDelay(delayStrategy: RetryDelayStrategy) {
         this.delayStrategy = delayStrategy
@@ -162,25 +210,14 @@ class RetryConfigBuilder(
      * [kotlinx.coroutines.delay] by default) and optional additional state between retries.
      * See [RetryDelayProvider] for more information and examples of usage.
      * @param delayProvider the custom delay provider to use.
-     * @see [exponentialDelay]
-     * @see [constantDelay]
-     * @see [customDelay]
      * @see [noDelay]
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
      */
     fun customDelayProvider(delayProvider: RetryDelayProvider) {
         delayStrategy = retryDelayStrategyOptions.customProvider(delayProvider)
-    }
-
-    /**
-     * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
-     * any custom delay provider.
-     * @see [constantDelay]
-     * @see [exponentialDelay]
-     * @see [customDelay]
-     * @see [customDelayProvider]
-     */
-    fun noDelay() {
-        delayStrategy = retryDelayStrategyOptions.noDelay()
     }
 
     /**

@@ -44,6 +44,16 @@ internal object RetryDelayStrategyOptions {
     fun constant(delay: Duration): RetryDelayStrategy = { _, _ -> delay }
 
     /**
+     * A delay strategy that uses a linear delay duration.
+     * The delay between retries is calculated using the formula:
+     * `initialDelay * attempt`, where `attempt` is the current retry attempt.
+     * @param initialDelay The initial delay before the first retry.
+     * @param maxDelay The maximum delay between retries. Used as a safety net to prevent infinite delays.
+     */
+    fun linear(initialDelay: Duration, maxDelay: Duration): RetryDelayStrategy =
+        exponential(initialDelay, 1.0, maxDelay)
+
+    /**
      * A delay strategy that uses an exponential delay duration.
      * The delay between retries is calculated using the formula:
      * `initialDelay * multiplier^attempt`, where `attempt` is the current retry attempt.

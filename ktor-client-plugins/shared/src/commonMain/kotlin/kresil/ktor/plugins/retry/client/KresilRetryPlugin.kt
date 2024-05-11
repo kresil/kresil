@@ -96,7 +96,10 @@ private fun copyRequestAndPropagateCompletion(request: HttpRequestBuilder): Http
 /**
  * Configures the [KresilRetryPlugin] on a per-request level.
  * The configuration declared in this block will override the global configuration, or inherit from it if not specified.
+ *
+ * **Note:** This method requires the [KresilRetryPlugin] to be installed.
  * @param disable if set to `true`, the request will not be retried
+ * @param configure the configuration block to apply to this request
  */
 fun HttpRequestBuilder.kRetry(disable: Boolean = false, configure: RetryPluginConfigBuilder.() -> Unit = {}) {
     val builder = RetryPluginConfigBuilder(baseConfig = globalConfig).apply(configure)

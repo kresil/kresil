@@ -1288,4 +1288,84 @@ class RetryTests {
         retry.cancelListeners() // cancel all listeners
     }
 
+    @Test
+    fun retryWithLinearDelayStrategy() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            linearDelay(delayDuration)
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        coEvery { remoteService.suspendSupplier() }
+            .throws(WebServiceException("BAM!"))
+
+        try {
+             // when: a supplier is executed with the retry instance
+            retry.executeSupplier {
+                remoteService.suspendSupplier()
+            }
+            fail("should throw an exception")
+        } catch (e: WebServiceException) {
+            // expected
+        } catch (e: Exception) {
+            fail("unexpected exception: $e")
+        }
+
+        // then: the retry virtual time equals the delay duration multipled by each retry attempt
+        val retryExecutionDuration = currentTime
+        val retryAttempts = config.permittedRetryAttempts
+        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts)
+    }
+
+    @Test
+    fun linearDelayWithInvalidInitialDelay() {
+
+        // given: a retry configuration with an invalid initial delay
+        val initialDelay = (-2).seconds
+
+        // when: the linear delay is created
+        // then: an exception is thrown
+        val exception = assertFailsWith<IllegalArgumentException> {
+            retryConfig {
+                linearDelay(initialDelay)
+            }
+        }
+
+        // and: the exception message is correct
+        assertEquals(
+            "Initial delay duration must be greater than 0",
+            exception.message
+        )
+    }
+
+    @Test
+    fun linearDelayWithInitialDelayGreaterThanMaxDelay() {
+
+        // given: a retry configuration with an invalid initial delay
+        val initialDelay = 10.seconds
+        val maxDelay = 5.seconds
+
+        // when: the linear delay is created
+        // then: an exception is thrown
+        val exception = assertFailsWith<IllegalArgumentException> {
+            retryConfig {
+                linearDelay(initialDelay, maxDelay)
+            }
+        }
+
+        // and: the exception message is correct
+        assertEquals(
+            "Max delay must be greater than initial delay",
+            exception.message
+        )
+    }
+
 }
