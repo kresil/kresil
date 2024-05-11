@@ -13,12 +13,12 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
 import kresil.retry.Retry
-import kresil.retry.event.RetryEvent
 import kresil.retry.builders.retryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryPredicate
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
+import kresil.retry.event.RetryEvent
 import kresil.retry.exceptions.MaxRetriesExceededException
 import service.ConditionalSuccessRemoteService
 import service.RemoteService
@@ -405,9 +405,9 @@ class RetryTests {
             retry.executeNSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw a MaxRetriesExceededException")
         } catch (e: MaxRetriesExceededException) {
             // expected
-            println("MaxRetriesExceededException: $e")
         } catch (e: Exception) {
             fail("Unexpected exception: $e")
         }
@@ -1165,6 +1165,116 @@ class RetryTests {
 
         // then: the new configuration is used
         assertEquals(newMaxAttempts, newConfig.maxAttempts)
+    }
+
+    @Test
+    fun doNotPropagateExceptionOnError() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+            exceptionHandler {
+                // not throwing the exception
+                println("Error occurred: $it")
+            }
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that throws several exceptions
+        val webServiceException = WebServiceException("BAM!")
+        coEvery { remoteService.suspendSupplier() }
+            .throws(webServiceException)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+        delayWithRealTime() // wait for listeners to be registered using real time
+
+        try {
+             // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
+                remoteService.suspendSupplier()
+            }
+        } catch (e: WebServiceException) {
+            // then: the exception is not propagated
+            fail("The exception should not be propagated")
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // and: the retry events are emitted in the correct order
+        assertEquals(
+            listOf(
+                RetryEvent.RetryOnRetry(1),
+                RetryEvent.RetryOnRetry(2),
+                RetryEvent.RetryOnError(webServiceException)
+            ),
+            eventsList
+        )
+
+        retry.cancelListeners() // cancel all listeners
+    }
+
+    @Test
+    fun retryOnResultWithCustomExceptionHandler() = runTest {
+
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val result = null
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            retryIf { it is WebServiceException }
+            constantDelay(delayDuration)
+            retryOnResult { it == result }
+            exceptionHandler {
+                // not throwing the exception
+            }
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that returns some result
+        coEvery { remoteService.suspendSupplier() }
+            .returns(result)
+
+        // and: event listeners are registered
+        val eventsList = mutableListOf<RetryEvent>()
+        retry.onEvent {
+            eventsList.add(it)
+        }
+        delayWithRealTime() // wait for listeners to be registered using real time
+
+        try {
+            // when: a supplier is executed with the retry instance
+            retry.executeNSupplier {
+                remoteService.suspendSupplier()
+            }
+        } catch (e: MaxRetriesExceededException) {
+            fail("Should not throw a MaxRetriesExceededException")
+        } catch (e: Exception) {
+            fail("Unexpected exception: $e")
+        }
+
+        // then: the retry events are emitted in the correct order
+        val retryAttempts = config.permittedRetryAttempts // the first attempt is not a retry
+        val retryOnRetryList = List(retryAttempts) { RetryEvent.RetryOnRetry(it + 1) }
+        assertEquals(listOf(*retryOnRetryList.toTypedArray()), eventsList.take(retryAttempts))
+        eventsList.last().let {
+            assertIs<RetryEvent.RetryOnError>(it)
+            assertIs<MaxRetriesExceededException>(it.throwable)
+        }
+
+        retry.cancelListeners() // cancel all listeners
     }
 
 }

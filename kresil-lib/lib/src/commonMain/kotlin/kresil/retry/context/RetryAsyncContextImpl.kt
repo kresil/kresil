@@ -33,63 +33,64 @@ internal class RetryAsyncContextImpl(
     private var lastThrowable: Throwable? = null
     private val isRetryAttempt: Boolean
         get() = currentRetryAttempt > INITIAL_NON_RETRY_ATTEMPT
+    private val isWithinPermittedRetryAttempts: Boolean
+        get() = currentRetryAttempt < config.permittedRetryAttempts
 
     override suspend fun onResult(result: Any?): Boolean {
         if (shouldRetryOnResult(result)) {
-            continueOrPropagate(currentRetryAttempt)
+            if (!isWithinPermittedRetryAttempts) {
+                val exception = MaxRetriesExceededException()
+                eventFlow.emit(RetryEvent.RetryOnError(exception))
+                config.exceptionHandler(exception)
+                return false
+            }
             return true
+        } else {
+            return false
         }
-        return false
     }
 
     override suspend fun onRetry() {
         eventFlow.emit(RetryEvent.RetryOnRetry(++currentRetryAttempt))
         val duration: Duration = config.delayStrategy(currentRetryAttempt, lastThrowable)
         when {
-            // skip default delay provider if duration zero:
-            // 1. could mean that the delay is defined externally
-            // 2. could mean that the delay is not needed (no delay strategy)
+            // skip default delay provider if duration zero, because the delay is:
+            // 1. defined externally;
+            // 2. not needed (no delay strategy option)
             duration == Duration.ZERO -> return
             else -> delay(duration)
         }
     }
 
-    override suspend fun onError(throwable: Throwable) {
+    override suspend fun onError(throwable: Throwable): Boolean {
         lastThrowable = throwable
+        // special case
         if (throwable is MaxRetriesExceededException) {
+            // if default error handler is used this exception is thrown and catched here
+            // so it should be propagated further
             throw throwable
         }
-        continueOrPropagate(currentRetryAttempt, throwable)
+        // can retry be done?
         if (!shouldRetry(throwable)) {
             eventFlow.emit(RetryEvent.RetryOnIgnoredError(throwable))
-            throw throwable
+            config.exceptionHandler(throwable)
+            return false
         }
+        // and if retry can be done, do configured policies allow it?
+        if (!isWithinPermittedRetryAttempts) {
+            eventFlow.emit(RetryEvent.RetryOnError(throwable))
+            config.exceptionHandler(throwable)
+            return false
+        }
+        return true
     }
 
     override suspend fun onSuccess() {
-        if (isRetryAttempt) eventFlow.emit(RetryEvent.RetryOnSuccess)
+        if (isRetryAttempt && isWithinPermittedRetryAttempts) eventFlow.emit(RetryEvent.RetryOnSuccess)
     }
 
     override suspend fun beforeOperationCall() {
         if (isRetryAttempt) config.beforeOperationCallback(currentRetryAttempt)
-    }
-
-    /**
-     * Determines whether the retry mechanism should continue or propagate the error.
-     * If the current retry attempt is greater than or equal to the permitted retry attempts, the error is propagated.
-     * Otherwise, the retry mechanism continues.
-     * Also, if no throwable is provided, it is assumed
-     * that the maximum number of attempts was reached
-     * when a retry on result was attempted and a [MaxRetriesExceededException] is thrown instead.
-     * @param currentRetryAttempt The current retry attempt.
-     * @param throwable The throwable to propagate.
-     */
-    private suspend fun continueOrPropagate(currentRetryAttempt: Int, throwable: Throwable? = null) {
-        if (currentRetryAttempt >= config.permittedRetryAttempts) {
-            val errorOrExceptionToThrow = throwable ?: MaxRetriesExceededException()
-            eventFlow.emit(RetryEvent.RetryOnError(errorOrExceptionToThrow))
-            throw errorOrExceptionToThrow
-        }
     }
 
     // utility functions

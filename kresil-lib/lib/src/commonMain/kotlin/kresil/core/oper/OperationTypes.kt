@@ -1,4 +1,4 @@
-package kresil.core.operations
+package kresil.core.oper
 
 /**
  * Represents a potentially suspendable operation that accepts two arguments and produces a result which can be null.

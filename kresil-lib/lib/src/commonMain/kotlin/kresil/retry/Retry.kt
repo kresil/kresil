@@ -3,13 +3,13 @@ package kresil.retry
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kresil.core.operations.BiFunction
 import kresil.core.events.FlowEventListenerImpl
-import kresil.core.operations.Function
-import kresil.core.operations.NBiFunction
-import kresil.core.operations.NFunction
-import kresil.core.operations.NSupplier
-import kresil.core.operations.Supplier
+import kresil.core.oper.BiFunction
+import kresil.core.oper.Function
+import kresil.core.oper.NBiFunction
+import kresil.core.oper.NFunction
+import kresil.core.oper.NSupplier
+import kresil.core.oper.Supplier
 import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
@@ -82,23 +82,27 @@ class Retry(
     private suspend fun <InputA, InputB, Result> executeOperation(
         inputA: InputA,
         inputB: InputB,
-        block: NBiFunction<InputA, InputB, Result>
+        block: NBiFunction<InputA, InputB, Result>,
     ): Result? {
         val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
                 context.beforeOperationCall()
                 val result = block(inputA, inputB)
-                val shouldRetry = context.onResult(result)
-                if (shouldRetry) {
+                val shouldRetryOnResult = context.onResult(result)
+                if (shouldRetryOnResult) {
                     context.onRetry()
                     continue
                 }
                 context.onSuccess()
                 return result
             } catch (throwable: Throwable) {
-                context.onError(throwable)
-                context.onRetry()
+                val shouldRetryOnError = context.onError(throwable)
+                if (shouldRetryOnError) {
+                    context.onRetry()
+                } else {
+                    return null
+                }
             }
         }
     }
@@ -110,8 +114,10 @@ class Retry(
      * @see [decorateSupplier]
      */
     suspend fun <Result : Any> executeSupplier(
-        block: Supplier<Result>
+        block: Supplier<Result>,
     ): Result {
+        // TODO: this cast could fail if the operation is not nullable
+        // TODO: might need a MONAD to handle this case
         return executeNSupplier(block) as Result
     }
 
@@ -122,7 +128,7 @@ class Retry(
      * @see [decorateSupplier]
      */
     suspend fun <Result> executeNSupplier(
-        block: NSupplier<Result>
+        block: NSupplier<Result>,
     ): Result? {
         return executeOperation(Unit, Unit) { _, _ -> block() }
     }
@@ -135,7 +141,7 @@ class Retry(
      * @see [decorateFunction]
      */
     fun <Result : Any> decorateSupplier(
-        block: Supplier<Result>
+        block: Supplier<Result>,
     ): Supplier<Result> {
         @Suppress("UNCHECKED_CAST")
         return decorateNSupplier(block) as Supplier<Result>
@@ -149,7 +155,7 @@ class Retry(
      * @see [decorateNBiFunction]
      */
     fun <Result> decorateNSupplier(
-        block: NSupplier<Result>
+        block: NSupplier<Result>,
     ): NSupplier<Result> {
         return { executeOperation(Unit, Unit) { _, _ -> block() } }
     }
@@ -161,8 +167,8 @@ class Retry(
      * @see [decorateSupplier]
      * @see [decorateBiFunction]
      */
-    fun <Input, Result: Any> decorateFunction(
-        block: Function<Input, Result>
+    fun <Input, Result : Any> decorateFunction(
+        block: Function<Input, Result>,
     ): Function<Input, Result> {
         @Suppress("UNCHECKED_CAST")
         return decorateNFunction(block) as Function<Input, Result>
@@ -176,7 +182,7 @@ class Retry(
      * @see [decorateNBiFunction]
      */
     fun <Input, Result> decorateNFunction(
-        block: NFunction<Input, Result>
+        block: NFunction<Input, Result>,
     ): NFunction<Input, Result> {
         return { executeOperation(it, Unit) { a, _ -> block(a) } }
     }
@@ -188,8 +194,8 @@ class Retry(
      * @see [decorateSupplier]
      * @see [decorateFunction]
      */
-    fun <InputA, InputB, Result: Any> decorateBiFunction(
-        block: BiFunction<InputA, InputB, Result>
+    fun <InputA, InputB, Result : Any> decorateBiFunction(
+        block: BiFunction<InputA, InputB, Result>,
     ): BiFunction<InputA, InputB, Result> {
         @Suppress("UNCHECKED_CAST")
         return decorateNBiFunction(block) as BiFunction<InputA, InputB, Result>
@@ -203,7 +209,7 @@ class Retry(
      * @see [decorateNFunction]
      */
     fun <InputA, InputB, Result> decorateNBiFunction(
-        block: NBiFunction<InputA, InputB, Result>
+        block: NBiFunction<InputA, InputB, Result>,
     ): NBiFunction<InputA, InputB, Result> {
         return { a, b -> executeOperation(a, b, block) }
     }

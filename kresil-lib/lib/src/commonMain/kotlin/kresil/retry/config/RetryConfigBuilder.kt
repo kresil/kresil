@@ -26,11 +26,20 @@ typealias RetryOnResultPredicate = (result: Any?) -> Boolean
 typealias BeforeOperationCallback = (attempt: Int) -> Unit
 
 /**
+ * Callback to handle the retried operation that failed.
+ * Can be used to stop error propagation of the error or add additional logging.
+ */
+typealias ExceptionHandler = (throwable: Throwable) -> Unit
+
+/**
  * Builder for configuring a [RetryConfig] instance.
  * Use [retryConfig] to create one.
  */
-class RetryConfigBuilder(override val baseConfig: RetryConfig = defaultRetryConfig) : ConfigBuilder<RetryConfig> {
+class RetryConfigBuilder(
+    override val baseConfig: RetryConfig = defaultRetryConfig
+) : ConfigBuilder<RetryConfig> {
 
+    private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
     private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
     private var beforeOperationCallback: BeforeOperationCallback = baseConfig.beforeOperationCallback
     private var retryPredicate: RetryPredicate = baseConfig.retryPredicate
@@ -174,6 +183,14 @@ class RetryConfigBuilder(override val baseConfig: RetryConfig = defaultRetryConf
     }
 
     /**
+     * Configures the callback to handle the retried operation that failed.
+     * The default behavior is to propagate the error.
+     * @param callback the callback to execute.
+     */
+    fun exceptionHandler(callback: ExceptionHandler) {
+        exceptionHandler = callback
+    }
+    /**
      * Builds the [RetryConfig] instance with the configured properties.
      */
     override fun build() = RetryConfig(
@@ -181,7 +198,8 @@ class RetryConfigBuilder(override val baseConfig: RetryConfig = defaultRetryConf
         retryPredicate,
         retryOnResultPredicate,
         delayStrategy,
-        beforeOperationCallback
+        beforeOperationCallback,
+        exceptionHandler
     )
 }
 
@@ -206,6 +224,7 @@ private fun internalExponentialDelay(
  * @param qualifier the qualifier to use in the exception message.
  * @throws IllegalArgumentException if the duration is less than or equal to 0
  */
+@Throws(IllegalArgumentException::class)
 private fun requirePositiveDuration(duration: Duration, qualifier: String) {
     require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
 }
@@ -222,5 +241,6 @@ private val defaultRetryConfig = RetryConfig(
         multiplier = 2.0,
         maxDelay = 1.minutes
     ),
-    beforeOperationCallback = { }
+    beforeOperationCallback = { },
+    exceptionHandler = { throw it } // propagate the error by default
 )

@@ -1,3 +1,3 @@
 package exceptions
 
-class WebServiceException(message: String) : Exception(message)
+class WebServiceException(message: String) : RemoteServiceException(message)
