@@ -6,13 +6,10 @@ import kotlinx.coroutines.launch
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.BiFunction
 import kresil.core.oper.Function
-import kresil.core.oper.NBiFunction
-import kresil.core.oper.NFunction
-import kresil.core.oper.NSupplier
 import kresil.core.oper.Supplier
-import kresil.retry.builders.defaultRetryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
+import kresil.retry.config.defaultRetryConfig
 import kresil.retry.context.RetryAsyncContextImpl
 import kresil.retry.event.RetryEvent
 
@@ -38,6 +35,7 @@ import kresil.retry.event.RetryEvent
  *       retryOnResultIf { it is "success" }
  *       constantDelay(500.milliseconds)
  *       // customDelay { attempt, lastThrowable -> ... }
+ *       // exceptionHandler { throwable -> ... }
  *    }
  * )
  *
@@ -74,34 +72,34 @@ class Retry(
 
     /**
      * Executes an operation with this retry mechanism.
-     * @param inputA The first input argument.
-     * @param inputB The second input argument.
+     * @param A The first input argument.
+     * @param B The second input argument.
      * @param block The operation to execute.
      * @see [decorateFunction]
      */
-    private suspend fun <InputA, InputB, Result> executeOperation(
-        inputA: InputA,
-        inputB: InputB,
-        block: NBiFunction<InputA, InputB, Result>,
-    ): Result? {
+    private suspend fun <A, B, R> executeOperation(
+        a: A,
+        b: B,
+        block: BiFunction<A, B, R>,
+    ): Result<R?> {
         val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
                 context.beforeOperationCall()
-                val result = block(inputA, inputB)
+                val result = block(a, b)
                 val shouldRetryOnResult = context.onResult(result)
                 if (shouldRetryOnResult) {
                     context.onRetry()
                     continue
                 }
                 context.onSuccess()
-                return result
+                return Result.success(result)
             } catch (throwable: Throwable) {
                 val shouldRetryOnError = context.onError(throwable)
                 if (shouldRetryOnError) {
                     context.onRetry()
                 } else {
-                    return null
+                    return Result.failure(throwable)
                 }
             }
         }
@@ -109,108 +107,48 @@ class Retry(
 
     /**
      * Executes a [Supplier] with this retry mechanism.
-     * See [executeNSupplier] for a nullable result version of this operation.
      * @param block The operation to execute.
      * @see [decorateSupplier]
      */
-    suspend fun <Result : Any> executeSupplier(
-        block: Supplier<Result>,
-    ): Result {
-        // TODO: this cast could fail if the operation is not nullable
-        // TODO: might need a MONAD to handle this case
-        return executeNSupplier(block) as Result
-    }
-
-    /**
-     * Executes a [NSupplier] with this retry mechanism.
-     * See [executeSupplier] for a non-nullable version of this operation.
-     * @param block The operation to execute.
-     * @see [decorateSupplier]
-     */
-    suspend fun <Result> executeNSupplier(
-        block: NSupplier<Result>,
-    ): Result? {
+    suspend fun <R> executeSupplier(
+        block: Supplier<R>,
+    ): Result<R?> {
         return executeOperation(Unit, Unit) { _, _ -> block() }
     }
 
     /**
      * Decorates a [Supplier] with this retry mechanism.
-     * See [decorateNSupplier] for a nullable result version of this operation.
      * @param block The operation to decorate and execute later.
-     * @see [decorateBiFunction]
      * @see [decorateFunction]
+     * @see [decorateBiFunction]
      */
-    fun <Result : Any> decorateSupplier(
-        block: Supplier<Result>,
-    ): Supplier<Result> {
-        @Suppress("UNCHECKED_CAST")
-        return decorateNSupplier(block) as Supplier<Result>
-    }
-
-    /**
-     * Decorates a [NSupplier] with this retry mechanism.
-     * See [decorateSupplier] for a non-nullable version of this operation.
-     * @param block The operation to decorate and execute later.
-     * @see [decorateNSupplier]
-     * @see [decorateNBiFunction]
-     */
-    fun <Result> decorateNSupplier(
-        block: NSupplier<Result>,
-    ): NSupplier<Result> {
+    fun <R> decorateSupplier(
+        block: Supplier<R?>,
+    ): Supplier<Result<R?>> {
         return { executeOperation(Unit, Unit) { _, _ -> block() } }
     }
 
     /**
      * Decorates a [Function] with this retry mechanism.
-     * See [decorateNFunction] for a nullable result version of this operation.
      * @param block The operation to decorate and execute later.
      * @see [decorateSupplier]
      * @see [decorateBiFunction]
      */
-    fun <Input, Result : Any> decorateFunction(
-        block: Function<Input, Result>,
-    ): Function<Input, Result> {
-        @Suppress("UNCHECKED_CAST")
-        return decorateNFunction(block) as Function<Input, Result>
-    }
-
-    /**
-     * Decorates a [NFunction] with this retry mechanism.
-     * See [decorateFunction] for a non-nullable version of this operation.
-     * @param block The operation to decorate and execute later.
-     * @see [decorateNSupplier]
-     * @see [decorateNBiFunction]
-     */
-    fun <Input, Result> decorateNFunction(
-        block: NFunction<Input, Result>,
-    ): NFunction<Input, Result> {
+    fun <A, R> decorateFunction(
+        block: Function<A, R>,
+    ): Function<A, Result<R?>> {
         return { executeOperation(it, Unit) { a, _ -> block(a) } }
     }
 
     /**
      * Decorates a [BiFunction] with this retry mechanism.
-     * See [decorateNBiFunction] for a nullable result version of this operation.
      * @param block The operation to decorate and execute later.
      * @see [decorateSupplier]
      * @see [decorateFunction]
      */
-    fun <InputA, InputB, Result : Any> decorateBiFunction(
-        block: BiFunction<InputA, InputB, Result>,
-    ): BiFunction<InputA, InputB, Result> {
-        @Suppress("UNCHECKED_CAST")
-        return decorateNBiFunction(block) as BiFunction<InputA, InputB, Result>
-    }
-
-    /**
-     * Decorates a [NBiFunction] with this retry mechanism.
-     * See [decorateBiFunction] for a non-nullable version of this operation.
-     * @param block The operation to decorate and execute later.
-     * @see [decorateNSupplier]
-     * @see [decorateNFunction]
-     */
-    fun <InputA, InputB, Result> decorateNBiFunction(
-        block: NBiFunction<InputA, InputB, Result>,
-    ): NBiFunction<InputA, InputB, Result> {
+    fun <A, B, R> decorateBiFunction(
+        block: BiFunction<A, B, R>,
+    ): BiFunction<A, B, Result<R?>> {
         return { a, b -> executeOperation(a, b, block) }
     }
 

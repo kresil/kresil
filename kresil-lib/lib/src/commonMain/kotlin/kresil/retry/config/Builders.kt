@@ -1,7 +1,5 @@
-package kresil.retry.builders
+package kresil.retry.config
 
-import kresil.retry.config.RetryConfig
-import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.Retry
 
 /**

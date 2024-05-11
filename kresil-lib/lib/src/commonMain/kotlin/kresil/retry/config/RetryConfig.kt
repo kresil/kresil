@@ -1,7 +1,6 @@
 package kresil.retry.config
 
 import kresil.retry.Retry
-import kresil.retry.builders.retryConfig
 import kresil.retry.delay.RetryDelayStrategy
 
 /**

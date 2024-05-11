@@ -41,7 +41,7 @@ internal class RetryAsyncContextImpl(
             if (!isWithinPermittedRetryAttempts) {
                 val exception = MaxRetriesExceededException()
                 eventFlow.emit(RetryEvent.RetryOnError(exception))
-                config.exceptionHandler(exception)
+                config.exceptionHandler(exception) // could throw exception
                 return false
             }
             return true
@@ -64,13 +64,12 @@ internal class RetryAsyncContextImpl(
 
     override suspend fun onError(throwable: Throwable): Boolean {
         lastThrowable = throwable
-        // special case
+        // special case (only for default error handler)
         if (throwable is MaxRetriesExceededException) {
-            // if default error handler is used this exception is thrown and catched here
-            // so it should be propagated further
+            // propagate exception to the caller
             throw throwable
         }
-        // can retry be done?
+        // can retry be done for this error?
         if (!shouldRetry(throwable)) {
             eventFlow.emit(RetryEvent.RetryOnIgnoredError(throwable))
             config.exceptionHandler(throwable)

@@ -10,7 +10,7 @@ import kresil.ktor.plugins.retry.client.config.RetryPluginConfig
 import kresil.ktor.plugins.retry.client.config.RetryPluginConfigBuilder
 import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 import kresil.retry.Retry
-import kresil.retry.builders.retryConfig
+import kresil.retry.config.retryConfig
 
 // TODO: find another way to store global configuration
 private lateinit var globalConfig: RetryPluginConfig
@@ -61,7 +61,7 @@ val KresilRetryPlugin = createClientPlugin(
         }
         lateinit var call: HttpClientCall
         try {
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 val subRequest = copyRequestAndPropagateCompletion(request)
                 requestPluginConfig.modifyRequestOnRetry(subRequest)
                 call = proceed(subRequest) // proceed with the modified request

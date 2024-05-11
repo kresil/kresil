@@ -13,9 +13,9 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
 import kresil.retry.Retry
-import kresil.retry.builders.retryConfig
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryPredicate
+import kresil.retry.config.retryConfig
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kresil.retry.event.RetryEvent
@@ -77,7 +77,7 @@ class RetryTests {
             when (isDecorated) {
                 true -> {
                     // and: a decorated supplier
-                    val decorated = retry.decorateNSupplier {
+                    val decorated = retry.decorateSupplier {
                         remoteService.suspendSupplier()
                     }
 
@@ -87,12 +87,12 @@ class RetryTests {
 
                 false -> {
                     // when: a function is executed with the retry instance [2]
-                    retry.executeNSupplier {
+                    retry.executeSupplier {
                         remoteService.suspendSupplier()
                     }
                 }
             }
-            fail("suspend function should throw an exception")
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
@@ -159,14 +159,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
-            fail("suspend function should throw an exception")
+            fail("should throw an exception")
         } catch (e: RuntimeException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: no delay is executed since the exception is not the one specified in the retry predicate
@@ -218,13 +218,11 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 conditionalSuccessRemoteService.suspendSupplier()
             }
-        } catch (e: WebServiceException) {
-            // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry events are emitted in the correct order
@@ -267,7 +265,7 @@ class RetryTests {
         delayWithRealTime() // wait for listeners to be registered using real time
 
         // when: a decorated supplier is executed with the retry instance
-        retry.executeNSupplier {
+        retry.executeSupplier {
             remoteService.suspendSupplier()
         }
 
@@ -322,13 +320,14 @@ class RetryTests {
 
         try {
             // when: a suspend function is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: event listeners are invoked (see logs)
@@ -402,14 +401,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
-            fail("should throw a MaxRetriesExceededException")
+            fail("should throw an exception")
         } catch (e: MaxRetriesExceededException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry events are emitted in the correct order
@@ -445,13 +444,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry virtual time equals the delay duration multipled by each retry attempt
@@ -504,13 +504,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry virtual time equals the expected exponential delay
@@ -632,15 +633,16 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: RuntimeException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the collectors contain the expected values
@@ -695,14 +697,15 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: MaxRetriesExceededException) {
             // expected
             println("MaxRetriesExceededException: $e")
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the collectors contain the expected values
@@ -735,13 +738,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry virtual time equals 0 since there is no delay
@@ -790,13 +794,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the delay provider is invoked the expected number of times
@@ -839,13 +844,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // and: the method is invoked the exact number of times specified in the retry configuration
@@ -916,15 +922,16 @@ class RetryTests {
 
             try {
                 // when: a decorated supplier is executed with the retry instance
-                retry.executeNSupplier {
+                retry.executeSupplier {
                     remoteService.suspendSupplier()
                 }
+                fail("should throw an exception")
             } catch (e: WebServiceException) {
                 // expected
             } catch (e: RuntimeException) {
                 // expected
             } catch (e: Exception) {
-                fail("Unexpected exception: $e")
+                fail("unexpected exception: $e")
             }
 
             // then: the collectors contain the expected values
@@ -970,15 +977,16 @@ class RetryTests {
             .throws(exception)
 
         // when: a decorated supplier is executed with the retry instance
-        val decorated = retry.decorateNSupplier {
+        val decorated = retry.decorateSupplier {
             remoteService.suspendSupplier()
         }
         try {
             decorated()
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the listeners are invoked
@@ -1004,10 +1012,11 @@ class RetryTests {
         // and: the decorated supplier is executed again
         try {
             decorated()
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the new listener is invoked
@@ -1052,12 +1061,13 @@ class RetryTests {
 
         try {
             // when: a decorated function is executed with the retry instance
-            val decorated = retry.decorateNFunction(remoteService::suspendFunction)
+            val decorated = retry.decorateFunction(remoteService::suspendFunction)
             decorated(input)
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry virtual time equals the delay duration multipled by each retry attempt
@@ -1114,12 +1124,13 @@ class RetryTests {
 
         try {
             // when: a decorated bi-function is executed with the retry instance
-            val decorated = retry.decorateNBiFunction(remoteService::suspendBiFunction)
+            val decorated = retry.decorateBiFunction(remoteService::suspendBiFunction)
             decorated(input1, input2)
+            fail("should throw an exception")
         } catch (e: WebServiceException) {
             // expected
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry virtual time equals the delay duration multipled by each retry attempt
@@ -1200,14 +1211,14 @@ class RetryTests {
 
         try {
              // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: WebServiceException) {
             // then: the exception is not propagated
             fail("The exception should not be propagated")
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // and: the retry events are emitted in the correct order
@@ -1256,13 +1267,13 @@ class RetryTests {
 
         try {
             // when: a supplier is executed with the retry instance
-            retry.executeNSupplier {
+            retry.executeSupplier {
                 remoteService.suspendSupplier()
             }
         } catch (e: MaxRetriesExceededException) {
             fail("Should not throw a MaxRetriesExceededException")
         } catch (e: Exception) {
-            fail("Unexpected exception: $e")
+            fail("unexpected exception: $e")
         }
 
         // then: the retry events are emitted in the correct order

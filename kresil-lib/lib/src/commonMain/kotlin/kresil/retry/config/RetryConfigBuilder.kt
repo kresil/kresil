@@ -1,7 +1,6 @@
 package kresil.retry.config
 
 import kresil.core.builders.ConfigBuilder
-import kresil.retry.builders.retryConfig
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kotlin.math.pow
