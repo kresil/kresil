@@ -26,11 +26,22 @@ kotlin {
         }
     }
     js(compiler = IR) {
+        // extend mocha test runner timeout
         binaries.executable() // necessary for the IR compiler
         useEsModules() // or useCommonJs()
         browser {
+            testTask {
+                useMocha {
+                    timeout = "60000" // same as coroutine-test timeout, default was 2000
+                }
+            }
         }
         nodejs {
+            testTask {
+                useMocha {
+                    timeout = "60000" // same as coroutine-test timeout, default was 2000
+                }
+            }
         }
     }
     val hostOs = System.getProperty("os.name")
@@ -70,7 +81,6 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
-                // implementation(libs.napier)
             }
         }
         val commonTest by getting {

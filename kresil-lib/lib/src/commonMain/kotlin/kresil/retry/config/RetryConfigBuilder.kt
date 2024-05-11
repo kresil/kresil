@@ -1,24 +1,12 @@
 package kresil.retry.config
 
-import kotlin.math.pow
+import kresil.core.builders.ConfigBuilder
+import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryDelayStrategy
+import kresil.retry.delay.RetryDelayStrategyOptions
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kresil.retry.builders.retryConfig
-import kresil.retry.delay.RetryDelayProvider
-import kresil.retry.delay.RetryDelayStrategy
-
-/**
- * Specifies the delay strategy to use for retrying an operation.
- * Presents the same behaviour as a [RetryDelayStrategy],
- * with the added ability to use a custom delay provider.
- * The strategy is used to determine the delay duration between retries, where:
- * - `attempt` is the current retry attempt. Starts at **1**.
- * - `lastThrowable` is the last throwable caught, if any.
- *
- * If the return value is `null`, the delay is considered to be **defined externally** and the **default delay provider is skipped**.
- */
-typealias SuspendRetryDelayStrategy = suspend (attempt: Int, lastThrowable: Throwable?) -> Duration?
 
 /**
  * Predicate to determine if the operation should be retried based on the caught throwable.
@@ -28,41 +16,60 @@ typealias RetryPredicate = (Throwable) -> Boolean
 /**
  * Predicate to determine if the operation should be retried based on the result of the operation.
  */
-typealias RetryOnResultPredicate = (Any?) -> Boolean
+typealias RetryOnResultPredicate = (result: Any?) -> Boolean
+
+/**
+ * Callback to execute before the operation is called.
+ * Receives the current retry attempt as an argument.
+ */
+typealias BeforeOperationCallback = (attempt: Int) -> Unit
+
+/**
+ * Callback to handle the retried operation that failed.
+ * Can be used to stop error propagation of the error or add additional logging.
+ */
+typealias ExceptionHandler = (throwable: Throwable) -> Unit
 
 /**
  * Builder for configuring a [RetryConfig] instance.
- * Use [retryConfig] to create a [RetryConfig] instance.
+ * Use [retryConfig] to create one.
  */
-class RetryConfigBuilder internal constructor() {
+class RetryConfigBuilder(
+    override val baseConfig: RetryConfig = defaultRetryConfig
+) : ConfigBuilder<RetryConfig> {
 
-    private companion object {
-        const val DEFAULT_MAX_ATTEMPTS = 3
-    }
+    // delay helper
+    private val retryDelayStrategyOptions = RetryDelayStrategyOptions
 
-    init {
-        exponentialDelay()
-        retryIf { true }
-        retryOnResult { false }
-    }
-
-    private lateinit var delayStrategy: SuspendRetryDelayStrategy
-    private lateinit var retryIf: RetryPredicate
-    private lateinit var retryOnResultIf: RetryOnResultPredicate
+    // state
+    private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
+    private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
+    private var beforeOperationCallback: BeforeOperationCallback = baseConfig.beforeOperationCallback
+    private var retryPredicate: RetryPredicate = baseConfig.retryPredicate
+    private var retryOnResultPredicate: RetryOnResultPredicate = baseConfig.retryOnResultPredicate
 
     /**
      * The maximum number of attempts **(including the initial call as the first attempt)**.
      */
-    var maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
+    var maxAttempts: Int = baseConfig.maxAttempts
 
     /**
-     * Configures the retry on throwable predicate.
+     * Configures the retry predicate.
      * The predicate is used to determine if, based on the caught throwable, the operation should be retried.
      * @param predicate the predicate to use.
-     * @see retryOnResultIf
+     * @see retryOnResult
      */
     fun retryIf(predicate: RetryPredicate) {
-        retryIf = predicate
+        retryPredicate = predicate
+    }
+
+    /**
+     * Configures the callback to execute before the operation is called.
+     * Receives the current retry attempt as an argument.
+     * @param callback the callback to execute.
+     */
+    fun beforeOperCallback(callback: BeforeOperationCallback) {
+        beforeOperationCallback = callback
     }
 
     /**
@@ -72,20 +79,68 @@ class RetryConfigBuilder internal constructor() {
      * @see retryIf
      */
     fun retryOnResult(predicate: RetryOnResultPredicate) {
-        retryOnResultIf = predicate
+        retryOnResultPredicate = predicate
+    }
+
+    /**
+     * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
+     * any custom delay provider.
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
+     * @see [customDelayProvider]
+     */
+    fun noDelay() {
+        delayStrategy = retryDelayStrategyOptions.noDelay()
     }
 
     /**
      * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
      * @param duration the constant delay between retries.
      * @throws IllegalArgumentException if the duration is less than or equal to 0.
+     * @see [noDelay]
+     * @see [linearDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
-     * @see [noDelay]
+     * @see [customDelayProvider]
      */
+    @Throws(IllegalArgumentException::class)
     fun constantDelay(duration: Duration) {
         requirePositiveDuration(duration, "Delay")
         delayStrategy = { _, _ -> duration }
+    }
+
+    /**
+     * Configures the retry delay strategy to use a linear delay.
+     * The delay between retries is calculated using the formula:
+     *
+     * `initialDelay * attempt`, where `attempt` is the current retry attempt.
+     *
+     * Example:
+     * ```
+     * linearDelay(500.milliseconds, 4.seconds)
+     * // Delay between retries will be as follows:
+     * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
+     * ```
+     *
+     * **Note:** The delay is capped at the `maxDelay` value.
+     * @param initialDelay the initial delay before the first retry.
+     * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
+     * @see [constantDelay]
+     * @see [customDelay]
+     * @see [customDelayProvider]
+     * @see [noDelay]
+     */
+    @Throws(IllegalArgumentException::class)
+    fun linearDelay(
+        initialDelay: Duration = 500L.milliseconds,
+        maxDelay: Duration = 1.minutes
+    ) {
+        requirePositiveDuration(initialDelay, "Initial delay")
+        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
+        delayStrategy = retryDelayStrategyOptions.linear(initialDelay, maxDelay)
     }
 
     /**
@@ -105,11 +160,14 @@ class RetryConfigBuilder internal constructor() {
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1.
-     * @see [constantDelay]
-     * @see [customDelay]
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the multiplier is less than or equal to 1.0.
      * @see [noDelay]
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [customDelay]
+     * @see [customDelayProvider]
      */
+    @Throws(IllegalArgumentException::class)
     fun exponentialDelay(
         initialDelay: Duration = 500L.milliseconds,
         multiplier: Double = 2.0, // not using constant to be readable for the user
@@ -117,13 +175,8 @@ class RetryConfigBuilder internal constructor() {
     ) {
         requirePositiveDuration(initialDelay, "Initial delay")
         require(multiplier > 1.0) { "Multiplier must be greater than 1" }
-        val initialDelayMillis = initialDelay.inWholeMilliseconds
-        val maxDelayMillis = maxDelay.inWholeMilliseconds
-        require(initialDelayMillis < maxDelayMillis) { "Max delay must be greater than initial delay" }
-        delayStrategy = { attempt, _ ->
-            val nextDurationMillis = initialDelayMillis * multiplier.pow(attempt)
-            nextDurationMillis.milliseconds.coerceAtMost(maxDelayMillis.milliseconds)
-        }
+        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
+        delayStrategy = retryDelayStrategyOptions.exponential(initialDelay, multiplier, maxDelay)
     }
 
     /**
@@ -141,15 +194,14 @@ class RetryConfigBuilder internal constructor() {
      * - `attempt` is the current retry attempt. Starts at **1**.
      * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
-     * @see [customDelayProvider]
-     * @see [constantDelay]
-     * @see [exponentialDelay]
      * @see [noDelay]
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelayProvider]
      **/
     fun customDelay(delayStrategy: RetryDelayStrategy) {
-        this.delayStrategy = { attempt, lastThrowable ->
-            delayStrategy(attempt, lastThrowable)
-        }
+        this.delayStrategy = delayStrategy
     }
 
     /**
@@ -158,36 +210,35 @@ class RetryConfigBuilder internal constructor() {
      * [kotlinx.coroutines.delay] by default) and optional additional state between retries.
      * See [RetryDelayProvider] for more information and examples of usage.
      * @param delayProvider the custom delay provider to use.
-     * @see [exponentialDelay]
-     * @see [constantDelay]
-     * @see [customDelay]
      * @see [noDelay]
+     * @see [constantDelay]
+     * @see [linearDelay]
+     * @see [exponentialDelay]
+     * @see [customDelay]
      */
     fun customDelayProvider(delayProvider: RetryDelayProvider) {
-        this.delayStrategy = { attempt, lastThrowable ->
-            delayProvider.delay(attempt, lastThrowable)
-        }
+        delayStrategy = retryDelayStrategyOptions.customProvider(delayProvider)
     }
 
     /**
-     * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
-     * any sleep duration provider.
-     * @see [constantDelay]
-     * @see [exponentialDelay]
-     * @see [customDelay]
+     * Configures the callback to handle the retried operation that failed.
+     * The default behavior is to propagate the error.
+     * @param callback the callback to execute.
      */
-    fun noDelay() {
-        delayStrategy = { _, _ -> Duration.ZERO }
+    fun exceptionHandler(callback: ExceptionHandler) {
+        exceptionHandler = callback
     }
 
     /**
      * Builds the [RetryConfig] instance with the configured properties.
      */
-    fun build() = RetryConfig(
+    override fun build() = RetryConfig(
         maxAttempts,
-        retryIf,
-        retryOnResultIf,
-        delayStrategy
+        retryPredicate,
+        retryOnResultPredicate,
+        delayStrategy,
+        beforeOperationCallback,
+        exceptionHandler
     )
 
     /**
@@ -196,8 +247,24 @@ class RetryConfigBuilder internal constructor() {
      * @param qualifier the qualifier to use in the exception message.
      * @throws IllegalArgumentException if the duration is less than or equal to 0
      */
+    @Throws(IllegalArgumentException::class)
     private fun requirePositiveDuration(duration: Duration, qualifier: String) {
         require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
     }
-
 }
+
+/**
+ * The default retry configuration.
+ */
+private val defaultRetryConfig = RetryConfig(
+    maxAttempts = 3,
+    retryPredicate = { true },
+    retryOnResultPredicate = { false },
+    delayStrategy = RetryDelayStrategyOptions.exponential(
+        initialDelay = 500.milliseconds,
+        multiplier = 2.0,
+        maxDelay = 1.minutes
+    ),
+    beforeOperationCallback = { },
+    exceptionHandler = { throw it } // propagate the error by default
+)

@@ -5,8 +5,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
  * Represents a listener mechanism that can be used to listen to events of type [Event].
- * Uses a shared flow to emit events, which can be listened to by registering listeners.
- * The asynchronous nature of the listeners is controlled by the [scope] in which they are launched.
+ * Uses a [MutableSharedFlow] to emit events, which can be listened to by registering listeners.
+ * The asynchronous nature of the listener's execution is controlled by the [scope] in which they are launched.
  * Registered listeners can be cancelled at any time.
  * @param Event the type of the event to be listened to.
  */
@@ -35,5 +35,5 @@ interface FlowEventListener<Event> {
      * Cancels all listeners registered.
      * Subsequent registrations should not be affected.
      */
-    suspend fun cancelListeners()
+    fun cancelListeners()
 }

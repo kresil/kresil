@@ -1,17 +1,18 @@
 [versions]
-agp = "8.2.0" # Android Gradle Plugin
+agp = "8.2.0" # before upgrading, consult: https://developer.android.com/studio/releases?hl=pt-br#android_gradle_plugin_and_android_studio_compatibility
 kotlin = "1.9.23"
 kotlinx-coroutines = "1.8.0"
 android-minSdk = "24"
 android-compileSdk = "34"
-androidx-activityCompose = "1.8.2"
-compose = "1.6.5"
-compose-compiler = "1.5.4"
+androidx-activityCompose = "1.9.0"
+compose = "1.6.7"
+compose-compiler = "1.5.13" # before upgrading, consult: https://developer.android.com/jetpack/androidx/releases/compose-kotlin?hl=en
 compose-material3 = "1.2.1"
 mockative = "2.2.0"
 google-ksp = "1.9.23-1.0.20"
 nexus-publish = "2.0.0-rc-1"
 ktor = "2.3.10"
+logback = "1.5.3"
 
 [libraries]
 # kotlin
@@ -30,12 +31,16 @@ compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview"
 compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 # ktor
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-configyaml = { module = "io.ktor:ktor-server-config-yaml", version.ref = "ktor" }
 # mockative
 mockative = { module = "io.mockative:mockative", version.ref = "mockative" }
 mockative-processor = { module = "io.mockative:mockative-processor", version.ref = "mockative" }
 # other
 nexus-publish = { module = "io.github.gradle-nexus.publish-plugin:io.github.gradle-nexus.publish-plugin.gradle.plugin", version.ref = "nexus-publish" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 [plugins]
 # kotlin

@@ -26,7 +26,7 @@ open class FlowEventListenerImpl<Event> internal constructor() : FlowEventListen
         }
     }
 
-    override suspend fun cancelListeners() {
+    override fun cancelListeners() {
         // does not cancel the underlying job (it would with scope.cancel())
         scope.coroutineContext.cancelChildren()
     }

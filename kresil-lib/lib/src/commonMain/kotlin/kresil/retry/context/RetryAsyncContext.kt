@@ -21,12 +21,14 @@ internal interface RetryAsyncContext {
     suspend fun onRetry()
 
     /**
-     * Handles an error that occurred during the asynchronous operation.
+     * Handles an error that occurred during the asynchronous operation execution.
      * Such handling may include deciding whether to retry the operation or ignore the error and complete the operation.
-     * This method might propagate the error if retrying is no longer possible (e.g., the maximum number of attempts was reached).
+     * This method might propagate the error if retrying is no longer possible
+     * (e.g., the maximum number of attempts was reached), and the caller did not specify a custom error handler.
      * @param throwable The throwable representing the error that occurred.
+     * @return `true` if the operation should be retried, `false` otherwise.
      */
-    suspend fun onError(throwable: Throwable)
+    suspend fun onError(throwable: Throwable): Boolean
 
     /**
      * Handles the successful completion of the asynchronous operation.
@@ -34,10 +36,11 @@ internal interface RetryAsyncContext {
      */
     suspend fun onSuccess()
 
+
     /**
-     * The current retry attempt number.
+     * Applies logic before the operation is called in each attempt (including the initial call).
      */
-    val retryAttempt: Int
+    suspend fun beforeOperationCall()
 
 }
 
