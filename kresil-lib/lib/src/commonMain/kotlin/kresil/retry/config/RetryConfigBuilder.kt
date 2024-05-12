@@ -1,6 +1,9 @@
 package kresil.retry.config
 
 import kresil.core.builders.ConfigBuilder
+import kresil.core.callbacks.ExceptionHandler
+import kresil.core.callbacks.OnExceptionPredicate
+import kresil.core.callbacks.OnResultPredicate
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kresil.retry.delay.RetryDelayStrategyOptions
@@ -9,26 +12,10 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * Predicate to determine if the operation should be retried based on the caught throwable.
- */
-typealias RetryPredicate = (Throwable) -> Boolean
-
-/**
- * Predicate to determine if the operation should be retried based on the result of the operation.
- */
-typealias RetryOnResultPredicate = (result: Any?) -> Boolean
-
-/**
  * Callback to execute before the operation is called.
  * Receives the current retry attempt as an argument.
  */
 typealias BeforeOperationCallback = (attempt: Int) -> Unit
-
-/**
- * Callback to handle the retried operation that failed.
- * Can be used to stop error propagation of the error or add additional logging.
- */
-typealias ExceptionHandler = (throwable: Throwable) -> Unit
 
 /**
  * Builder for configuring a [RetryConfig] instance.
@@ -45,8 +32,8 @@ class RetryConfigBuilder(
     private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
     private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
     private var beforeOperationCallback: BeforeOperationCallback = baseConfig.beforeOperationCallback
-    private var retryPredicate: RetryPredicate = baseConfig.retryPredicate
-    private var retryOnResultPredicate: RetryOnResultPredicate = baseConfig.retryOnResultPredicate
+    private var retryPredicate: OnExceptionPredicate = baseConfig.retryPredicate
+    private var retryOnResultPredicate: OnResultPredicate = baseConfig.retryOnResultPredicate
 
     /**
      * The maximum number of attempts **(including the initial call as the first attempt)**.
@@ -59,7 +46,7 @@ class RetryConfigBuilder(
      * @param predicate the predicate to use.
      * @see retryOnResult
      */
-    fun retryIf(predicate: RetryPredicate) {
+    fun retryIf(predicate: OnExceptionPredicate) {
         retryPredicate = predicate
     }
 
@@ -78,7 +65,7 @@ class RetryConfigBuilder(
      * @param predicate the predicate to use.
      * @see retryIf
      */
-    fun retryOnResult(predicate: RetryOnResultPredicate) {
+    fun retryOnResult(predicate: OnResultPredicate) {
         retryOnResultPredicate = predicate
     }
 

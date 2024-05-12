@@ -7,8 +7,8 @@ import io.ktor.client.statement.*
 import io.ktor.client.utils.*
 import io.ktor.http.*
 import kresil.core.builders.ConfigBuilder
+import kresil.core.callbacks.OnExceptionPredicate
 import kresil.retry.config.RetryConfigBuilder
-import kresil.retry.config.RetryPredicate
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kotlin.time.Duration
@@ -16,7 +16,14 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kresil.ktor.plugins.retry.client.KresilRetryPlugin
 
+/**
+ * Predicate to determine if an HTTP call should be retried based on the request and response.
+ */
 internal typealias RetryOnCallPredicate = (HttpRequest, HttpResponse) -> Boolean
+
+/**
+ * Callback to modify the request between retries.
+ */
 internal typealias ModifyRequestOnRetry = (HttpRequestBuilder) -> Unit
 
 /**
@@ -25,7 +32,7 @@ internal typealias ModifyRequestOnRetry = (HttpRequestBuilder) -> Unit
 class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : ConfigBuilder<RetryPluginConfig> {
 
     private val retryConfigBuilder: RetryConfigBuilder = RetryConfigBuilder(baseConfig.retryConfig)
-    private var retryPredicateList: MutableList<RetryPredicate> = mutableListOf(baseConfig.retryConfig.retryPredicate)
+    private var retryPredicateList: MutableList<OnExceptionPredicate> = mutableListOf(baseConfig.retryConfig.retryPredicate)
     private val shouldRetryOnCallList: MutableList<RetryOnCallPredicate> = mutableListOf(baseConfig.retryOnCallPredicate)
     private var modifyRequest: ModifyRequestOnRetry = baseConfig.modifyRequestOnRetry
 
@@ -107,7 +114,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * Configures the retry predicate, used to determine if, based on the caught throwable, the underlying request should be retried.
      * @param predicate the predicate to use.
      */
-    fun retryOnException(predicate: RetryPredicate) {
+    fun retryOnException(predicate: OnExceptionPredicate) {
         retryPredicateList.add(predicate)
     }
 

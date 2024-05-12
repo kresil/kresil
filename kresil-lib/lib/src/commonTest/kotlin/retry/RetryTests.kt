@@ -12,9 +12,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
+import kresil.core.callbacks.OnExceptionPredicate
 import kresil.retry.Retry
 import kresil.retry.config.RetryConfig
-import kresil.retry.config.RetryPredicate
 import kresil.retry.config.retryConfig
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
@@ -817,7 +817,7 @@ class RetryTests {
     fun retryWithStatelessCustomDelayProvider() = runTest {
 
         // given: a stateless custom delay provider
-        val statelessDelayProvider = RetryDelayProvider { attempt, lastThrowable ->
+        val statelessDelayProvider = RetryDelayProvider { attempt, _ ->
             val nextDuration = when {
                 attempt % 2 == 0 -> 1.seconds
                 else -> 2.seconds
@@ -870,7 +870,7 @@ class RetryTests {
 
         // and: a retry configuration with custom delay
         val maxAttempts = 4
-        val retryPredicate: RetryPredicate = { it is WebServiceException || it is RuntimeException }
+        val retryPredicate: OnExceptionPredicate = { it is WebServiceException || it is RuntimeException }
         val customDelayStrategy: RetryDelayStrategy = { attempt, lastThrowable ->
             (if (attempt % 2 == 0) 1.seconds
             else if (lastThrowable is WebServiceException) 2.seconds
