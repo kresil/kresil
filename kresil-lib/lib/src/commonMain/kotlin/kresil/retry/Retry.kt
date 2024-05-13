@@ -12,6 +12,8 @@ import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.config.defaultRetryConfig
 import kresil.retry.context.RetryAsyncContextImpl
 import kresil.retry.event.RetryEvent
+import kotlin.Result.Companion.failure
+import kotlin.Result.Companion.success
 
 /**
  * Represents a retry mechanism that can be used to retry an operation.
@@ -72,8 +74,8 @@ class Retry(
 
     /**
      * Executes an operation with this retry mechanism.
-     * @param A The first input argument.
-     * @param B The second input argument.
+     * @param a The first input argument.
+     * @param b The second input argument.
      * @param block The operation to execute.
      * @see [decorateFunction]
      */
@@ -81,7 +83,7 @@ class Retry(
         a: A,
         b: B,
         block: BiFunction<A, B, R>,
-    ): Result<R?> {
+    ): Result<R> {
         val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
@@ -93,13 +95,13 @@ class Retry(
                     continue
                 }
                 context.onSuccess()
-                return Result.success(result)
+                return success(result)
             } catch (throwable: Throwable) {
                 val shouldRetryOnError = context.onError(throwable)
                 if (shouldRetryOnError) {
                     context.onRetry()
                 } else {
-                    return Result.failure(throwable)
+                    return failure(throwable)
                 }
             }
         }
@@ -112,7 +114,7 @@ class Retry(
      */
     suspend fun <R> executeSupplier(
         block: Supplier<R>,
-    ): Result<R?> {
+    ): Result<R> {
         return executeOperation(Unit, Unit) { _, _ -> block() }
     }
 
@@ -123,8 +125,8 @@ class Retry(
      * @see [decorateBiFunction]
      */
     fun <R> decorateSupplier(
-        block: Supplier<R?>,
-    ): Supplier<Result<R?>> {
+        block: Supplier<R>,
+    ): Supplier<Result<R>> {
         return { executeOperation(Unit, Unit) { _, _ -> block() } }
     }
 
@@ -136,7 +138,7 @@ class Retry(
      */
     fun <A, R> decorateFunction(
         block: Function<A, R>,
-    ): Function<A, Result<R?>> {
+    ): Function<A, Result<R>> {
         return { executeOperation(it, Unit) { a, _ -> block(a) } }
     }
 
@@ -148,7 +150,7 @@ class Retry(
      */
     fun <A, B, R> decorateBiFunction(
         block: BiFunction<A, B, R>,
-    ): BiFunction<A, B, Result<R?>> {
+    ): BiFunction<A, B, Result<R>> {
         return { a, b -> executeOperation(a, b, block) }
     }
 

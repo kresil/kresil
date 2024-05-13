@@ -8,7 +8,7 @@ package kresil.core.builders
  * Which allows for potentially incremental configuration for override purposes and maintain already defined configurations.
  * @param Config the type of the configuration object to be built
  */
-interface ConfigBuilder<Config> {
+internal interface ConfigBuilder<Config> {
     /**
      * The base configuration object to be used as a starting point for building the final configuration object.
      * @see build
