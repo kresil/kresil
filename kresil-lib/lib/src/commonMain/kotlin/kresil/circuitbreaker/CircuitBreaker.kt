@@ -23,7 +23,7 @@ class CircuitBreaker(
     private val lock = Mutex()
 
     // state
-    private val slidingWindow = CountBasedSlidingWindow(config.slidingWindowSize)
+    private val slidingWindow = CountBasedSlidingWindow(config.slidingWindowSize) // TODO, not thread safe
     private var state = CLOSED
     private var failureCountInHalfOpenState = 0
 
@@ -67,7 +67,7 @@ class CircuitBreaker(
     private suspend fun <R> safeExecute(block: Supplier<R>): Result<R> =
         try {
             val result = block()
-            slidingWindow.recordSuccess()
+            lock.withLock { slidingWindow.recordSuccess() }
             success(result)
         } catch (e: Throwable) {
             handleFailure(e)
