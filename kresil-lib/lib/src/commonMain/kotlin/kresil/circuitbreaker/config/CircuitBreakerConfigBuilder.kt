@@ -14,12 +14,12 @@ class CircuitBreakerConfigBuilder(
 }
 
 private val defaultCircuitBreakerConfig = CircuitBreakerConfig(
-    failureRateThreshold = 0.5, // between 0.0 and 1.0
+    failureRateThreshold = 0.5,
     slidingWindowSize = 10,
     minimumThroughput = 10,
     permittedNumberOfCallsInHalfOpenState = 10,
-    waitDurationInOpenState = 1.seconds,
-    recordFailurePredicate = { true },
+    waitDurationInOpenState = 60.seconds,
+    waitDurationInHalfOpenState = 25.seconds,
+    recordExceptionPredicate = { true },
     recordSuccessAsFailurePredicate = { false },
-    ignoreFailurePredicate = { true },
 )
