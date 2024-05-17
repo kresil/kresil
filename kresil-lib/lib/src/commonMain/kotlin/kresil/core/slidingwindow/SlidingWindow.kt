@@ -1,7 +1,6 @@
-package kresil.circuitbreaker.slidingwindow
+package kresil.core.slidingwindow
 
 interface SlidingWindow<T> {
-    // TODO: failure rate threshold could be calculated based on a smaller number than the capacity
     val capacity: Int
     fun recordSuccess()
     fun recordFailure()
