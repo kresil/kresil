@@ -10,11 +10,12 @@ import kotlinx.coroutines.sync.withLock
 import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_SUCCESS
-import kresil.circuitbreaker.slidingwindow.SlidingWindow
 import kresil.circuitbreaker.state.CircuitBreakerState.CLOSED
 import kresil.circuitbreaker.state.CircuitBreakerState.HALF_OPEN
 import kresil.circuitbreaker.state.CircuitBreakerState.OPEN
 import kresil.core.reducer.Reducer
+import kresil.core.slidingwindow.SlidingWindow
+import kotlin.time.Duration
 
 // should work similarly to the useReducer in React
 class CircuitBreakerStateReducer<T>(
@@ -39,10 +40,10 @@ class CircuitBreakerStateReducer<T>(
             CLOSED -> when (event) {
                 OPERATION_SUCCESS -> slidingWindow.recordSuccess()
                 OPERATION_FAILURE -> {
-                    if (slidingWindow.currentFailureRate() < config.failureRateThreshold) {
+                    slidingWindow.recordFailure()
+                    if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
                         transitionStateFrom(CLOSED to OPEN)
                     }
-                    slidingWindow.recordFailure()
                 }
             }
 
@@ -54,8 +55,7 @@ class CircuitBreakerStateReducer<T>(
 
             HALF_OPEN -> when (event) {
                 OPERATION_SUCCESS, OPERATION_FAILURE -> {
-                    nrOfCallsInHalfOpenState++
-                    if (nrOfCallsInHalfOpenState >= config.permittedNumberOfCallsInHalfOpenState) {
+                    if (++nrOfCallsInHalfOpenState >= config.permittedNumberOfCallsInHalfOpenState) {
                         transitionStateFrom(HALF_OPEN to CLOSED)
                     }
                 }
@@ -88,8 +88,11 @@ class CircuitBreakerStateReducer<T>(
     }
 
     private fun startOpenStateTimer() {
-        // TODO: handle the case where there's no delay
         openStateTimerJob?.cancel()
+        if (config.waitDurationInOpenState == Duration.ZERO) {
+            transitionStateFrom(OPEN to HALF_OPEN)
+            return
+        }
         openStateTimerJob = scope.launch {
             delay(config.waitDurationInOpenState)
             lock.withLock {
@@ -102,6 +105,10 @@ class CircuitBreakerStateReducer<T>(
 
     private fun startHalfOpenStateTimer() {
         halfOpenStateTimerJob?.cancel()
+        if (config.waitDurationInHalfOpenState == Duration.ZERO) {
+            transitionStateFrom(HALF_OPEN to CLOSED)
+            return
+        }
         halfOpenStateTimerJob = scope.launch {
             delay(config.waitDurationInHalfOpenState)
             lock.withLock {

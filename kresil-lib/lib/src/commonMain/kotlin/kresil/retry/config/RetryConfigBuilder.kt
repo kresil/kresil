@@ -25,7 +25,7 @@ class RetryConfigBuilder(
     override val baseConfig: RetryConfig = defaultRetryConfig
 ) : ConfigBuilder<RetryConfig> {
 
-    // delay helper
+    // delay strategy options
     private val retryDelayStrategyOptions = RetryDelayStrategyOptions
 
     // state
@@ -34,7 +34,6 @@ class RetryConfigBuilder(
     private var beforeOperationCallback: BeforeOperationCallback = baseConfig.beforeOperationCallback
     private var retryPredicate: OnExceptionPredicate = baseConfig.retryPredicate
     private var retryOnResultPredicate: OnResultPredicate = baseConfig.retryOnResultPredicate
-
     /**
      * The maximum number of attempts **(including the initial call as the first attempt)**.
      */
