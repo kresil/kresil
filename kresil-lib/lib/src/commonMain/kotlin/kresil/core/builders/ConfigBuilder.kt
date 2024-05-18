@@ -2,8 +2,11 @@ package kresil.core.builders
 
 /**
  * Defines a builder for configuration objects.
- * It allows for incremental configuration by providing a base configuration object and applying modifications to it.
- * - ``config(default/initial)`` -> ``configBuilder`` -> ``config`` -> ``configBuilder`` -> ``config`` -> ...
+ * It allows for incremental configuration by providing a base configuration object and applying modifications to it,
+ * essentially following the pattern:
+ * ```
+ * config(default/initial) -> configBuilder -> config -> configBuilder -> config -> (...)
+ * ```
  *
  * Which allows for potentially incremental configuration for override purposes and maintain already defined configurations.
  * @param Config the type of the configuration object to be built

@@ -1,12 +1,22 @@
 package kresil.circuitbreaker.slidingwindow
 
-import kresil.core.slidingwindow.SlidingWindow
+import kresil.core.slidingwindow.FailureRateSlidingWindow
 import kresil.core.utils.RingBuffer
 
+/**
+ * A sliding window implementation that uses a count-based approach.
+ * To simplify the implementation, the window will only record boolean values,
+ * where `true` represents a successful operation and `false` represents a failed operation.
+ * @param capacity the fixed size of the window.
+ * @param minimumThroughput the minimum number of calls that need to be recorded in the window
+ * for the failure rate to be calculated.
+ * Even if capacity is reached, the failure rate will not be calculated if the number of calls
+ * recorded in the window is less than this value.
+ */
 internal class CountBasedSlidingWindow(
     override val capacity: Int,
     private val minimumThroughput: Int,
-) : SlidingWindow<Boolean> {
+) : FailureRateSlidingWindow<Boolean> {
 
     // state
     private var records: Long = 0 // used to keep track of accumulated records
@@ -42,10 +52,9 @@ internal class CountBasedSlidingWindow(
         }
     }
 
-    fun toList(): List<Boolean?> = buffer.toList()
-
     override fun clear() {
         records = 0
         buffer.clear()
     }
+
 }

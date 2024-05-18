@@ -9,8 +9,8 @@ package service
  * - the third and subsequent calls will succeed
  *
  * Tries to simulate Java Mockito's [Answer](https://javadoc.io/static/org.mockito/mockito-core/3.2.4/org/mockito/stubbing/Answer.html)
- * behavior, where one can define an object that will be called on each invocation of a stubbed method,
- * and thus alter the behavior of the stubbed method on each call.
+ * behaviour, where one can define an object that will be called on each invocation of a stubbed method,
+ * and thus alter the behaviour of the stubbed method on each call.
  *
  * Example:
  * ```java

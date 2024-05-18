@@ -13,7 +13,7 @@ import kotlin.test.assertFailsWith
 class MutexExampleTests {
 
     @Test
-    fun suspendingWhileHoldingAMutexBehavior() = runTest {
+    fun suspendingWhileHoldingAMutexBehaviour() = runTest {
         val mutex = Mutex()
 
         suspend fun innerFunction() {

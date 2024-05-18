@@ -3,7 +3,7 @@ package kresil.retry.context
 import kresil.retry.Retry
 
 /**
- * Specifies the behavior of the retry mechanism in an asynchronous context.
+ * Specifies the behaviour of the retry mechanism in an asynchronous context.
  * @see [Retry]
  **/
 internal interface RetryAsyncContext {

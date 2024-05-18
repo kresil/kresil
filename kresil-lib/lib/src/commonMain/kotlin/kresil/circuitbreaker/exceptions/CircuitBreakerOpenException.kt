@@ -3,6 +3,7 @@ package kresil.circuitbreaker.exceptions
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.state.CircuitBreakerState.*
 
+// TODO: change this to a more general exception type: CallNotPermittedException. As it is, is incorrect.
 /**
  * Signals that the [CircuitBreaker] is broken (opened),
  * either because it was in the [CLOSED] state and the failure rate exceeded the threshold;

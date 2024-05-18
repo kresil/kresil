@@ -34,7 +34,7 @@ class CircuitBreakerConfigBuilder internal constructor(
     var failureRateThreshold: Double = baseConfig.failureRateThreshold
         set(value) {
             require(value > MIN_FAILURE_RATE_THRESHOLD && value <= MAX_FAILURE_RATE_THRESHOLD) {
-                "Failure rate threshold must be between $MIN_FAILURE_RATE_THRESHOLD exclusive and $MAX_FAILURE_RATE_THRESHOLD inclusive"
+                "Failure rate threshold must be between ${MIN_FAILURE_RATE_THRESHOLD.toInt()} exclusive and ${MAX_FAILURE_RATE_THRESHOLD.toInt()} inclusive"
             }
             field = value
         }
@@ -66,7 +66,8 @@ class CircuitBreakerConfigBuilder internal constructor(
 
     /**
      * Configures the number of calls that are allowed to be made in the [HALF_OPEN] state.
-     * If this number is exceeded, the circuit breaker will transition back to the [OPEN] state.
+     * If this number is exceeded, further calls will be rejected.
+     * If one of the calls fails, the circuit breaker transitions back to the [OPEN] state.
      */
     var permittedNumberOfCallsInHalfOpenState: Int = baseConfig.permittedNumberOfCallsInHalfOpenState
         set(value) {

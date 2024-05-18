@@ -208,7 +208,7 @@ class RetryConfigBuilder(
 
     /**
      * Configures the callback to handle the retried operation that failed.
-     * The default behavior is to propagate the error.
+     * The default behaviour is to propagate the error.
      * @param callback the callback to execute.
      */
     fun exceptionHandler(callback: ExceptionHandler) {

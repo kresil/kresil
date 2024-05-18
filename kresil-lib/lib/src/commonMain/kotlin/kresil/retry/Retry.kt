@@ -16,9 +16,34 @@ import kotlin.Result.Companion.failure
 import kotlin.Result.Companion.success
 
 /**
- * Represents a retry mechanism that can be used to retry an operation.
- * Operations can be executed directly or decorated with this mechanism.
+ * A [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
+ * resilience mechanism implementation, that can be used to retry an underlying operation when it fails.
+ * Operations can be decorated and executed on demand.
+ * A retry mechanism is initialized with a [RetryConfig] that,
+ * through pre-configured policies, define its behaviour.
  *
+ * The retry mechanism implements the following state machine:
+ * ```
+ *
+ *                    +------------------+  retried once   +---------+
+ * +-----------+ ---> | Returns Normally | --------------> | Success |
+ * | Operation |      +------------------+                 +---------+
+ * |  Called   |      +-------+      +----------+
+ * +-----------+ ---> | Fails | ---> | Consults |
+ *       ^            +-------+      | Policies |
+ *       |                           +----------+
+ *       |                                |
+ *   +-------+      can use retry         |
+ *   | Retry | <--------------------------|
+ *   +-------+                            |   expected
+ *                                        |   failure    +-------+
+ *                                        |------------> | Error |
+ *                                        |              +-------+
+ *                     +---------+        |
+ *                     | Ignored | <------|
+ *                     |  Error  |
+ *                     +---------+
+ * ```
  * Examples of usage:
  * ```
  * // use predefined retry policies

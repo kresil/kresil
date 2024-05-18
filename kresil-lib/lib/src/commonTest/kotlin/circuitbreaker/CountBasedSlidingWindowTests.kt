@@ -12,7 +12,7 @@ class CountBasedSlidingWindowTests {
         // given: a sliding window with a minimum throughput
         val minimumThroughput = 3
         val slidingWindow = CountBasedSlidingWindow(
-            capacity = Int.MAX_VALUE,
+            capacity = 1000,
             minimumThroughput = minimumThroughput
         )
 
@@ -72,7 +72,7 @@ class CountBasedSlidingWindowTests {
         // given: a sliding window with a minimum throughput
         val minimumThroughput = 3
         val slidingWindow = CountBasedSlidingWindow(
-            capacity = Int.MAX_VALUE,
+            capacity = 1000,
             minimumThroughput = minimumThroughput
         )
 
@@ -107,7 +107,7 @@ class CountBasedSlidingWindowTests {
         // then: an exception is thrown
         val ex = assertFailsWith<IllegalArgumentException> {
             CountBasedSlidingWindow(
-                capacity = Int.MAX_VALUE,
+                capacity = 1000,
                 minimumThroughput = minimumThroughput
             )
         }
@@ -125,7 +125,7 @@ class CountBasedSlidingWindowTests {
         val ex = assertFailsWith<IllegalArgumentException> {
             CountBasedSlidingWindow(
                 capacity = capacity,
-                minimumThroughput = Int.MAX_VALUE
+                minimumThroughput = 1000
             )
         }
 

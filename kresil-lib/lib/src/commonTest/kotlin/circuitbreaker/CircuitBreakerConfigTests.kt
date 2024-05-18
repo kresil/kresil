@@ -45,7 +45,7 @@ class CircuitBreakerConfigTests {
         }
 
         // then: an exception should be thrown
-        assertEquals("Failure rate threshold must be between 0.0 exclusive and 1.0 inclusive", ex.message)
+        assertEquals("Failure rate threshold must be between 0 exclusive and 1 inclusive", ex.message)
     }
 
     @Test
@@ -59,7 +59,7 @@ class CircuitBreakerConfigTests {
         }
 
         // then: an exception should be thrown
-        assertEquals("Failure rate threshold must be between 0.0 exclusive and 1.0 inclusive", ex.message)
+        assertEquals("Failure rate threshold must be between 0 exclusive and 1 inclusive", ex.message)
 
     }
 

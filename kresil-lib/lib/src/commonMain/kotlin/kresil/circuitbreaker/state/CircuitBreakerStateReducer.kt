@@ -10,20 +10,27 @@ import kotlinx.coroutines.sync.withLock
 import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_SUCCESS
-import kresil.circuitbreaker.state.CircuitBreakerState.CLOSED
-import kresil.circuitbreaker.state.CircuitBreakerState.HALF_OPEN
-import kresil.circuitbreaker.state.CircuitBreakerState.OPEN
+import kresil.circuitbreaker.state.CircuitBreakerState.*
 import kresil.core.reducer.Reducer
-import kresil.core.slidingwindow.SlidingWindow
+import kresil.core.slidingwindow.FailureRateSlidingWindow
 import kotlin.time.Duration
+import kresil.circuitbreaker.CircuitBreaker
 
-// should work similarly to the useReducer in React
+/**
+ * A thread-safe state machine that acts as a reducer for a [CircuitBreaker].
+ * Using the [dispatch] method, events can be dispatched to the state machine to trigger state transitions.
+ * The current state can be consulted using the [currentState] method.
+ * @param slidingWindow the sliding window used to calculate the failure rate.
+ * @param config the configuration of the circuit breaker.
+ */
 class CircuitBreakerStateReducer<T>(
-    private val slidingWindow: SlidingWindow<T>,
+    private val slidingWindow: FailureRateSlidingWindow<T>,
     private val config: CircuitBreakerConfig,
 ) : Reducer<CircuitBreakerState, CircuitBreakerReducerEvent> {
 
     private val scope = CoroutineScope(Dispatchers.Default)
+    // reminder: mutexes are not reentrant and a coroutine should not suspend while holding a lock
+    //  as it does not release it while suspended
     private val lock = Mutex()
 
     // internal state
@@ -55,6 +62,8 @@ class CircuitBreakerStateReducer<T>(
 
             HALF_OPEN -> when (event) {
                 OPERATION_SUCCESS, OPERATION_FAILURE -> {
+                    // TODO: this is incorrect, as failure or success needs to be recorded
+                    //  missing halfOpen to Open if failure rate exceeds threshold
                     if (++nrOfCallsInHalfOpenState >= config.permittedNumberOfCallsInHalfOpenState) {
                         transitionStateFrom(HALF_OPEN to CLOSED)
                     }
@@ -63,6 +72,11 @@ class CircuitBreakerStateReducer<T>(
         }
     }
 
+    /**
+     * Transitions the circuit breaker from one state to another, while performing the necessary side effects.
+     *
+     * **Note**: Since it alters the state, it should be called while holding the lock.
+     */
     private fun transitionStateFrom(transition: Pair<CircuitBreakerState, CircuitBreakerState>) {
         when (transition) {
             CLOSED to OPEN, HALF_OPEN to OPEN -> transitionToOpenState()
@@ -87,6 +101,13 @@ class CircuitBreakerStateReducer<T>(
         startHalfOpenStateTimer()
     }
 
+    /**
+     * Starts a timer that transitions the circuit breaker from the [OPEN] state to the [HALF_OPEN] state,
+     * if the timer is not cancelled before it expires or the state changes in the meantime.
+     * If the [CircuitBreakerConfig.waitDurationInOpenState] is set to [Duration.ZERO], the transition is immediate.
+     *
+     * **Note**: Since it alters the state, it should be called while holding the lock.
+     */
     private fun startOpenStateTimer() {
         openStateTimerJob?.cancel()
         if (config.waitDurationInOpenState == Duration.ZERO) {
@@ -103,6 +124,13 @@ class CircuitBreakerStateReducer<T>(
         }
     }
 
+    /**
+     * Starts a timer that transitions the circuit breaker from the [HALF_OPEN] state to the [CLOSED] state,
+     * if the timer is not cancelled before it expires or the state changes in the meantime.
+     * If the [CircuitBreakerConfig.waitDurationInHalfOpenState] is set to [Duration.ZERO], the transition is immediate.
+     *
+     * **Note**: Since it alters the state, it should be called while holding the lock.
+     */
     private fun startHalfOpenStateTimer() {
         halfOpenStateTimerJob?.cancel()
         if (config.waitDurationInHalfOpenState == Duration.ZERO) {
