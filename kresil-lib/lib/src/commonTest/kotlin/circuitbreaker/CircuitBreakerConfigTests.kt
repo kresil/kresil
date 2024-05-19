@@ -10,6 +10,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 class CircuitBreakerConfigTests {
@@ -29,7 +30,7 @@ class CircuitBreakerConfigTests {
         assertEquals(100, config.minimumThroughput)
         assertEquals(10, config.permittedNumberOfCallsInHalfOpenState)
         assertEquals(60.seconds, config.waitDurationInOpenState)
-        assertEquals(25.seconds, config.maxWaitDurationInHalfOpenState)
+        assertEquals(Duration.ZERO, config.maxWaitDurationInHalfOpenState)
         assertFalse(config.recordResultPredicate(Any()))
         assertTrue(config.recordExceptionPredicate(Exception()))
     }
@@ -106,17 +107,17 @@ class CircuitBreakerConfigTests {
     }
 
     @Test
-    fun waitDurationInOpenStateShouldBeNonNegative() = runTest {
+    fun waitDurationInOpenStateShouldBePositive() = runTest {
         // given: a circuit breaker configuration with a wait duration in OPEN state of -1 second
         val ex = assertFailsWith<IllegalArgumentException> {
             circuitBreakerConfig {
                 // when: the wait duration in OPEN state is set to -1 second
-                waitDurationInOpenState = (-1).seconds
+                waitDurationInOpenState = Duration.ZERO
             }
         }
 
         // then: an exception should be thrown
-        assertEquals("OPEN state duration must be greater than or equal to 0", ex.message)
+        assertEquals("OPEN state duration must be greater than 0", ex.message)
     }
 
     @Test
