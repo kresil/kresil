@@ -19,7 +19,7 @@ private lateinit var globalConfig: RetryPluginConfig
  * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism
  * configuration and the [HttpRequestRetry] plugin provided by Ktor.
  * Configuration can be done globally when installing the plugin,
- * or on a per-request basis with the [kRetry] function.
+ * and on a per-request basis with the [kRetry] function.
  * Examples of usage:
  * ```
  * // use predefined retry policies
@@ -31,14 +31,19 @@ private lateinit var globalConfig: RetryPluginConfig
  * // use custom policies
  * install(KresilRetryPlugin) {
  *      maxRetries = 5
- *      retryOnTimeout()
  *      retryOnException { it is NetworkError }
+ *      // retryOnTimeout()
  *      constantDelay(2.seconds)
- *      // customDelay { attempt, lastThrowable -> ... }
  *      // noDelay()
+ *      // customDelay { attempt, lastThrowable -> ... }
  *      modifyRequestOnRetry { request, attempt ->
  *           request.headers.append("X_RETRY_COUNT", "$attempt")
  *      }
+ * }
+ *
+ * // disable retry for a specific request
+ * client.post {
+ *     kRetry(disable = true)
  * }
  * ```
  */
@@ -54,16 +59,15 @@ val KresilRetryPlugin = createClientPlugin(
             .getOrNull(RetryPluginConfigBuilderPerRequestAttributeKey)
             ?: pluginConfig
         val requestPluginConfig: RetryPluginConfig = requestPluginBuilder.build()
-        println("Request plugin config: $requestPluginConfig")
         val retry = Retry(requestPluginConfig.retryConfig)
         retry.onEvent { event ->
             println("Received event: $event")
         }
         lateinit var call: HttpClientCall
         try {
-            retry.executeSupplier {
+            retry.executeSupplier { ctx ->
                 val subRequest = copyRequestAndPropagateCompletion(request)
-                requestPluginConfig.modifyRequestOnRetry(subRequest)
+                if (ctx.attempt > 0) requestPluginConfig.modifyRequestOnRetry(subRequest, ctx.attempt)
                 call = proceed(subRequest) // proceed with the modified request
                 println("Request headers: ${call.request.headers}")
                 println("Response call: ${call.response}")
@@ -116,11 +120,9 @@ private val RetryPluginConfigBuilderPerRequestAttributeKey =
 
 private val defaultRetryPluginConfig = RetryPluginConfig(
     retryConfig = retryConfig {
-        maxAttempts = 8
-        retryIf { it is RetryOnCallException }
-        retryOnResult { false }
-        noDelay()
+        maxAttempts = 3
+        exponentialDelay()
     },
-    modifyRequestOnRetry = { println("No modification on retry") },
-    retryOnCallPredicate = { _, _ -> false }
+    modifyRequestOnRetry = { _, _ -> },
+    retryOnCallPredicate = { _, response -> response.status.value in 500..599 }
 )

@@ -15,6 +15,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kresil.ktor.plugins.retry.client.KresilRetryPlugin
+import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 
 /**
  * Predicate to determine if an HTTP call should be retried based on the request and response.
@@ -24,7 +25,7 @@ internal typealias RetryOnCallPredicate = (HttpRequest, HttpResponse) -> Boolean
 /**
  * Callback to modify the request between retries.
  */
-internal typealias ModifyRequestOnRetry = (HttpRequestBuilder) -> Unit
+internal typealias ModifyRequestOnRetry = (HttpRequestBuilder, attempt: Int) -> Unit
 
 /**
  * Builder for configuring the [KresilRetryPlugin].
@@ -32,8 +33,8 @@ internal typealias ModifyRequestOnRetry = (HttpRequestBuilder) -> Unit
 class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : ConfigBuilder<RetryPluginConfig> {
 
     private val retryConfigBuilder: RetryConfigBuilder = RetryConfigBuilder(baseConfig.retryConfig)
-    private var retryPredicateList: MutableList<OnExceptionPredicate> = mutableListOf(baseConfig.retryConfig.retryPredicate)
-    private val shouldRetryOnCallList: MutableList<RetryOnCallPredicate> = mutableListOf(baseConfig.retryOnCallPredicate)
+    private var retryPredicate: OnExceptionPredicate = baseConfig.retryConfig.retryPredicate
+    private var retryOnCallPredicate: RetryOnCallPredicate = baseConfig.retryOnCallPredicate
     private var modifyRequest: ModifyRequestOnRetry = baseConfig.modifyRequestOnRetry
 
     /**
@@ -53,7 +54,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * @see retryOnTimeout
      */
     fun retryOnCall(block: (request: HttpRequest, response: HttpResponse) -> Boolean) {
-        shouldRetryOnCallList.add(block)
+        retryOnCallPredicate = block
     }
 
     /**
@@ -95,7 +96,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * @see [retryOnServerErrorsIfIdempotent]
      */
     fun retryOnTimeout() {
-        retryPredicateList.add(Throwable::isTimeoutException)
+        retryPredicate = { it.isTimeoutException() }
     }
 
     /**
@@ -103,11 +104,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * The block receives the [HttpRequestBuilder] and the current retry attempt as arguments.
      */
     fun modifyRequestOnRetry(block: (builder: HttpRequestBuilder, attempt: Int) -> Unit) {
-        retryConfigBuilder.beforeOperCallback { attempt ->
-            modifyRequest = { builder ->
-                block(builder, attempt)
-            }
-        }
+        modifyRequest = block
     }
 
     /**
@@ -115,7 +112,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * @param predicate the predicate to use.
      */
     fun retryOnException(predicate: OnExceptionPredicate) {
-        retryPredicateList.add(predicate)
+        retryPredicate = predicate
     }
 
     /**
@@ -263,7 +260,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
         return RetryPluginConfig(
             retryConfig = retryConfigBuilder.build(),
             modifyRequestOnRetry = modifyRequest,
-            retryOnCallPredicate = { request, response -> shouldRetryOnCall(request, response) }
+            retryOnCallPredicate = retryOnCallPredicate
         )
     }
 
@@ -271,15 +268,9 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * Aggregates all configured retry predicates to determine if the HTTP call should be retried based on the caught throwable.
      */
     private fun aggregateRetryPredicates(throwable: Throwable): Boolean {
-        retryPredicateList.add(baseConfig.retryConfig.retryPredicate)
-        return retryPredicateList.any { it(throwable) }
-    }
-
-    /**
-     * Determines if the HTTP call should be retried based on the request and response.
-     */
-    private fun shouldRetryOnCall(request: HttpRequest, response: HttpResponse): Boolean {
-        return shouldRetryOnCallList.any { it(request, response) }
+        // add internal RetryOnCallException to the list of exceptions to retry on
+        if (throwable is RetryOnCallException) return true
+        return retryPredicate(throwable)
     }
 
 }

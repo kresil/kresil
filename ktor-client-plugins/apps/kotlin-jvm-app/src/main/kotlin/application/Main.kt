@@ -24,7 +24,7 @@ suspend fun main() {
     val client = HttpClient(CIO) {
         install(KresilRetryPlugin) {
             retryOnServerErrors()
-            maxAttempts = 8
+            maxAttempts = 5
             noDelay()
             modifyRequestOnRetry { request, attempt ->
                 request.headers.append("GLOBAL_RETRY_COUNT", attempt.toString())
@@ -41,7 +41,12 @@ suspend fun main() {
     client.post {
         url("http://127.0.0.1:8080/")
         setBody("Hello, Kresil!")
-        kRetry(true)
+        kRetry {
+            exponentialDelay()
+            modifyRequestOnRetry { request, attempt ->
+                request.headers.append("PER_REQUEST_RETRY_COUNT", attempt.toString())
+            }
+        }
     }
     client.close()
     serverJob.cancelAndJoin()
