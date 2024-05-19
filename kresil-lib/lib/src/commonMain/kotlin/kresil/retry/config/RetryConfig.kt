@@ -14,7 +14,6 @@ import kresil.retry.delay.RetryDelayStrategy
  * @param retryPredicate the predicate to determine if the operation should be retried based on the caught throwable.
  * @param retryOnResultPredicate the predicate to determine if the operation should be retried based on its result.
  * @param delayStrategy the strategy to determine the delay duration between retries.
- * @param beforeOperationCallback the callback to execute before the operation is called.
  * @param exceptionHandler the callback to execute when an error occurs.
  * @see [Retry]
  */
@@ -23,7 +22,6 @@ data class RetryConfig(
     val retryPredicate: OnExceptionPredicate,
     val retryOnResultPredicate: OnResultPredicate,
     val delayStrategy: RetryDelayStrategy,
-    val beforeOperationCallback: BeforeOperationCallback,
     val exceptionHandler: ExceptionHandler
 ) {
 

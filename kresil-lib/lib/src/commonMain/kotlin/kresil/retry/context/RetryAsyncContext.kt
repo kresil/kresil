@@ -36,11 +36,5 @@ internal interface RetryAsyncContext {
      */
     suspend fun onSuccess()
 
-
-    /**
-     * Applies logic before the operation is called in each attempt (including the initial call).
-     */
-    suspend fun beforeOperationCall()
-
 }
 

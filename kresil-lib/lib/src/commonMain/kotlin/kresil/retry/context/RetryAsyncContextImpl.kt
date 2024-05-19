@@ -11,8 +11,8 @@ import kotlin.time.Duration
 /**
  * Represents the asynchronous context implementation of a retry mechanism.
  * Besides defining context behaviour, this implementation is also responsible for:
- * - state management;
- * - event emission.
+ * - **state management**;
+ * - **event emission**.
  *
  * For each retryable asynchronous operation, a new instance of this class must be created.
  * @param config The configuration for the retry mechanism.
@@ -29,8 +29,10 @@ internal class RetryAsyncContextImpl(
     }
 
     // state
-    private var currentRetryAttempt = INITIAL_NON_RETRY_ATTEMPT
-    private var lastThrowable: Throwable? = null
+    var currentRetryAttempt = INITIAL_NON_RETRY_ATTEMPT
+        private set
+    var lastThrowable: Throwable? = null
+        private set
     private val isRetryAttempt: Boolean
         get() = currentRetryAttempt > INITIAL_NON_RETRY_ATTEMPT
     private val isWithinPermittedRetryAttempts: Boolean
@@ -67,7 +69,7 @@ internal class RetryAsyncContextImpl(
         // special case (only for default error handler)
         if (throwable is MaxRetriesExceededException) {
             // propagate exception to the caller
-            throw throwable
+            config.exceptionHandler(throwable)
         }
         // can retry be done for this error?
         if (!shouldRetry(throwable)) {
@@ -86,10 +88,6 @@ internal class RetryAsyncContextImpl(
 
     override suspend fun onSuccess() {
         if (isRetryAttempt && isWithinPermittedRetryAttempts) eventFlow.emit(RetryEvent.RetryOnSuccess)
-    }
-
-    override suspend fun beforeOperationCall() {
-        if (isRetryAttempt) config.beforeOperationCallback(currentRetryAttempt)
     }
 
     // utility functions

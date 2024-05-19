@@ -12,12 +12,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * Callback to execute before the operation is called.
- * Receives the current retry attempt as an argument.
- */
-typealias BeforeOperationCallback = (attempt: Int) -> Unit
-
-/**
  * Builder for configuring a [RetryConfig] instance.
  * Use [retryConfig] to create one.
  */
@@ -31,7 +25,6 @@ class RetryConfigBuilder(
     // state
     private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
     private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
-    private var beforeOperationCallback: BeforeOperationCallback = baseConfig.beforeOperationCallback
     private var retryPredicate: OnExceptionPredicate = baseConfig.retryPredicate
     private var retryOnResultPredicate: OnResultPredicate = baseConfig.retryOnResultPredicate
     /**
@@ -47,15 +40,6 @@ class RetryConfigBuilder(
      */
     fun retryIf(predicate: OnExceptionPredicate) {
         retryPredicate = predicate
-    }
-
-    /**
-     * Configures the callback to execute before the operation is called.
-     * Receives the current retry attempt as an argument.
-     * @param callback the callback to execute.
-     */
-    fun beforeOperCallback(callback: BeforeOperationCallback) {
-        beforeOperationCallback = callback
     }
 
     /**
@@ -223,7 +207,6 @@ class RetryConfigBuilder(
         retryPredicate,
         retryOnResultPredicate,
         delayStrategy,
-        beforeOperationCallback,
         exceptionHandler
     )
 
@@ -251,6 +234,5 @@ private val defaultRetryConfig = RetryConfig(
         multiplier = 2.0,
         maxDelay = 1.minutes
     ),
-    beforeOperationCallback = { },
     exceptionHandler = { throw it } // propagate the error by default
 )

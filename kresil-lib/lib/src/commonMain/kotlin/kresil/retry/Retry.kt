@@ -12,8 +12,10 @@ import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.config.defaultRetryConfig
 import kresil.retry.context.RetryAsyncContextImpl
 import kresil.retry.event.RetryEvent
-import kotlin.Result.Companion.failure
-import kotlin.Result.Companion.success
+import kresil.core.oper.CtxBiFunction
+import kresil.core.oper.CtxFunction
+import kresil.core.oper.CtxSupplier
+import kresil.retry.context.RetryContext
 
 /**
  * A [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
@@ -107,26 +109,26 @@ class Retry(
     private suspend fun <A, B, R> executeOperation(
         a: A,
         b: B,
-        block: BiFunction<A, B, R>,
-    ): Result<R> {
+        block: CtxBiFunction<RetryContext, A, B, R>,
+    ): R? {
         val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
-                context.beforeOperationCall()
-                val result = block(a, b)
+                val ctx = RetryContext(context.currentRetryAttempt)
+                val result = block(ctx, a, b)
                 val shouldRetryOnResult = context.onResult(result)
                 if (shouldRetryOnResult) {
                     context.onRetry()
                     continue
                 }
                 context.onSuccess()
-                return success(result)
+                return result
             } catch (throwable: Throwable) {
                 val shouldRetryOnError = context.onError(throwable)
                 if (shouldRetryOnError) {
                     context.onRetry()
                 } else {
-                    return failure(throwable)
+                    return null // TODO: handle error
                 }
             }
         }
@@ -138,9 +140,21 @@ class Retry(
      * @see [decorateSupplier]
      */
     suspend fun <R> executeSupplier(
-        block: Supplier<R>,
-    ): Result<R> {
-        return executeOperation(Unit, Unit) { _, _ -> block() }
+        block: CtxSupplier<RetryContext, R>,
+    ): R? {
+        return executeOperation(Unit, Unit) { ctx, _, _ -> block(ctx) }
+    }
+
+    /**
+     * Decorates a [Supplier] with this retry mechanism by providing an additional [RetryContext].
+     * @param block The operation to decorate and execute later.
+     * @see [decorateFunction]
+     * @see [decorateBiFunction]
+     */
+    fun <R> decorateCtxSupplier(
+        block: CtxSupplier<RetryContext, R>,
+    ): Supplier<R?> {
+        return { executeSupplier(block) }
     }
 
     /**
@@ -151,8 +165,20 @@ class Retry(
      */
     fun <R> decorateSupplier(
         block: Supplier<R>,
-    ): Supplier<Result<R>> {
-        return { executeOperation(Unit, Unit) { _, _ -> block() } }
+    ): Supplier<R?> {
+        return { executeSupplier { block() } }
+    }
+
+    /**
+     * Decorates a [Function] with this retry mechanism by providing an additional [RetryContext].
+     * @param block The operation to decorate and execute later.
+     * @see [decorateSupplier]
+     * @see [decorateBiFunction]
+     */
+    fun <A, R> decorateCtxFunction(
+        block: CtxFunction<RetryContext, A, R>,
+    ): Function<A, R?> {
+        return { executeOperation(it, Unit) { ctx, a, _ -> block(ctx, a) } }
     }
 
     /**
@@ -163,20 +189,26 @@ class Retry(
      */
     fun <A, R> decorateFunction(
         block: Function<A, R>,
-    ): Function<A, Result<R>> {
-        return { executeOperation(it, Unit) { a, _ -> block(a) } }
+    ): Function<A, R?> {
+        return { executeOperation(it, Unit) { _, a, _ -> block(a) } }
     }
 
     /**
-     * Decorates a [BiFunction] with this retry mechanism.
+     * Decorates a [BiFunction] with this retry mechanism by providing an additional [RetryContext].
      * @param block The operation to decorate and execute later.
      * @see [decorateSupplier]
      * @see [decorateFunction]
      */
+    fun <A, B, R> decorateCtxBiFunction(
+        block: CtxBiFunction<RetryContext, A, B, R>,
+    ): BiFunction<A, B, R?> {
+        return { a, b -> executeOperation(a, b, block) }
+    }
+
     fun <A, B, R> decorateBiFunction(
         block: BiFunction<A, B, R>,
-    ): BiFunction<A, B, Result<R>> {
-        return { a, b -> executeOperation(a, b, block) }
+    ): BiFunction<A, B, R?> {
+        return { a, b -> executeOperation(a, b) { _, a2, b2 -> block(a2, b2) } }
     }
 
     /**

@@ -23,4 +23,3 @@ typealias Function<Input, Result> = suspend (Input) -> Result
  * @param Result the type of the result
  */
 typealias BiFunction<InputA, InputB, Result> = suspend (InputA, InputB) -> Result
-
