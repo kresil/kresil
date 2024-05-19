@@ -108,7 +108,7 @@ class RetryTests {
         // are executed in the test context and consequently skipped to reduce test execution time.
         // This is the reason why it can be equal to the delay duration and not slightly greater.
         // With real time, an error margin would've been needed to consider the test successful
-        // (e.g. retryExecutionDuration.inWholeNanoseconds >= delayDuration.inWholeNanoseconds * maxAttempts +
+        // (e.g., retryExecutionDuration.inWholeNanoseconds >= delayDuration.inWholeNanoseconds * maxAttempts +
         // (delayDuration.inWholeNanoseconds * 0.01) // 1% error margin)
         // more info at: https://github.com/Kotlin/kotlinx.coroutines/tree/master/kotlinx-coroutines-test
 

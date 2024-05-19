@@ -7,14 +7,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_SUCCESS
-import kresil.circuitbreaker.state.CircuitBreakerState.*
+import kresil.circuitbreaker.state.CircuitBreakerState.CLOSED
+import kresil.circuitbreaker.state.CircuitBreakerState.HALF_OPEN
+import kresil.circuitbreaker.state.CircuitBreakerState.OPEN
 import kresil.core.reducer.Reducer
 import kresil.core.slidingwindow.FailureRateSlidingWindow
 import kotlin.time.Duration
-import kresil.circuitbreaker.CircuitBreaker
+
+/**
+ * Represents a transition between two states in a [CircuitBreaker], from left to right.
+ */
+private typealias StateTransition = Pair<CircuitBreakerState, CircuitBreakerState>
 
 /**
  * A thread-safe state machine that acts as a reducer for a [CircuitBreaker].
@@ -26,9 +33,10 @@ import kresil.circuitbreaker.CircuitBreaker
 class CircuitBreakerStateReducer<T>(
     private val slidingWindow: FailureRateSlidingWindow<T>,
     private val config: CircuitBreakerConfig,
-) : Reducer<CircuitBreakerState, CircuitBreakerReducerEvent> {
+) : Reducer<CircuitBreakerReducerState, CircuitBreakerReducerEvent> {
 
     private val scope = CoroutineScope(Dispatchers.Default)
+
     // reminder: mutexes are not reentrant and a coroutine should not suspend while holding a lock
     //  as it does not release it while suspended
     private val lock = Mutex()
@@ -39,8 +47,8 @@ class CircuitBreakerStateReducer<T>(
     private var openStateTimerJob: Job? = null
     private var halfOpenStateTimerJob: Job? = null
 
-    override suspend fun currentState() =
-        lock.withLock { internalState }
+    override suspend fun currentState(): CircuitBreakerReducerState =
+        lock.withLock { CircuitBreakerReducerState(state = internalState, nrOfCallsInHalfOpenState) }
 
     override suspend fun dispatch(event: CircuitBreakerReducerEvent) = lock.withLock {
         when (internalState) {
@@ -54,37 +62,36 @@ class CircuitBreakerStateReducer<T>(
                 }
             }
 
-            OPEN -> when (event) {
-                OPERATION_SUCCESS, OPERATION_FAILURE -> {
-                    // no-op
-                }
-            }
+            OPEN -> {} // no-op
 
-            HALF_OPEN -> when (event) {
-                OPERATION_SUCCESS, OPERATION_FAILURE -> {
-                    // TODO: this is incorrect, as failure or success needs to be recorded
-                    //  missing halfOpen to Open if failure rate exceeds threshold
-                    if (++nrOfCallsInHalfOpenState >= config.permittedNumberOfCallsInHalfOpenState) {
-                        transitionStateFrom(HALF_OPEN to CLOSED)
+            HALF_OPEN -> {
+                when (event) {
+                    OPERATION_SUCCESS -> slidingWindow.recordSuccess()
+                    OPERATION_FAILURE -> slidingWindow.recordFailure()
+                }
+                nrOfCallsInHalfOpenState++
+                if (config.maxWaitDurationInHalfOpenState == Duration.ZERO) {
+                    // is waiting indefinitely in the HALF_OPEN state until the permitted number of calls is reached
+                    if (nrOfCallsInHalfOpenState >= config.permittedNumberOfCallsInHalfOpenState) {
+                        // check if the failure rate is still above or equal to the threshold
+                        determineHalfOpenTransitionBasedOnFailureRate()
                     }
                 }
+                // else the timer will handle the transition
             }
         }
     }
 
     /**
      * Transitions the circuit breaker from one state to another, while performing the necessary side effects.
-     *
-     * **Note**: Since it alters the state, it should be called while holding the lock.
      */
-    private fun transitionStateFrom(transition: Pair<CircuitBreakerState, CircuitBreakerState>) {
+    private fun transitionStateFrom(transition: StateTransition) =
         when (transition) {
             CLOSED to OPEN, HALF_OPEN to OPEN -> transitionToOpenState()
             OPEN to HALF_OPEN -> transitionToHalfOpenState()
             HALF_OPEN to CLOSED -> transitionToClosedState()
             else -> throw IllegalStateException("Invalid transition in circuit breaker: $transition")
         }
-    }
 
     private fun transitionToClosedState() {
         internalState = CLOSED
@@ -104,17 +111,10 @@ class CircuitBreakerStateReducer<T>(
     /**
      * Starts a timer that transitions the circuit breaker from the [OPEN] state to the [HALF_OPEN] state,
      * if the timer is not cancelled before it expires or the state changes in the meantime.
-     * If the [CircuitBreakerConfig.waitDurationInOpenState] is set to [Duration.ZERO], the transition is immediate.
-     *
-     * **Note**: Since it alters the state, it should be called while holding the lock.
      */
     private fun startOpenStateTimer() {
         openStateTimerJob?.cancel()
-        if (config.waitDurationInOpenState == Duration.ZERO) {
-            transitionStateFrom(OPEN to HALF_OPEN)
-            return
-        }
-        openStateTimerJob = scope.launch {
+        openStateTimerJob = scope.launch { // another coroutine is launched here
             delay(config.waitDurationInOpenState)
             lock.withLock {
                 if (internalState == OPEN) {
@@ -127,23 +127,33 @@ class CircuitBreakerStateReducer<T>(
     /**
      * Starts a timer that transitions the circuit breaker from the [HALF_OPEN] state to the [CLOSED] state,
      * if the timer is not cancelled before it expires or the state changes in the meantime.
-     * If the [CircuitBreakerConfig.waitDurationInHalfOpenState] is set to [Duration.ZERO], the transition is immediate.
-     *
-     * **Note**: Since it alters the state, it should be called while holding the lock.
+     * If the maximum duration in the [HALF_OPEN] state is set to 0, the circuit breaker will wait indefinitely
+     * until the permitted number of calls is reached.
      */
     private fun startHalfOpenStateTimer() {
         halfOpenStateTimerJob?.cancel()
-        if (config.waitDurationInHalfOpenState == Duration.ZERO) {
-            transitionStateFrom(HALF_OPEN to CLOSED)
+        // if maxWaitDurationInHalfOpenState is 0, the circuit breaker will wait indefinitely in the HALF_OPEN state
+        // until the permitted number of calls is reached
+        if (config.maxWaitDurationInHalfOpenState == Duration.ZERO)
             return
-        }
-        halfOpenStateTimerJob = scope.launch {
-            delay(config.waitDurationInHalfOpenState)
+        halfOpenStateTimerJob = scope.launch { // another coroutine is launched here
+            delay(config.maxWaitDurationInHalfOpenState)
             lock.withLock {
-                if (internalState == HALF_OPEN) {
-                    transitionStateFrom(HALF_OPEN to CLOSED)
-                }
+                determineHalfOpenTransitionBasedOnFailureRate()
             }
+        }
+    }
+
+    /**
+     * Determines the transition from the [HALF_OPEN] state based on the failure rate.
+     * If the failure rate exceeds or equals the threshold, the circuit breaker transitions to the [OPEN] state;
+     * otherwise, it transitions to the [CLOSED] state.
+     */
+    private fun determineHalfOpenTransitionBasedOnFailureRate() {
+        if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
+            transitionStateFrom(HALF_OPEN to OPEN)
+        } else {
+            transitionStateFrom(HALF_OPEN to CLOSED)
         }
     }
 

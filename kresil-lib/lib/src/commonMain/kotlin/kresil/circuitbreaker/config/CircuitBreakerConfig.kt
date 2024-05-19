@@ -8,7 +8,7 @@ import kresil.circuitbreaker.state.CircuitBreakerState.*
 
 /**
  * Represents a [CircuitBreaker] configuration.
- * @param failureRateThreshold the rate in percentage (e.g. **0.5 for 50%**)
+ * @param failureRateThreshold the rate in percentage (e.g., **0.5 for 50%**)
  * of calls
  * recorded as failure that will trigger the circuit breaker to transition to the [OPEN] state if equalled or exceeded.
  * @param slidingWindowSize the size of the sliding window used to calculate the failure rate.
@@ -20,9 +20,9 @@ import kresil.circuitbreaker.state.CircuitBreakerState.*
  * If this number is exceeded, all subsequent calls will be rejected.
  * If one of the calls made in the [HALF_OPEN] state fails, the circuit breaker will transition back to the [OPEN] state.
  * @param waitDurationInOpenState the duration the circuit breaker will wait in the [OPEN] state before transitioning to the [HALF_OPEN] state.
- * @param waitDurationInHalfOpenState the duration the circuit breaker will wait in the [HALF_OPEN] state before transitioning to the [CLOSED] state.
+ * @param maxWaitDurationInHalfOpenState the duration the circuit breaker will wait in the [HALF_OPEN] state before transitioning to the [CLOSED] state.
  * @param recordExceptionPredicate a predicate that determines whether an exception thrown by the underlying operation should be recorded as a failure, and as such, increase the failure rate.
- * @param recordSuccessAsFailurePredicate a predicate that determines whether the result of the underlying operation should be recorded as a failure,
+ * @param recordResultPredicate a predicate that determines whether the result of the underlying operation should be recorded as a failure,
  * and as such, increase the failure rate.
  */
 data class CircuitBreakerConfig(
@@ -32,7 +32,7 @@ data class CircuitBreakerConfig(
     val minimumThroughput: Int,
     val permittedNumberOfCallsInHalfOpenState: Int,
     val waitDurationInOpenState: Duration,
-    val waitDurationInHalfOpenState: Duration,
+    val maxWaitDurationInHalfOpenState: Duration,
     val recordExceptionPredicate: OnExceptionPredicate,
-    val recordSuccessAsFailurePredicate: OnResultPredicate,
+    val recordResultPredicate: OnResultPredicate,
 )

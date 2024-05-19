@@ -9,7 +9,7 @@ import io.mockative.mock
 import kotlinx.coroutines.test.runTest
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
-import kresil.circuitbreaker.exceptions.CircuitBreakerOpenException
+import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.state.CircuitBreakerState
 import service.RemoteService
 import kotlin.test.Test
@@ -61,7 +61,7 @@ class CircuitBreakerTests {
 
         // when: the remote service is called one more time
         // then: the failure rate exceeds the threshold
-        assertFailsWith<CircuitBreakerOpenException> {
+        assertFailsWith<CallNotPermittedException> {
             circuitBreaker.executeOperation {
                 remoteService.suspendSupplier()
             }
@@ -124,7 +124,7 @@ class CircuitBreakerTests {
             failureRateThreshold = 1.0
             minimumThroughput = nrOfCallsToCalculateFailureRate
             slidingWindowSize = nrOfCallsToCalculateFailureRate
-            recordSuccessAsFailurePredicate { it == result }
+            recordResultPredicate { it == result }
         }
 
         // and: a circuit breaker instance

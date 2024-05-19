@@ -29,8 +29,8 @@ class CircuitBreakerConfigTests {
         assertEquals(100, config.minimumThroughput)
         assertEquals(10, config.permittedNumberOfCallsInHalfOpenState)
         assertEquals(60.seconds, config.waitDurationInOpenState)
-        assertEquals(25.seconds, config.waitDurationInHalfOpenState)
-        assertFalse(config.recordSuccessAsFailurePredicate(Any()))
+        assertEquals(25.seconds, config.maxWaitDurationInHalfOpenState)
+        assertFalse(config.recordResultPredicate(Any()))
         assertTrue(config.recordExceptionPredicate(Exception()))
     }
 
@@ -125,7 +125,7 @@ class CircuitBreakerConfigTests {
         val ex = assertFailsWith<IllegalArgumentException> {
             circuitBreakerConfig {
                 // when: the wait duration in HALF_OPEN state is set to -1 second
-                waitDurationInHalfOpenState = (-1).seconds
+                maxWaitDurationInHalfOpenState = (-1).seconds
             }
         }
 
