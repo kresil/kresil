@@ -250,9 +250,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      */
     fun disableRetry() {
         maxAttempts = 1
-        retryConfigBuilder.exceptionHandler {
-            // do nothing (overrides the default exception handler which propagates caught exceptions)
-        }
+        retryConfigBuilder.disableExceptionHandler()
     }
 
     override fun build(): RetryPluginConfig {

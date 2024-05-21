@@ -41,7 +41,7 @@ suspend fun main() {
     client.post {
         url("http://127.0.0.1:8080/")
         setBody("Hello, Kresil!")
-        kRetry {
+        kRetry(true) {
             exponentialDelay()
             modifyRequestOnRetry { request, attempt ->
                 request.headers.append("PER_REQUEST_RETRY_COUNT", attempt.toString())

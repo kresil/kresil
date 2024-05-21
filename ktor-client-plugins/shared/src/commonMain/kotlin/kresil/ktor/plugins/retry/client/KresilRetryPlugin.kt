@@ -5,6 +5,7 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.api.*
 import io.ktor.client.request.*
 import io.ktor.util.*
+import io.ktor.util.logging.*
 import kotlinx.coroutines.CompletableJob
 import kresil.ktor.plugins.retry.client.config.RetryPluginConfig
 import kresil.ktor.plugins.retry.client.config.RetryPluginConfigBuilder
@@ -12,11 +13,13 @@ import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 import kresil.retry.Retry
 import kresil.retry.config.retryConfig
 
+private val logger = KtorSimpleLogger("kresil.ktor.plugins.retry.client.KresilRetryPlugin")
+
 // TODO: find another way to store global configuration
 private lateinit var globalConfig: RetryPluginConfig
 
 /**
- * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism
+ * A plugin that enables the client to retry failed requests based on the Kresil [Retry] mechanism
  * configuration and the [HttpRequestRetry] plugin provided by Ktor.
  * Configuration can be done globally when installing the plugin,
  * and on a per-request basis with the [kRetry] function.
@@ -61,7 +64,7 @@ val KresilRetryPlugin = createClientPlugin(
         val requestPluginConfig: RetryPluginConfig = requestPluginBuilder.build()
         val retry = Retry(requestPluginConfig.retryConfig)
         retry.onEvent { event ->
-            println("Received event: $event")
+            logger.info("Retry event: $event")
         }
         lateinit var call: HttpClientCall
         try {
@@ -69,8 +72,8 @@ val KresilRetryPlugin = createClientPlugin(
                 val subRequest = copyRequestAndPropagateCompletion(request)
                 if (ctx.attempt > 0) requestPluginConfig.modifyRequestOnRetry(subRequest, ctx.attempt)
                 call = proceed(subRequest) // proceed with the modified request
-                println("Request headers: ${call.request.headers}")
-                println("Response call: ${call.response}")
+                logger.info("Request headers: ${call.request.headers}")
+                logger.info("Response call: ${call.response}")
                 if (requestPluginConfig.retryOnCallPredicate(call.request, call.response)) {
                     throw RetryOnCallException()
                 }
