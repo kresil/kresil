@@ -3,7 +3,7 @@ package kresil.retry.context
 import kresil.retry.Retry
 
 /**
- * Specifies the behavior of the retry mechanism in an asynchronous context.
+ * Specifies the behaviour of the retry mechanism in an asynchronous context.
  * @see [Retry]
  **/
 internal interface RetryAsyncContext {
@@ -35,12 +35,6 @@ internal interface RetryAsyncContext {
      * Even if the operation is completed without retrying once, this method is still called.
      */
     suspend fun onSuccess()
-
-
-    /**
-     * Applies logic before the operation is called in each attempt (including the initial call).
-     */
-    suspend fun beforeOperationCall()
 
 }
 

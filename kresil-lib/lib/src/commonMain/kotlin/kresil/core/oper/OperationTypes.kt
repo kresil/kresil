@@ -6,7 +6,6 @@ package kresil.core.oper
  * @param Result the type of the result
  */
 typealias Supplier<Result> = suspend () -> Result
-
 /**
  * Represents a potentially suspendable operation that **accepts one argument and produces a result**.
  * Based on Java's [Function](https://docs.oracle.com/javase/8/docs/api/java/util/function/Function.html) functional interface.
@@ -24,4 +23,3 @@ typealias Function<Input, Result> = suspend (Input) -> Result
  * @param Result the type of the result
  */
 typealias BiFunction<InputA, InputB, Result> = suspend (InputA, InputB) -> Result
-

@@ -12,9 +12,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
+import kresil.core.callbacks.OnExceptionPredicate
 import kresil.retry.Retry
 import kresil.retry.config.RetryConfig
-import kresil.retry.config.RetryPredicate
 import kresil.retry.config.retryConfig
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
@@ -108,7 +108,7 @@ class RetryTests {
         // are executed in the test context and consequently skipped to reduce test execution time.
         // This is the reason why it can be equal to the delay duration and not slightly greater.
         // With real time, an error margin would've been needed to consider the test successful
-        // (e.g. retryExecutionDuration.inWholeNanoseconds >= delayDuration.inWholeNanoseconds * maxAttempts +
+        // (e.g., retryExecutionDuration.inWholeNanoseconds >= delayDuration.inWholeNanoseconds * maxAttempts +
         // (delayDuration.inWholeNanoseconds * 0.01) // 1% error margin)
         // more info at: https://github.com/Kotlin/kotlinx.coroutines/tree/master/kotlinx-coroutines-test
 
@@ -817,7 +817,7 @@ class RetryTests {
     fun retryWithStatelessCustomDelayProvider() = runTest {
 
         // given: a stateless custom delay provider
-        val statelessDelayProvider = RetryDelayProvider { attempt, lastThrowable ->
+        val statelessDelayProvider = RetryDelayProvider { attempt, _ ->
             val nextDuration = when {
                 attempt % 2 == 0 -> 1.seconds
                 else -> 2.seconds
@@ -870,7 +870,7 @@ class RetryTests {
 
         // and: a retry configuration with custom delay
         val maxAttempts = 4
-        val retryPredicate: RetryPredicate = { it is WebServiceException || it is RuntimeException }
+        val retryPredicate: OnExceptionPredicate = { it is WebServiceException || it is RuntimeException }
         val customDelayStrategy: RetryDelayStrategy = { attempt, lastThrowable ->
             (if (attempt % 2 == 0) 1.seconds
             else if (lastThrowable is WebServiceException) 2.seconds
@@ -1061,7 +1061,7 @@ class RetryTests {
 
         try {
             // when: a decorated function is executed with the retry instance
-            val decorated = retry.decorateFunction(remoteService::suspendFunction)
+            val decorated = retry.decorateFunction(block = remoteService::suspendFunction)
             decorated(input)
             fail("should throw an exception")
         } catch (e: WebServiceException) {
@@ -1124,7 +1124,7 @@ class RetryTests {
 
         try {
             // when: a decorated bi-function is executed with the retry instance
-            val decorated = retry.decorateBiFunction(remoteService::suspendBiFunction)
+            val decorated = retry.decorateBiFunction(block = remoteService::suspendBiFunction)
             decorated(input1, input2)
             fail("should throw an exception")
         } catch (e: WebServiceException) {
@@ -1188,10 +1188,7 @@ class RetryTests {
             this.maxAttempts = maxAttempts
             retryIf { it is WebServiceException }
             constantDelay(delayDuration)
-            exceptionHandler {
-                // not throwing the exception
-                println("Error occurred: $it")
-            }
+            disableExceptionHandler()
         }
 
         // and: a retry instance
@@ -1246,9 +1243,7 @@ class RetryTests {
             retryIf { it is WebServiceException }
             constantDelay(delayDuration)
             retryOnResult { it == result }
-            exceptionHandler {
-                // not throwing the exception
-            }
+            disableExceptionHandler()
         }
 
         // and: a retry instance

@@ -81,6 +81,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.kotlinx.atomicfu)
             }
         }
         val commonTest by getting {

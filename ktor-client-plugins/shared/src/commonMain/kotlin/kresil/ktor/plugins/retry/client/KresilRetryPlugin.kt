@@ -5,6 +5,7 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.api.*
 import io.ktor.client.request.*
 import io.ktor.util.*
+import io.ktor.util.logging.*
 import kotlinx.coroutines.CompletableJob
 import kresil.ktor.plugins.retry.client.config.RetryPluginConfig
 import kresil.ktor.plugins.retry.client.config.RetryPluginConfigBuilder
@@ -12,14 +13,16 @@ import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
 import kresil.retry.Retry
 import kresil.retry.config.retryConfig
 
+private val logger = KtorSimpleLogger("kresil.ktor.plugins.retry.client.KresilRetryPlugin")
+
 // TODO: find another way to store global configuration
 private lateinit var globalConfig: RetryPluginConfig
 
 /**
- * A plugin that enables the client to retry failed requests based on the Kresil Retry mechanism
+ * A plugin that enables the client to retry failed requests based on the Kresil [Retry] mechanism
  * configuration and the [HttpRequestRetry] plugin provided by Ktor.
  * Configuration can be done globally when installing the plugin,
- * or on a per-request basis with the [kRetry] function.
+ * and on a per-request basis with the [kRetry] function.
  * Examples of usage:
  * ```
  * // use predefined retry policies
@@ -31,14 +34,19 @@ private lateinit var globalConfig: RetryPluginConfig
  * // use custom policies
  * install(KresilRetryPlugin) {
  *      maxRetries = 5
- *      retryOnTimeout()
  *      retryOnException { it is NetworkError }
+ *      // retryOnTimeout()
  *      constantDelay(2.seconds)
- *      // customDelay { attempt, lastThrowable -> ... }
  *      // noDelay()
+ *      // customDelay { attempt, lastThrowable -> ... }
  *      modifyRequestOnRetry { request, attempt ->
  *           request.headers.append("X_RETRY_COUNT", "$attempt")
  *      }
+ * }
+ *
+ * // disable retry for a specific request
+ * client.post {
+ *     kRetry(disable = true)
  * }
  * ```
  */
@@ -54,19 +62,18 @@ val KresilRetryPlugin = createClientPlugin(
             .getOrNull(RetryPluginConfigBuilderPerRequestAttributeKey)
             ?: pluginConfig
         val requestPluginConfig: RetryPluginConfig = requestPluginBuilder.build()
-        println("Request plugin config: $requestPluginConfig")
         val retry = Retry(requestPluginConfig.retryConfig)
         retry.onEvent { event ->
-            println("Received event: $event")
+            logger.info("Retry event: $event")
         }
         lateinit var call: HttpClientCall
         try {
-            retry.executeSupplier {
+            retry.executeSupplier { ctx ->
                 val subRequest = copyRequestAndPropagateCompletion(request)
-                requestPluginConfig.modifyRequestOnRetry(subRequest)
+                if (ctx.attempt > 0) requestPluginConfig.modifyRequestOnRetry(subRequest, ctx.attempt)
                 call = proceed(subRequest) // proceed with the modified request
-                println("Request headers: ${call.request.headers}")
-                println("Response call: ${call.response}")
+                logger.info("Request headers: ${call.request.headers}")
+                logger.info("Response call: ${call.response}")
                 if (requestPluginConfig.retryOnCallPredicate(call.request, call.response)) {
                     throw RetryOnCallException()
                 }
@@ -116,11 +123,9 @@ private val RetryPluginConfigBuilderPerRequestAttributeKey =
 
 private val defaultRetryPluginConfig = RetryPluginConfig(
     retryConfig = retryConfig {
-        maxAttempts = 8
-        retryIf { it is RetryOnCallException }
-        retryOnResult { false }
-        noDelay()
+        maxAttempts = 3
+        exponentialDelay()
     },
-    modifyRequestOnRetry = { println("No modification on retry") },
-    retryOnCallPredicate = { _, _ -> false }
+    modifyRequestOnRetry = { _, _ -> },
+    retryOnCallPredicate = { _, response -> response.status.value in 500..599 }
 )
