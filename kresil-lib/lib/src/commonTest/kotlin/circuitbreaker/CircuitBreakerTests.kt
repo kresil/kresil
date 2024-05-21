@@ -43,7 +43,7 @@ class CircuitBreakerTests {
 
         // and: a circuit breaker instance
         val circuitBreaker = CircuitBreaker(config)
-        assertSame(CircuitBreakerState.CLOSED, circuitBreaker.currentState())
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
 
         // and: a remote service that always throws an exception
         val remoteServiceException = WebServiceException("BAM!")
@@ -67,8 +67,8 @@ class CircuitBreakerTests {
             }
         }
 
-        // and: the circuit breaker should be in the OPEN state
-        assertSame(CircuitBreakerState.OPEN, circuitBreaker.currentState())
+        // and: the circuit breaker should be in the Open state
+        assertSame(CircuitBreakerState.Open, circuitBreaker.currentState())
     }
 
     @Test
@@ -76,7 +76,7 @@ class CircuitBreakerTests {
         // given: a circuit breaker configuration
         val nrOfCallsToCalculateFailureRate = 1000
         val config = circuitBreakerConfig {
-            failureRateThreshold = 0.51 // 0.5 would trigger the OPEN state
+            failureRateThreshold = 0.51 // 0.5 would trigger the Open state
             minimumThroughput = nrOfCallsToCalculateFailureRate
             slidingWindowSize = nrOfCallsToCalculateFailureRate
             recordExceptionPredicate { it is WebServiceException }
@@ -84,7 +84,7 @@ class CircuitBreakerTests {
 
         // and: a circuit breaker instance
         val circuitBreaker = CircuitBreaker(config)
-        assertSame(CircuitBreakerState.CLOSED, circuitBreaker.currentState())
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
 
         // and: a remote service that always throws an exception
         val exceptionsToThrow = List(nrOfCallsToCalculateFailureRate) { index ->
@@ -111,8 +111,8 @@ class CircuitBreakerTests {
             }
         }
 
-        // and: the circuit breaker should be in the CLOSED state
-        assertSame(CircuitBreakerState.CLOSED, circuitBreaker.currentState())
+        // and: the circuit breaker should be in the Closed state
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
     }
 
     @Test
@@ -129,7 +129,7 @@ class CircuitBreakerTests {
 
         // and: a circuit breaker instance
         val circuitBreaker = CircuitBreaker(config)
-        assertSame(CircuitBreakerState.CLOSED, circuitBreaker.currentState())
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
 
         // and: a remote service that always returns a result that should be considered a failure
         coEvery { remoteService.suspendSupplier() }
@@ -142,8 +142,8 @@ class CircuitBreakerTests {
             }
         }
 
-        // then: the circuit breaker should be in the OPEN state
-        assertSame(CircuitBreakerState.OPEN, circuitBreaker.currentState())
+        // then: the circuit breaker should be in the Open state
+        assertSame(CircuitBreakerState.Open, circuitBreaker.currentState())
     }
 
     @Test
@@ -152,7 +152,7 @@ class CircuitBreakerTests {
         val slidingWindowSize = 5
         val minimumThroughput = slidingWindowSize * 2
         val config = circuitBreakerConfig {
-            failureRateThreshold = 0.00001 // low threshold to trigger the OPEN state quickly
+            failureRateThreshold = 0.00001 // low threshold to trigger the Open state quickly
             this.slidingWindowSize = slidingWindowSize
             this.minimumThroughput = minimumThroughput
             recordExceptionPredicate { it is WebServiceException }
@@ -160,7 +160,7 @@ class CircuitBreakerTests {
 
         // when: creating a circuit breaker instance
         val circuitBreaker = CircuitBreaker(config)
-        assertSame(CircuitBreakerState.CLOSED, circuitBreaker.currentState())
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
 
         // and: a remote service that throws recorded exceptions as failures until the sliding window is full
         //  but after sliding window is full throws recorded exceptions as successes
@@ -191,11 +191,11 @@ class CircuitBreakerTests {
             }
         }
 
-        // then: the circuit breaker should be in the CLOSED state,
+        // then: the circuit breaker should be in the Closed state,
         //  because the recorded exceptions in the sliding window are now considered successes
-        assertSame(CircuitBreakerState.CLOSED, circuitBreaker.currentState())
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
     }
 
-    // TODO half open state tests (back and forth between open and closed)
+    // TODO half Open state tests (back and forth between Open and Closed)
 
 }

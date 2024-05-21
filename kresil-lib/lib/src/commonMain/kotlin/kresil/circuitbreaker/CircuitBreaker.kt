@@ -6,9 +6,9 @@ import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_SUCCESS
-import kresil.circuitbreaker.state.CircuitBreakerState.CLOSED
-import kresil.circuitbreaker.state.CircuitBreakerState.HALF_OPEN
-import kresil.circuitbreaker.state.CircuitBreakerState.OPEN
+import kresil.circuitbreaker.state.CircuitBreakerState.Closed
+import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
+import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.circuitbreaker.state.CircuitBreakerStateReducer
 
 /**
@@ -36,17 +36,17 @@ import kresil.circuitbreaker.state.CircuitBreakerStateReducer
  *     |-------------------------- | Half-Open |
  *                                 +-----------+
  * ```
- * - In the [CLOSED] state, the circuit breaker allows calls to execute the underlying operation, while
+ * - In the [Closed] state, the circuit breaker allows calls to execute the underlying operation, while
  * recording the success or failure of these calls. When the failure rate exceeds the threshold, the
- * circuit breaker transitions to the [OPEN] state.
- * - In the [OPEN] state,
+ * circuit breaker transitions to the [Open] state.
+ * - In the [Open] state,
  * the circuit breaker rejects all received calls for a (configurable) amount of time and then transitions
- * to the [HALF_OPEN] state.
- * - In the [HALF_OPEN] state,
+ * to the [HalfOpen] state.
+ * - In the [HalfOpen] state,
  * the circuit breaker allows a (configurable) number of calls to test if the underlying operation is still failing.
- * If the failure rate exceeds the threshold, the circuit breaker transitions back to the [OPEN] state.
- * In a (configurable) amount of time, the circuit breaker transitions back to the [OPEN] state if the failure
- * rate is still above or equal to the threshold, or to the [CLOSED] state if the failure rate is below the threshold.
+ * If the failure rate exceeds the threshold, the circuit breaker transitions back to the [Open] state.
+ * In a (configurable) amount of time, the circuit breaker transitions back to the [Open] state if the failure
+ * rate is still above or equal to the threshold, or to the [Closed] state if the failure rate is below the threshold.
  *
  * Examples of usage:
  * ```
@@ -81,30 +81,25 @@ class CircuitBreaker(
     )
     private val stateReducer = CircuitBreakerStateReducer(slidingWindow, config)
 
-    suspend fun currentState() = stateReducer.currentState().state
+    suspend fun currentState() = stateReducer.currentState()
 
     /**
      * Executes the given operation decorated by this circuit breaker and returns its result,
      * while handling any possible failure and emitting the necessary events.
      */
     // TODO: introduce all operation types here later (Supplier, Function, BiFunction)
-    suspend fun <R> executeOperation(block: suspend () -> R): R {
-        val (state, nrOfCallsInHalfOpenState) = stateReducer.currentState()
-        return when (state) {
-            OPEN -> {
-                throw CallNotPermittedException()
-            }
-
-            HALF_OPEN -> {
-                if (nrOfCallsInHalfOpenState >= config.permittedNumberOfCallsInHalfOpenState) {
+    suspend fun <R> executeOperation(block: suspend () -> R): R =
+        when (val state = currentState()) {
+            Open -> throw CallNotPermittedException()
+            is HalfOpen -> {
+                if (state.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
                     throw CallNotPermittedException()
                 }
                 executeAndDispatch(block)
             }
 
-            CLOSED -> executeAndDispatch(block)
+            Closed -> executeAndDispatch(block)
         }
-    }
 
     /**
      * Executes the given operation and dispatches the necessary events based on its
@@ -134,14 +129,10 @@ class CircuitBreaker(
      * Handles the possible failure of an operation decorated by the circuit breaker, by emitting the necessary
      * events and rethrowing the exception.
      */
-    private suspend fun <R> handleFailure(throwable: Throwable): R {
-        val (state, _) = stateReducer.currentState()
-        when (state) {
-            OPEN -> {
-                throw CallNotPermittedException()
-            }
-
-            CLOSED, HALF_OPEN -> {
+    private suspend fun <R> handleFailure(throwable: Throwable): R =
+        when (currentState()) {
+            Open -> throw CallNotPermittedException()
+            Closed, is HalfOpen -> {
                 if (config.recordExceptionPredicate(throwable)) {
                     stateReducer.dispatch(OPERATION_FAILURE)
                 } else {
@@ -150,6 +141,5 @@ class CircuitBreaker(
                 throw throwable
             }
         }
-    }
 
 }

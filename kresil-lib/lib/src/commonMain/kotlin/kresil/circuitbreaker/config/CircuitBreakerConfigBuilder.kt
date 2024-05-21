@@ -28,7 +28,7 @@ class CircuitBreakerConfigBuilder internal constructor(
     /**
      * Configures the rate in percentage (e.g., **0.5 for 50%**)
      * of calls recorded as failure that will trigger the circuit breaker
-     * to transition to the [OPEN] state, if equalled or exceeded.
+     * to transition to the [Open] state, if equalled or exceeded.
      *
      * Should be between `0.0` exclusive and `1.0` inclusive.
      */
@@ -54,7 +54,7 @@ class CircuitBreakerConfigBuilder internal constructor(
     /**
      * Configures the minimum number of calls that need to be recorded in the sliding window for the
      * failure rate to be calculated.
-     * Even if the [failureRateThreshold] is exceeded, the circuit breaker will not transition to the [OPEN] state if the
+     * Even if the [failureRateThreshold] is exceeded, the circuit breaker will not transition to the [Open] state if the
      * number of calls recorded in the sliding window is less than this value.
      *
      * Should be greater than `0`.
@@ -66,36 +66,36 @@ class CircuitBreakerConfigBuilder internal constructor(
         }
 
     /**
-     * Configures the number of calls that are allowed to be made in the [HALF_OPEN] state.
+     * Configures the number of calls that are allowed to be made in the [HalfOpen] state.
      * If this number is exceeded, further calls will be rejected.
      * If [maxWaitDurationInHalfOpenState] is set to `Duration.ZERO`, the circuit breaker will wait indefinitely
-     * in the [HALF_OPEN] state until the permitted number of calls is reached.
+     * in the [HalfOpen] state until the permitted number of calls is reached.
      */
     var permittedNumberOfCallsInHalfOpenState: Int = baseConfig.permittedNumberOfCallsInHalfOpenState
         set(value) {
-            require(value >= 0) { "Permitted number of calls in $HALF_OPEN state must be greater than or equal to 0" }
+            require(value >= 0) { "Permitted number of calls in ${HalfOpen::class.simpleName} state must be greater than or equal to 0" }
             field = value
         }
 
     /**
      * Configures the duration the circuit breaker will wait in the
-     * [OPEN] state before transitioning to the [HALF_OPEN] state automatically.
+     * [Open] state before transitioning to the [HalfOpen] state automatically.
      */
     var waitDurationInOpenState: Duration = baseConfig.waitDurationInOpenState
         set(value) {
-            requirePositiveDuration(value, "$OPEN state")
+            requirePositiveDuration(value, "$Open state")
             field = value
         }
 
     /**
      * Configures the maximum duration the circuit breaker will wait in the
-     * [HALF_OPEN] state before transitioning to the [OPEN] state automatically.
-     * If set to `Duration.ZERO`, the circuit breaker will wait indefinitely in the [HALF_OPEN] state
+     * [HalfOpen] state before transitioning to the [Open] state automatically.
+     * If set to `Duration.ZERO`, the circuit breaker will wait indefinitely in the [HalfOpen] state
      * until [permittedNumberOfCallsInHalfOpenState] is reached.
      */
     var maxWaitDurationInHalfOpenState: Duration = baseConfig.maxWaitDurationInHalfOpenState
         set(value) {
-            requireNonNegativeDuration(value, "$HALF_OPEN state")
+            requireNonNegativeDuration(value, "${HalfOpen::class.simpleName} state")
             field = value
         }
 
