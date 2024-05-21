@@ -1,7 +1,7 @@
 package kresil.retry.config
 
 import kresil.core.builders.ConfigBuilder
-import kresil.core.callbacks.ExceptionHandler
+import kresil.core.callbacks.ResultMapper
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
 import kresil.retry.delay.RetryDelayProvider
@@ -23,7 +23,7 @@ class RetryConfigBuilder(
     private val retryDelayStrategyOptions = RetryDelayStrategyOptions
 
     // state
-    private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
+    private var resultMapper: ResultMapper = baseConfig.resultMapper
     private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
     private var retryPredicate: OnExceptionPredicate = baseConfig.retryPredicate
     private var retryOnResultPredicate: OnResultPredicate = baseConfig.retryOnResultPredicate
@@ -191,12 +191,29 @@ class RetryConfigBuilder(
     }
 
     /**
-     * Configures the callback to handle the retried operation that failed.
-     * The default behaviour is to propagate the error.
-     * @param callback the callback to execute.
+     * Configures the mapper to use when retry is finished.
+     *
+     * The mapper can be used, for example, to:
+     * - map the result or the exception to a specific type;
+     * - throw the caught exception;
+     * - log the exception and not throw it;
+     * - return a default value when an exception occurs;
+     * - etc.
+     * @param mapper the mapper to use.
      */
-    fun exceptionHandler(callback: ExceptionHandler) {
-        exceptionHandler = callback
+    fun resultMapper(mapper: ResultMapper) {
+        resultMapper = mapper
+    }
+
+    /**
+     * Disables the exception handler mechanism.
+     * The default behaviour is to throw the exception when it occurs.
+     * This is a subtype of the [resultMapper] method,
+     * used when no mapping is needed and the eventuality of an exception
+     * should not be thrown.
+     */
+    fun disableExceptionHandler() {
+        resultMapper = { result, _ -> result }
     }
 
     /**
@@ -207,7 +224,7 @@ class RetryConfigBuilder(
         retryPredicate,
         retryOnResultPredicate,
         delayStrategy,
-        exceptionHandler
+        resultMapper
     )
 
     /**
@@ -234,5 +251,7 @@ private val defaultRetryConfig = RetryConfig(
         multiplier = 2.0,
         maxDelay = 1.minutes
     ),
-    exceptionHandler = { throw it } // propagate the error by default
+    resultMapper = { result: Any?, throwable: Throwable? ->
+        throwable?.let { throw it } ?: result
+    }
 )

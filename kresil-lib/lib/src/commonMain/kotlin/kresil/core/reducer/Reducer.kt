@@ -1,5 +1,7 @@
 package kresil.core.reducer
 
+
+//TODO should not have any side effects
 /**
  * Similiar to React's [useReducer](https://react.dev/reference/react/useReducer)
  * hook, this contract defines the responsibility that implementations must have to encapsulate

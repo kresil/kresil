@@ -31,8 +31,7 @@ internal class RetryAsyncContextImpl(
     // state
     var currentRetryAttempt = INITIAL_NON_RETRY_ATTEMPT
         private set
-    var lastThrowable: Throwable? = null
-        private set
+    private var lastThrowable: Throwable? = null
     private val isRetryAttempt: Boolean
         get() = currentRetryAttempt > INITIAL_NON_RETRY_ATTEMPT
     private val isWithinPermittedRetryAttempts: Boolean
@@ -43,8 +42,7 @@ internal class RetryAsyncContextImpl(
             if (!isWithinPermittedRetryAttempts) {
                 val exception = MaxRetriesExceededException()
                 eventFlow.emit(RetryEvent.RetryOnError(exception))
-                config.exceptionHandler(exception) // could throw exception
-                return false
+                throw exception // to be caught by the onError handler
             }
             return true
         } else {
@@ -68,19 +66,16 @@ internal class RetryAsyncContextImpl(
         lastThrowable = throwable
         // special case (only for default error handler)
         if (throwable is MaxRetriesExceededException) {
-            // propagate exception to the caller
-            config.exceptionHandler(throwable)
+            return false
         }
         // can retry be done for this error?
         if (!shouldRetry(throwable)) {
             eventFlow.emit(RetryEvent.RetryOnIgnoredError(throwable))
-            config.exceptionHandler(throwable)
             return false
         }
         // and if retry can be done, do configured policies allow it?
         if (!isWithinPermittedRetryAttempts) {
             eventFlow.emit(RetryEvent.RetryOnError(throwable))
-            config.exceptionHandler(throwable)
             return false
         }
         return true

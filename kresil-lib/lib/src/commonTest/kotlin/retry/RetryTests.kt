@@ -1061,7 +1061,7 @@ class RetryTests {
 
         try {
             // when: a decorated function is executed with the retry instance
-            val decorated = retry.decorateFunction(remoteService::suspendFunction)
+            val decorated = retry.decorateFunction(block = remoteService::suspendFunction)
             decorated(input)
             fail("should throw an exception")
         } catch (e: WebServiceException) {
@@ -1124,7 +1124,7 @@ class RetryTests {
 
         try {
             // when: a decorated bi-function is executed with the retry instance
-            val decorated = retry.decorateBiFunction(remoteService::suspendBiFunction)
+            val decorated = retry.decorateBiFunction(block = remoteService::suspendBiFunction)
             decorated(input1, input2)
             fail("should throw an exception")
         } catch (e: WebServiceException) {
@@ -1188,10 +1188,7 @@ class RetryTests {
             this.maxAttempts = maxAttempts
             retryIf { it is WebServiceException }
             constantDelay(delayDuration)
-            exceptionHandler {
-                // not throwing the exception
-                println("Error occurred: $it")
-            }
+            disableExceptionHandler()
         }
 
         // and: a retry instance
@@ -1246,9 +1243,7 @@ class RetryTests {
             retryIf { it is WebServiceException }
             constantDelay(delayDuration)
             retryOnResult { it == result }
-            exceptionHandler {
-                // not throwing the exception
-            }
+            disableExceptionHandler()
         }
 
         // and: a retry instance

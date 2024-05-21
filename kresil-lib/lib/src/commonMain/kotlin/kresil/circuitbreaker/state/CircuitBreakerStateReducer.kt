@@ -136,6 +136,7 @@ class CircuitBreakerStateReducer<T>(
         // until the permitted number of calls is reached
         if (config.maxWaitDurationInHalfOpenState == Duration.ZERO)
             return
+        // TODO: do not launch a coroutine here, save a timestamp instead
         halfOpenStateTimerJob = scope.launch { // another coroutine is launched here
             delay(config.maxWaitDurationInHalfOpenState)
             lock.withLock {
