@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kresil.retry.event.RetryEvent
 import kresil.retry.config.RetryConfig
 import kresil.retry.Retry
+import kresil.retry.delay.RetryDelayStrategyContext
 import kresil.retry.exceptions.MaxRetriesExceededException
 import kotlin.time.Duration
 
@@ -52,7 +53,7 @@ internal class RetryAsyncContextImpl(
 
     override suspend fun onRetry() {
         eventFlow.emit(RetryEvent.RetryOnRetry(++currentRetryAttempt))
-        val duration: Duration = config.delayStrategy(currentRetryAttempt, lastThrowable)
+        val duration: Duration = config.delayStrategy(currentRetryAttempt, RetryDelayStrategyContext(lastThrowable))
         when {
             // skip default delay provider if duration zero, because the delay is:
             // 1. defined externally;
@@ -64,7 +65,7 @@ internal class RetryAsyncContextImpl(
 
     override suspend fun onError(throwable: Throwable): Boolean {
         lastThrowable = throwable
-        // special case (only for default error handler)
+        // special case
         if (throwable is MaxRetriesExceededException) {
             return false
         }

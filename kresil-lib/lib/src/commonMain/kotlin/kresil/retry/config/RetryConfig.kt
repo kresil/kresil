@@ -14,7 +14,7 @@ import kresil.retry.delay.RetryDelayStrategy
  * @param retryPredicate the predicate to determine if the operation should be retried based on the caught throwable.
  * @param retryOnResultPredicate the predicate to determine if the operation should be retried based on its result.
  * @param delayStrategy the strategy to determine the delay duration between retries.
- * @param resultMapper the callback to execute when an error occurs.
+ * @param resultMapper a function to map the result or exception after retries are exhausted
  * @see [Retry]
  */
 data class RetryConfig(

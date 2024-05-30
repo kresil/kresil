@@ -18,6 +18,7 @@ import kresil.retry.config.RetryConfig
 import kresil.retry.config.retryConfig
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
+import kresil.retry.delay.RetryDelayStrategyContext
 import kresil.retry.event.RetryEvent
 import kresil.retry.exceptions.MaxRetriesExceededException
 import service.ConditionalSuccessRemoteService
@@ -364,7 +365,7 @@ class RetryTests {
         val initialDelayMillis = initialDelay.inWholeMilliseconds
         (1..config.maxAttempts).forEach { attempt ->
             val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt)).toLong()
-            assertEquals(nextDurationMillis.milliseconds, config.delayStrategy(attempt, null))
+            assertEquals(nextDurationMillis.milliseconds, config.delayStrategy(attempt, RetryDelayStrategyContext()))
         }
 
         // and: the permitted retry attempts is the max attempts minus one, since the first attempt is not a retry
@@ -606,7 +607,8 @@ class RetryTests {
             retryIf { it is WebServiceException || it is RuntimeException }
             // simulates delay on each retry attempt: [3s, 1s, 2s]
             // since maxAttempts is 4 and the first attempt is not a retry
-            customDelay { attempt, lastThrowable ->
+            customDelay { attempt, context ->
+                val lastThrowable = context.lastThrowable
                 (if (attempt % 2 == 0) 1.seconds
                 else if (lastThrowable is WebServiceException) 2.seconds
                 else 3.seconds).also {
@@ -679,10 +681,10 @@ class RetryTests {
         val config: RetryConfig = retryConfig {
             this.maxAttempts = maxAttempts
             retryIf { it is WebServiceException }
-            customDelay { attempt, lastThrowable ->
+            customDelay { attempt, context ->
                 constantDelay.also {
                     attemptCollector.add(attempt)
-                    lastThrowableCollector.add(lastThrowable)
+                    lastThrowableCollector.add(context.lastThrowable)
                 }
             }
             retryOnResult { it == result }
@@ -766,7 +768,7 @@ class RetryTests {
             var delayProviderRetryCounter = 0
                 private set
 
-            override suspend fun delay(attempt: Int, lastThrowable: Throwable?): Duration {
+            override suspend fun delay(attempt: Int, context: RetryDelayStrategyContext): Duration {
                 val nextDuration = when {
                     ++delayProviderRetryCounter % 2 == 0 -> 1.seconds
                     else -> 2.seconds
@@ -871,7 +873,8 @@ class RetryTests {
         // and: a retry configuration with custom delay
         val maxAttempts = 4
         val retryPredicate: OnExceptionPredicate = { it is WebServiceException || it is RuntimeException }
-        val customDelayStrategy: RetryDelayStrategy = { attempt, lastThrowable ->
+        val customDelayStrategy: RetryDelayStrategy = { attempt, context ->
+            val lastThrowable = context.lastThrowable
             (if (attempt % 2 == 0) 1.seconds
             else if (lastThrowable is WebServiceException) 2.seconds
             else 3.seconds).also {

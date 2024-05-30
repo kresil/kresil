@@ -63,9 +63,7 @@ val KresilRetryPlugin = createClientPlugin(
             ?: pluginConfig
         val requestPluginConfig: RetryPluginConfig = requestPluginBuilder.build()
         val retry = Retry(requestPluginConfig.retryConfig)
-        retry.onEvent { event ->
-            logger.info("Retry event: $event")
-        }
+        retry.onEvent { event -> logger.info("Retry event: $event") }
         lateinit var call: HttpClientCall
         try {
             retry.executeSupplier { ctx ->
