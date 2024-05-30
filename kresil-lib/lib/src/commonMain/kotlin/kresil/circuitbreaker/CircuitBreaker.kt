@@ -4,21 +4,21 @@ import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.config.defaultCircuitBreakerConfig
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
-import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_FAILURE
-import kresil.circuitbreaker.state.CircuitBreakerReducerEvent.OPERATION_SUCCESS
 import kresil.circuitbreaker.state.CircuitBreakerState.Closed
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
-import kresil.circuitbreaker.state.CircuitBreakerStateReducer
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_FAILURE
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_SUCCESS
+import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
 
 /**
  * A [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
- * resilience mechanism implementation, that can be used to protect a system component from overloading or failing.
+ * resilience mechanism implementation that can be used to protect a system component from overloading or failing.
  * State management is done via a finite state machine implemented using the reducer pattern,
  * where events are dispatched to the reducer to change the state of the circuit breaker based
  * on the current state and the event.
  * This way, two or more circuit breakers can use the same reducer to manage their state
- * (e.g., when one of two or more related components fails, the others are likely to fail too).
+ * (i.e., when one of two or more related components fails, the others are likely to fail too).
  * A circuit breaker is initialized with a [CircuitBreakerConfig] that,
  * through pre-configured policies, define its behaviour.
  * The circuit breaker implements the following state machine:
@@ -37,16 +37,16 @@ import kresil.circuitbreaker.state.CircuitBreakerStateReducer
  *                                 +-----------+
  * ```
  * - In the [Closed] state, the circuit breaker allows calls to execute the underlying operation, while
- * recording the success or failure of these calls. When the failure rate exceeds the threshold, the
+ * recording the success or failure of these calls.
+ * When the failure rate exceeds a (configurable) threshold, the
  * circuit breaker transitions to the [Open] state.
  * - In the [Open] state,
  * the circuit breaker rejects all received calls for a (configurable) amount of time and then transitions
  * to the [HalfOpen] state.
  * - In the [HalfOpen] state,
  * the circuit breaker allows a (configurable) number of calls to test if the underlying operation is still failing.
- * If the failure rate exceeds the threshold, the circuit breaker transitions back to the [Open] state.
- * In a (configurable) amount of time, the circuit breaker transitions back to the [Open] state if the failure
- * rate is still above or equal to the threshold, or to the [Closed] state if the failure rate is below the threshold.
+ * If one of the calls fails, the circuit breaker transitions back to the [Open] state.
+ * If all calls succeed, the circuit breaker transitions to the [Closed] state.
  *
  * Examples of usage:
  * ```
@@ -88,8 +88,10 @@ class CircuitBreaker(
      * while handling any possible failure and emitting the necessary events.
      */
     // TODO: introduce all operation types here later (Supplier, Function, BiFunction)
+    // TODO: add resultMapper to map the result of the operation
     suspend fun <R> executeOperation(block: suspend () -> R): R =
         when (val state = currentState()) {
+            Closed -> executeAndDispatch(block)
             Open -> throw CallNotPermittedException()
             is HalfOpen -> {
                 if (state.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
@@ -98,7 +100,6 @@ class CircuitBreaker(
                 executeAndDispatch(block)
             }
 
-            Closed -> executeAndDispatch(block)
         }
 
     /**

@@ -1,4 +1,4 @@
-package kresil.circuitbreaker.state
+package kresil.circuitbreaker.state.reducer
 
 import kresil.circuitbreaker.CircuitBreaker
 

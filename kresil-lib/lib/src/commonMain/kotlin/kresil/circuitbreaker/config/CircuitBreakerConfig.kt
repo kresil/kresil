@@ -28,10 +28,10 @@ import kresil.circuitbreaker.state.CircuitBreakerState.*
 data class CircuitBreakerConfig(
     val failureRateThreshold: Double,
     // TODO: add support for count and time-based sliding windows
-    val slidingWindowSize: Int,
+    val slidingWindowSize: Int, // slidingWindow(100, minimumThroughput, SlidingWindowType.COUNT_BASED)
     val minimumThroughput: Int,
     val permittedNumberOfCallsInHalfOpenState: Int,
-    val waitDurationInOpenState: Duration,
+    val waitDurationInOpenState: Duration, // TODO: change to CircuitBreakerDelayDuration
     val maxWaitDurationInHalfOpenState: Duration,
     val recordExceptionPredicate: OnExceptionPredicate,
     val recordResultPredicate: OnResultPredicate,

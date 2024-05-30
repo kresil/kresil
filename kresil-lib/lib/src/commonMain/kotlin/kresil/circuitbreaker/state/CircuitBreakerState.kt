@@ -22,7 +22,8 @@ sealed class CircuitBreakerState {
     /**
      * Represents the state where the circuit breaker is half-open, and **only a limited number of calls are allowed**.
      * @param nrOfCallsAttempted The number of calls attempted in the half-open state. If this number exceeds the
-     * configured maximum number of calls allowed in the half-open state, subsequent calls will be rejected.
+     * configured maximum number of calls allowed in the half-open state,
+     * subsequent calls will be rejected as the state will transition back to the [Open] state.
      */
     data class HalfOpen(val nrOfCallsAttempted: Int) : CircuitBreakerState()
 }
