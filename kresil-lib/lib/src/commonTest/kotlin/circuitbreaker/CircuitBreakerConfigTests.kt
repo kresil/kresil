@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
 import kresil.circuitbreaker.state.CircuitBreakerState
+import kresil.core.delay.DelayStrategyOptions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -11,6 +12,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class CircuitBreakerConfigTests {
@@ -29,7 +31,10 @@ class CircuitBreakerConfigTests {
         assertEquals(100, config.slidingWindowSize)
         assertEquals(100, config.minimumThroughput)
         assertEquals(10, config.permittedNumberOfCallsInHalfOpenState)
-        assertEquals(60.seconds, config.waitDurationInOpenState)
+        val constantDuration = DelayStrategyOptions.constant<Unit>(1.minutes).invoke(Int.MAX_VALUE, Unit)
+        for (i in 1..100) {
+            assertEquals(constantDuration, config.delayStrategyInOpenState(i, Unit))
+        }
         assertEquals(Duration.ZERO, config.maxWaitDurationInHalfOpenState)
         assertFalse(config.recordResultPredicate(Any()))
         assertTrue(config.recordExceptionPredicate(Exception()))
@@ -103,21 +108,7 @@ class CircuitBreakerConfigTests {
         }
 
         // then: an exception should be thrown
-        assertEquals("Permitted number of calls in HalfOpen state must be greater than or equal to 0", ex.message)
-    }
-
-    @Test
-    fun waitDurationInOpenStateShouldBePositive() = runTest {
-        // given: a circuit breaker configuration with a wait duration in Open state of -1 second
-        val ex = assertFailsWith<IllegalArgumentException> {
-            circuitBreakerConfig {
-                // when: the wait duration in Open state is set to -1 second
-                waitDurationInOpenState = Duration.ZERO
-            }
-        }
-
-        // then: an exception should be thrown
-        assertEquals("Open state duration must be greater than 0", ex.message)
+        assertEquals("Permitted number of calls in HalfOpen state must be greater than 0", ex.message)
     }
 
     @Test

@@ -10,11 +10,13 @@ import kotlin.time.Duration
 /**
  * Represents a delay strategy used to determine the delay duration between attempts, where:
  * - `attempt` is the current attempt. Starts at **1**.
- * - `context` is the context to use for the delay strategy.
+ * - `context` is the additional context provided to the strategy (e.g., the last throwable caught).
  *
  * If the return value is `Duration.ZERO`,
  * the delay is considered to be **defined externally** or not needed
  * (**no delay**); as such, the **default delay provider is skipped**.
+ * @see [DelayStrategyOptions]
+ * @see [DelayProvider]
  */
 typealias DelayStrategy<TContext> = suspend (attempt: Int, context: TContext) -> Duration
 
@@ -27,36 +29,39 @@ typealias DelayStrategy<TContext> = suspend (attempt: Int, context: TContext) ->
  */
 internal object DelayStrategyOptions {
 
+    // TODO: add checks for parameters
+    // TODO: add overloads that do not require a context
+
     /**
-     * A delay strategy that has no delay between retries.
-     * Retries are immediate and do not use any custom delay provider.
+     * A delay strategy that has no delay between attempts.
+     * Attempts are immediate and do not use any custom delay provider.
      */
     fun <TContext> noDelay(): DelayStrategy<TContext> = { _, _ -> Duration.ZERO }
 
     /**
      * A delay strategy that uses a constant delay duration.
-     * The delay between retries is the same for each attempt.
+     * The delay between attempts is the same for each attempt.
      * @param delay The constant delay duration to use.
      */
     fun <TContext> constant(delay: Duration): DelayStrategy<TContext> = { _, _ -> delay }
 
     /**
      * A delay strategy that uses a linear delay duration.
-     * The delay between retries is calculated using the formula:
+     * The delay between attempts is calculated using the formula:
      * `initialDelay * attempt`, where `attempt` is the current attempt.
      * @param initialDelay The initial delay before the first attempt.
-     * @param maxDelay The maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @param maxDelay The maximum delay between attempts. Used as a safety net to prevent infinite delays.
      */
     fun <TContext> linear(initialDelay: Duration, maxDelay: Duration): DelayStrategy<TContext> =
         exponential(initialDelay, 1.0, maxDelay)
 
     /**
      * A delay strategy that uses an exponential delay duration.
-     * The delay between retries is calculated using the formula:
+     * The delay between attempts is calculated using the formula:
      * `initialDelay * multiplier^attempt`, where `attempt` is the current attempt.
      * @param initialDelay The initial delay before the first attempt.
-     * @param multiplier The multiplier to increase the delay between retries.
-     * @param maxDelay The maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @param multiplier The multiplier to increase the delay between attempts.
+     * @param maxDelay The maximum delay between attempts. Used as a safety net to prevent infinite delays.
      */
     fun <TContext> exponential(
         initialDelay: Duration,
@@ -69,7 +74,7 @@ internal object DelayStrategyOptions {
         }
 
     /**
-     * A delay strategy that uses a custom delay provider, which determines, not only the delay between retries,
+     * A delay strategy that uses a custom delay provider, which determines, not only the delay between attempts,
      * but also executes the actual waiting period.
      * @param provider The custom delay provider to use.
      * @see [DelayProvider]

@@ -3,7 +3,8 @@ package kresil.retry.delay
 import kresil.core.delay.DelayStrategy
 
 /**
- * Represents the delay strategy to use for retrying an operation.
+ * Represents the delay strategy that determines next delay duration before retrying an operation,
+ * based on the current attempt and additional context.
  * @see [DelayStrategy]
  */
 typealias RetryDelayStrategy = DelayStrategy<RetryDelayStrategyContext>

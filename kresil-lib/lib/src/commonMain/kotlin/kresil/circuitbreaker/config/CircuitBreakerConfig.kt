@@ -1,10 +1,11 @@
 package kresil.circuitbreaker.config
 
+import kresil.circuitbreaker.CircuitBreaker
+import kresil.circuitbreaker.delay.CircuitBreakerDelayStrategy
+import kresil.circuitbreaker.state.CircuitBreakerState.*
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
 import kotlin.time.Duration
-import kresil.circuitbreaker.CircuitBreaker
-import kresil.circuitbreaker.state.CircuitBreakerState.*
 
 /**
  * Represents a [CircuitBreaker] configuration.
@@ -19,7 +20,7 @@ import kresil.circuitbreaker.state.CircuitBreakerState.*
  * @param permittedNumberOfCallsInHalfOpenState the number of calls that are allowed to be made in the [HalfOpen] state.
  * If this number is exceeded, all subsequent calls will be rejected.
  * If one of the calls made in the [HalfOpen] state fails, the circuit breaker will transition back to the [Open] state.
- * @param waitDurationInOpenState the duration the circuit breaker will wait in the [Open] state before transitioning to the [HalfOpen] state.
+ * @param delayStrategyInOpenState the strategy used to determine the duration the circuit breaker will remain in the [Open] state before transitioning to the [HalfOpen] state.
  * @param maxWaitDurationInHalfOpenState the duration the circuit breaker will wait in the [HalfOpen] state before transitioning to the [Closed] state.
  * @param recordExceptionPredicate a predicate that determines whether an exception thrown by the underlying operation should be recorded as a failure, and as such, increase the failure rate.
  * @param recordResultPredicate a predicate that determines whether the result of the underlying operation should be recorded as a failure,
@@ -31,7 +32,7 @@ data class CircuitBreakerConfig(
     val slidingWindowSize: Int, // slidingWindow(100, minimumThroughput, SlidingWindowType.COUNT_BASED)
     val minimumThroughput: Int,
     val permittedNumberOfCallsInHalfOpenState: Int,
-    val waitDurationInOpenState: Duration, // TODO: change to CircuitBreakerDelayDuration
+    val delayStrategyInOpenState: CircuitBreakerDelayStrategy, // TODO: change to CircuitBreakerDelayDuration
     val maxWaitDurationInHalfOpenState: Duration,
     val recordExceptionPredicate: OnExceptionPredicate,
     val recordResultPredicate: OnResultPredicate,

@@ -14,6 +14,7 @@ import kresil.circuitbreaker.state.CircuitBreakerState
 import service.RemoteService
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertSame
 
 class CircuitBreakerTests {
@@ -68,7 +69,7 @@ class CircuitBreakerTests {
         }
 
         // and: the circuit breaker should be in the Open state
-        assertSame(CircuitBreakerState.Open, circuitBreaker.currentState())
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
     }
 
     @Test
@@ -143,7 +144,7 @@ class CircuitBreakerTests {
         }
 
         // then: the circuit breaker should be in the Open state
-        assertSame(CircuitBreakerState.Open, circuitBreaker.currentState())
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
     }
 
     @Test

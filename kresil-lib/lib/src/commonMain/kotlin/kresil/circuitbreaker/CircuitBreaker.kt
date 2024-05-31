@@ -18,7 +18,7 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
  * where events are dispatched to the reducer to change the state of the circuit breaker based
  * on the current state and the event.
  * This way, two or more circuit breakers can use the same reducer to manage their state
- * (i.e., when one of two or more related components fails, the others are likely to fail too).
+ * (i.e., when one of two or more related components fail, the others are likely to fail too).
  * A circuit breaker is initialized with a [CircuitBreakerConfig] that,
  * through pre-configured policies, define its behaviour.
  * The circuit breaker implements the following state machine:
@@ -67,7 +67,7 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
  *
  * // execute an operation under the circuit breaker
  * val result = circuitBreaker.executeOperation {
- *  // operation
+ *   // operation
  * }
  *
  */
@@ -92,7 +92,7 @@ class CircuitBreaker(
     suspend fun <R> executeOperation(block: suspend () -> R): R =
         when (val state = currentState()) {
             Closed -> executeAndDispatch(block)
-            Open -> throw CallNotPermittedException()
+            is Open -> throw CallNotPermittedException()
             is HalfOpen -> {
                 if (state.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
                     throw CallNotPermittedException()
@@ -132,7 +132,7 @@ class CircuitBreaker(
      */
     private suspend fun <R> handleFailure(throwable: Throwable): R =
         when (currentState()) {
-            Open -> throw CallNotPermittedException()
+            is Open -> throw CallNotPermittedException()
             Closed, is HalfOpen -> {
                 if (config.recordExceptionPredicate(throwable)) {
                     stateReducer.dispatch(OPERATION_FAILURE)

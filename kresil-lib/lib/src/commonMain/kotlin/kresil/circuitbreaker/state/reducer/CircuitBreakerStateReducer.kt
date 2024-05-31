@@ -13,6 +13,7 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_
 import kresil.core.reducer.Reducer
 import kresil.core.slidingwindow.FailureRateSlidingWindow
 import kotlin.time.ComparableTimeMark
+import kotlin.time.Duration
 import kotlin.time.TestTimeSource
 
 /**
@@ -38,19 +39,11 @@ class CircuitBreakerStateReducer<T>(
 
     // internal state
     private var _state: CircuitBreakerState = Closed
-    private var openStateStartTimeMark: ComparableTimeMark? = null
-    private var halfStateStartTimeMark: ComparableTimeMark? = null
+    private var nrOfTransitionsToOpenState: Int = 0
 
     // internal events (that trigger state transitions)
-    private val hasExceededDurationInOpenState: Boolean
-        get() = openStateStartTimeMark?.let {
-            it.elapsedNow() >= config.waitDurationInOpenState
-        } ?: false
-
-    private val hasExceededDurationInHalfOpenState: Boolean
-        get() = halfStateStartTimeMark?.let {
-            it.elapsedNow() >= config.maxWaitDurationInHalfOpenState
-        } ?: false
+    private fun hasExceededDurationInState(timeMark: ComparableTimeMark, duration: Duration): Boolean =
+        timeMark.elapsedNow() >= duration
 
     override suspend fun currentState(): CircuitBreakerState = lock.withLock {
         // TODO: if reducers should be pure functions, where can an internal event be dispatched?
@@ -65,12 +58,12 @@ class CircuitBreakerStateReducer<T>(
                 OPERATION_FAILURE -> {
                     slidingWindow.recordFailure()
                     if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
-                        transitionToOpenState()
+                        transitionToOpenState(false)
                     }
                 }
             }
 
-            Open -> noOperation
+            is Open -> noOperation
 
             is HalfOpen -> {
                 when (event) {
@@ -78,7 +71,7 @@ class CircuitBreakerStateReducer<T>(
                     // if one of the calls made in the HalfOpen state fails,
                     // transition back to the Open state
                     OPERATION_FAILURE -> {
-                        transitionToOpenState()
+                        transitionToOpenState(true)
                         return@withLock
                     }
                 }
@@ -92,17 +85,27 @@ class CircuitBreakerStateReducer<T>(
         }
     }
 
-    private fun checkForInternalEvents() {
-        when (_state) {
+    private suspend fun checkForInternalEvents() {
+        when (val state = _state) {
             Closed -> noOperation
-            Open -> if (hasExceededDurationInOpenState) transitionToHalfOpenState(0)
-            is HalfOpen -> if (hasExceededDurationInHalfOpenState) transitionToOpenState()
+            is Open -> if (hasExceededDurationInState(state.startTimerMark, state.delayDuration)) {
+                transitionToHalfOpenState(0)
+            }
+            is HalfOpen -> if (hasExceededDurationInState(state.startTimerMark, config.maxWaitDurationInHalfOpenState)) {
+                transitionToOpenState(true)
+            }
         }
     }
 
-    private fun transitionToOpenState() {
-        _state = Open
-        openStateStartTimeMark = TestTimeSource().markNow()
+    private suspend fun transitionToOpenState(fromHalfOpenState: Boolean) {
+        if (fromHalfOpenState) {
+            nrOfTransitionsToOpenState++
+        } else {
+            nrOfTransitionsToOpenState = 1
+        }
+        val nextDelayDurationInOpenState = config.delayStrategyInOpenState(nrOfTransitionsToOpenState, Unit)
+        val openStateStartTimeMark = TestTimeSource().markNow()
+        _state = Open(nextDelayDurationInOpenState, openStateStartTimeMark)
     }
 
     private fun transitionToClosedState() {
@@ -111,7 +114,7 @@ class CircuitBreakerStateReducer<T>(
     }
 
     private fun transitionToHalfOpenState(nrOfCallsAttempted: Int) {
-        _state = HalfOpen(nrOfCallsAttempted)
-        halfStateStartTimeMark = TestTimeSource().markNow()
+        val halfStateStartTimeMark = TestTimeSource().markNow()
+        _state = HalfOpen(nrOfCallsAttempted, halfStateStartTimeMark)
     }
 }
