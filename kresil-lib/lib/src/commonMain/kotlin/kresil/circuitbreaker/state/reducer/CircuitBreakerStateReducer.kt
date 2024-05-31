@@ -20,7 +20,8 @@ import kotlin.time.TestTimeSource
  * A thread-safe state machine that acts as a reducer for a [CircuitBreaker].
  * Using the [dispatch] method, events can be dispatched to the state machine to trigger state transitions.
  * The current state can be consulted using the [currentState] method.
- * @param slidingWindow the sliding window used to record the success or failure of calls and calculate the failure rate.
+ * @param slidingWindow the sliding window used to record the result (success or failure)
+ * of operations and calculate the failure rate.
  * @param config the configuration of the circuit breaker.
  */
 class CircuitBreakerStateReducer<T>(
@@ -91,8 +92,13 @@ class CircuitBreakerStateReducer<T>(
             is Open -> if (hasExceededDurationInState(state.startTimerMark, state.delayDuration)) {
                 transitionToHalfOpenState(0)
             }
-            is HalfOpen -> if (hasExceededDurationInState(state.startTimerMark, config.maxWaitDurationInHalfOpenState)) {
-                transitionToOpenState(true)
+
+            is HalfOpen -> {
+                if (state.startTimerMark != null &&
+                    hasExceededDurationInState(state.startTimerMark, config.maxWaitDurationInHalfOpenState)
+                ) {
+                    transitionToOpenState(true)
+                }
             }
         }
     }
@@ -114,7 +120,11 @@ class CircuitBreakerStateReducer<T>(
     }
 
     private fun transitionToHalfOpenState(nrOfCallsAttempted: Int) {
-        val halfStateStartTimeMark = TestTimeSource().markNow()
-        _state = HalfOpen(nrOfCallsAttempted, halfStateStartTimeMark)
+        _state = if (config.maxWaitDurationInHalfOpenState == Duration.ZERO) {
+            HalfOpen(nrOfCallsAttempted, null)
+        } else {
+            val halfStateStartTimeMark = TestTimeSource().markNow()
+            HalfOpen(nrOfCallsAttempted, halfStateStartTimeMark)
+        }
     }
 }

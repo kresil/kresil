@@ -31,10 +31,13 @@ sealed class CircuitBreakerState {
      * @param nrOfCallsAttempted The number of calls attempted in the half-open state. If this number exceeds the
      * configured maximum number of calls allowed in the half-open state,
      * subsequent calls will be rejected as the state will transition back to the [Open] state.
-     * @param startTimerMark The time mark at which the circuit breaker entered this state.
+     * @param startTimerMark The time mark at which the circuit breaker entered this state. Could be `null` if
+     * the maximum wait duration in this state was configured to be `Duration.ZERO`.
+     * Which means that the circuit breaker
+     * will wait indefinitely in this state, until all permitted calls have been attempted.
      */
     data class HalfOpen(
         val nrOfCallsAttempted: Int,
-        val startTimerMark: ComparableTimeMark,
+        val startTimerMark: ComparableTimeMark?,
     ) : CircuitBreakerState()
 }
