@@ -3,6 +3,7 @@ package circuitbreaker
 import kotlinx.coroutines.test.runTest
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
+import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.core.delay.DelayStrategyOptions
 import kotlin.test.Test
@@ -28,8 +29,10 @@ class CircuitBreakerConfigTests {
         // and: the circuit breaker should use the default configuration
         val config = circuitBreaker.config
         assertEquals(0.5, config.failureRateThreshold)
-        assertEquals(100, config.slidingWindowSize)
-        assertEquals(100, config.minimumThroughput)
+        val (size, minimumThroughput, type) = config.slidingWindow
+        assertEquals(100, size)
+        assertEquals(100, minimumThroughput)
+        assertEquals(SlidingWindowType.COUNT_BASED, type)
         assertEquals(10, config.permittedNumberOfCallsInHalfOpenState)
         val constantDuration = DelayStrategyOptions.constant<Unit>(1.minutes).invoke(Int.MAX_VALUE, Unit)
         for (i in 1..100) {
@@ -75,7 +78,7 @@ class CircuitBreakerConfigTests {
         val ex = assertFailsWith<IllegalArgumentException> {
             circuitBreakerConfig {
                 // when: the sliding window size is set to 0
-                slidingWindowSize = 0
+                slidingWindow(0, 100)
             }
         }
 
@@ -89,7 +92,7 @@ class CircuitBreakerConfigTests {
         val ex = assertFailsWith<IllegalArgumentException> {
             circuitBreakerConfig {
                 // when: the minimum throughput is set to 0
-                minimumThroughput = 0
+                slidingWindow(100, 0)
             }
         }
 

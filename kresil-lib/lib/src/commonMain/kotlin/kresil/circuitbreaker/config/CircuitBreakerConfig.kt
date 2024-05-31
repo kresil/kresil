@@ -2,6 +2,7 @@ package kresil.circuitbreaker.config
 
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.delay.CircuitBreakerDelayStrategy
+import kresil.circuitbreaker.slidingwindow.SlidingWindow
 import kresil.circuitbreaker.state.CircuitBreakerState.*
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
@@ -12,9 +13,7 @@ import kotlin.time.Duration
  * @param failureRateThreshold the rate in percentage (e.g., **0.5 for 50%**)
  * of calls
  * recorded as failure that will trigger the circuit breaker to transition to the [Open] state if equalled or exceeded.
- * @param slidingWindowSize the size of the sliding window used to calculate the failure rate.
- * @param minimumThroughput the minimum number of calls that need to be recorded in the sliding window for the
- * failure rate to be calculated.
+ * @param slidingWindow the sliding window used to record the result (success or failure) of calls and calculate the failure rate.
  * Even if the [failureRateThreshold] is exceeded, the circuit breaker will not transition to the [Open] state if the
  * number of calls recorded in the sliding window is less than this value.
  * @param permittedNumberOfCallsInHalfOpenState the number of calls that are allowed to be made in the [HalfOpen] state.
@@ -28,11 +27,9 @@ import kotlin.time.Duration
  */
 data class CircuitBreakerConfig(
     val failureRateThreshold: Double,
-    // TODO: add support for count and time-based sliding windows
-    val slidingWindowSize: Int, // slidingWindow(100, minimumThroughput, SlidingWindowType.COUNT_BASED)
-    val minimumThroughput: Int,
+    val slidingWindow: SlidingWindow,
     val permittedNumberOfCallsInHalfOpenState: Int,
-    val delayStrategyInOpenState: CircuitBreakerDelayStrategy, // TODO: change to CircuitBreakerDelayDuration
+    val delayStrategyInOpenState: CircuitBreakerDelayStrategy,
     val maxWaitDurationInHalfOpenState: Duration,
     val recordExceptionPredicate: OnExceptionPredicate,
     val recordResultPredicate: OnResultPredicate,

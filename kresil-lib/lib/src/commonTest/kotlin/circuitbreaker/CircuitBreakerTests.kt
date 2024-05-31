@@ -37,8 +37,10 @@ class CircuitBreakerTests {
         val nrOfCallsToCalculateFailureRate = 1000
         val config = circuitBreakerConfig {
             this.failureRateThreshold = failureRateThreshold
-            minimumThroughput = nrOfCallsToCalculateFailureRate
-            slidingWindowSize = nrOfCallsToCalculateFailureRate * 2
+            slidingWindow(
+                size = nrOfCallsToCalculateFailureRate * 2,
+                minimumThroughput = nrOfCallsToCalculateFailureRate
+            )
             recordExceptionPredicate { it is WebServiceException }
         }
 
@@ -78,8 +80,10 @@ class CircuitBreakerTests {
         val nrOfCallsToCalculateFailureRate = 1000
         val config = circuitBreakerConfig {
             failureRateThreshold = 0.51 // 0.5 would trigger the Open state
-            minimumThroughput = nrOfCallsToCalculateFailureRate
-            slidingWindowSize = nrOfCallsToCalculateFailureRate
+            slidingWindow(
+                size = nrOfCallsToCalculateFailureRate,
+                minimumThroughput = nrOfCallsToCalculateFailureRate
+            )
             recordExceptionPredicate { it is WebServiceException }
         }
 
@@ -123,8 +127,10 @@ class CircuitBreakerTests {
         val nrOfCallsToCalculateFailureRate = 10
         val config = circuitBreakerConfig {
             failureRateThreshold = 1.0
-            minimumThroughput = nrOfCallsToCalculateFailureRate
-            slidingWindowSize = nrOfCallsToCalculateFailureRate
+            slidingWindow(
+                size = nrOfCallsToCalculateFailureRate,
+                minimumThroughput = nrOfCallsToCalculateFailureRate
+            )
             recordResultPredicate { it == result }
         }
 
@@ -154,8 +160,10 @@ class CircuitBreakerTests {
         val minimumThroughput = slidingWindowSize * 2
         val config = circuitBreakerConfig {
             failureRateThreshold = 0.00001 // low threshold to trigger the Open state quickly
-            this.slidingWindowSize = slidingWindowSize
-            this.minimumThroughput = minimumThroughput
+            slidingWindow(
+                size = slidingWindowSize,
+                minimumThroughput = minimumThroughput
+            )
             recordExceptionPredicate { it is WebServiceException }
         }
 

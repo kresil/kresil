@@ -2,6 +2,9 @@ package kresil.circuitbreaker.config
 
 import kresil.circuitbreaker.delay.CircuitBreakerDelayProvider
 import kresil.circuitbreaker.delay.CircuitBreakerDelayStrategy
+import kresil.circuitbreaker.slidingwindow.SlidingWindow
+import kresil.circuitbreaker.slidingwindow.SlidingWindowType
+import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.circuitbreaker.state.CircuitBreakerState.*
 import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.OnExceptionPredicate
@@ -32,6 +35,7 @@ class CircuitBreakerConfigBuilder internal constructor(
     private var recordExceptionPredicate: OnExceptionPredicate = baseConfig.recordExceptionPredicate
     private var recordResultPredicate: OnResultPredicate = baseConfig.recordResultPredicate
     private var delayStrategyInOpenState: CircuitBreakerDelayStrategy = baseConfig.delayStrategyInOpenState
+    private var slidingWindow: SlidingWindow = baseConfig.slidingWindow
 
     /**
      * Configures the rate in percentage (e.g., **0.5 for 50%**)
@@ -45,31 +49,6 @@ class CircuitBreakerConfigBuilder internal constructor(
             require(value > MIN_FAILURE_RATE_THRESHOLD && value <= MAX_FAILURE_RATE_THRESHOLD) {
                 "Failure rate threshold must be between ${MIN_FAILURE_RATE_THRESHOLD.toInt()} exclusive and ${MAX_FAILURE_RATE_THRESHOLD.toInt()} inclusive"
             }
-            field = value
-        }
-
-    /**
-     * Configures the size of the sliding window used to record calls and calculate the failure rate.
-     *
-     * Should be greater than `0`.
-     */
-    var slidingWindowSize: Int = baseConfig.slidingWindowSize
-        set(value) {
-            require(value > 0) { "Sliding window size must be greater than 0" }
-            field = value
-        }
-
-    /**
-     * Configures the minimum number of calls that need to be recorded in the sliding window for the
-     * failure rate to be calculated.
-     * Even if the [failureRateThreshold] is exceeded, the circuit breaker will not transition to the [Open] state if the
-     * number of calls recorded in the sliding window is less than this value.
-     *
-     * Should be greater than `0`.
-     */
-    var minimumThroughput: Int = baseConfig.minimumThroughput
-        set(value) {
-            require(value > 0) { "Minimum throughput must be greater than 0" }
             field = value
         }
 
@@ -96,6 +75,20 @@ class CircuitBreakerConfigBuilder internal constructor(
             requireNonNegativeDuration(value, "${HalfOpen::class.simpleName} state")
             field = value
         }
+
+    /**
+     * Configures the sliding window used to record calls and calculate the failure rate.
+     * @param size the size of the sliding window.
+     * @param minimumThroughput the minimum number of calls that need to be recorded in the sliding window for the
+     * failure rate to be calculated. Even if the [failureRateThreshold] is exceeded, the circuit breaker will not
+     * transition to the [Open] state if the number of calls recorded in the sliding window is less than this value.
+     * @param type the type of the sliding window. See [SlidingWindowType] for more information about the available types.
+     */
+    fun slidingWindow(size: Int, minimumThroughput: Int = 100, type: SlidingWindowType = COUNT_BASED) {
+        require(size > 0) { "Sliding window size must be greater than 0" }
+        require(minimumThroughput > 0) { "Minimum throughput must be greater than 0" }
+        slidingWindow = SlidingWindow(size, minimumThroughput, type)
+    }
 
     /**
      * Configures the circuit breaker delay strategy to use no delay between transitions from [Open] to [HalfOpen].
@@ -253,8 +246,7 @@ class CircuitBreakerConfigBuilder internal constructor(
 
     override fun build() = CircuitBreakerConfig(
         failureRateThreshold,
-        slidingWindowSize,
-        minimumThroughput,
+        slidingWindow,
         permittedNumberOfCallsInHalfOpenState,
         delayStrategyInOpenState,
         maxWaitDurationInHalfOpenState,
@@ -288,8 +280,7 @@ class CircuitBreakerConfigBuilder internal constructor(
 
 private val defaultCircuitBreakerConfig = CircuitBreakerConfig(
     failureRateThreshold = 0.5,
-    slidingWindowSize = 100,
-    minimumThroughput = 100,
+    slidingWindow = SlidingWindow(100, 100, COUNT_BASED),
     permittedNumberOfCallsInHalfOpenState = 10,
     delayStrategyInOpenState = DelayStrategyOptions.constant(1.minutes),
     maxWaitDurationInHalfOpenState = ZERO,

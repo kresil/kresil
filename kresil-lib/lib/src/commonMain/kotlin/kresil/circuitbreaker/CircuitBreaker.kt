@@ -4,6 +4,7 @@ import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.config.defaultCircuitBreakerConfig
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
+import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.state.CircuitBreakerState.Closed
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
@@ -75,10 +76,13 @@ class CircuitBreaker(
     val config: CircuitBreakerConfig = defaultCircuitBreakerConfig(),
 ) { // TODO: needs to implement flow event listener
 
-    private val slidingWindow = CountBasedSlidingWindow(
-        capacity = config.slidingWindowSize,
-        minimumThroughput = config.minimumThroughput,
-    )
+    private val slidingWindow = when (config.slidingWindow.type) {
+        SlidingWindowType.COUNT_BASED -> CountBasedSlidingWindow(
+            config.slidingWindow.size,
+            config.slidingWindow.minimumThroughput
+        )
+        SlidingWindowType.TIME_BASED -> TODO()
+    }
     private val stateReducer = CircuitBreakerStateReducer(slidingWindow, config)
 
     suspend fun currentState() = stateReducer.currentState()
