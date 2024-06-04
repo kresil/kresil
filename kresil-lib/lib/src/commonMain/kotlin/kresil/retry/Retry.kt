@@ -20,7 +20,8 @@ import kresil.retry.context.RetryContext
 
 /**
  * A [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
- * resilience mechanism implementation, that can be used to retry an underlying operation when it fails.
+ * resilience mechanism implementation
+ * that can be used to retry an operation when it fails and the failure is a transient error.
  * Operations can be decorated and executed on demand.
  * A retry mechanism is initialized with a [RetryConfig] that,
  * through pre-configured policies, define its behaviour.
@@ -64,7 +65,7 @@ import kresil.retry.context.RetryContext
  *       addRetryPredicate { it is NetworkError }
  *       retryOnResultIf { it is "success" }
  *       constantDelay(500.milliseconds)
- *       // customDelay { attempt, lastThrowable -> ... }
+ *       // customDelay { attempt, context -> ... }
  *       // resultMapper { throwable -> ... }
  *    }
  * )

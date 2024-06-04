@@ -111,7 +111,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * Configures the retry predicate, used to determine if, based on the caught throwable, the underlying request should be retried.
      * @param predicate the predicate to use.
      */
-    fun retryOnException(predicate: OnExceptionPredicate) {
+    fun retryOnExceptionPredicate(predicate: OnExceptionPredicate) {
         retryPredicate = predicate
     }
 
@@ -266,7 +266,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * Aggregates all configured retry predicates to determine if the HTTP call should be retried based on the caught throwable.
      */
     private fun aggregateRetryPredicates(throwable: Throwable): Boolean {
-        // add internal RetryOnCallException to the list of exceptions to retry on
+        // add internal RetryOnCallException to the retry predicate
         if (throwable is RetryOnCallException) return true
         return retryPredicate(throwable)
     }

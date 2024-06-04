@@ -4,9 +4,9 @@ import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.ResultMapper
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
+import kresil.core.delay.DelayStrategyOptions
 import kresil.retry.delay.RetryDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
-import kresil.retry.delay.RetryDelayStrategyOptions
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -20,7 +20,7 @@ class RetryConfigBuilder(
 ) : ConfigBuilder<RetryConfig> {
 
     // delay strategy options
-    private val retryDelayStrategyOptions = RetryDelayStrategyOptions
+    private val retryDelayStrategyOptions = DelayStrategyOptions
 
     // state
     private var resultMapper: ResultMapper = baseConfig.resultMapper
@@ -154,9 +154,8 @@ class RetryConfigBuilder(
      *
      * Example:
      * ```
-     * customDelay { attempt, lastThrowable ->
+     * customDelay { attempt, context ->
      *      attempt % 2 == 0 -> 1.seconds
-     *      lastThrowable is WebServiceException -> 2.seconds
      *      else -> 3.seconds
      * }
      * ```
@@ -246,7 +245,7 @@ private val defaultRetryConfig = RetryConfig(
     maxAttempts = 3,
     retryPredicate = { true },
     retryOnResultPredicate = { false },
-    delayStrategy = RetryDelayStrategyOptions.exponential(
+    delayStrategy = DelayStrategyOptions.exponential(
         initialDelay = 500.milliseconds,
         multiplier = 2.0,
         maxDelay = 1.minutes
