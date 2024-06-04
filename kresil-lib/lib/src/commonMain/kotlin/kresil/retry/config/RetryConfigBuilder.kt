@@ -154,9 +154,8 @@ class RetryConfigBuilder(
      *
      * Example:
      * ```
-     * customDelay { attempt, lastThrowable ->
+     * customDelay { attempt, context ->
      *      attempt % 2 == 0 -> 1.seconds
-     *      lastThrowable is WebServiceException -> 2.seconds
      *      else -> 3.seconds
      * }
      * ```

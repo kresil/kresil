@@ -65,7 +65,7 @@ import kresil.retry.context.RetryContext
  *       addRetryPredicate { it is NetworkError }
  *       retryOnResultIf { it is "success" }
  *       constantDelay(500.milliseconds)
- *       // customDelay { attempt, lastThrowable -> ... }
+ *       // customDelay { attempt, context -> ... }
  *       // resultMapper { throwable -> ... }
  *    }
  * )
