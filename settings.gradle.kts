@@ -33,3 +33,9 @@ include(":ktor-server-plugins:shared")
 include(":ktor-server-plugins:apps:android-app")
 include(":ktor-server-plugins:apps:jvm-app")
 include(":ktor-server-plugins:apps:kotlin-jvm-app")
+
+// demo
+include(":demo:retry:jvm-server")
+include(":demo:retry:jvm-client-retry")
+include(":demo:retry:jvm-client-no-retry")
+
