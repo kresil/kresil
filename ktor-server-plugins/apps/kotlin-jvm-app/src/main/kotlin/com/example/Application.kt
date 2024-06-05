@@ -6,7 +6,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kresil.ktor.plugins.retry.server.CustomHeaderPlugin
+import kresil.ktor.server.plugins.CustomHeaderPlugin
 
 suspend fun main() {
     embeddedServer(Netty, port = 8080) {

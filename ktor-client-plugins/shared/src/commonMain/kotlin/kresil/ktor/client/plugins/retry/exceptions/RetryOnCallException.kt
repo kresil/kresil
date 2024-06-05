@@ -1,6 +1,6 @@
-package kresil.ktor.plugins.retry.client.exceptions
+package kresil.ktor.client.plugins.retry.exceptions
 
-import kresil.ktor.plugins.retry.client.config.RetryPluginConfigBuilder
+import kresil.ktor.client.plugins.retry.config.RetryPluginConfigBuilder
 
 /**
  * Exception thrown when the [RetryPluginConfigBuilder.retryOnCallPredicate] predicate returns true,

@@ -14,10 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kresil.ktor.plugins.retry.client.KresilRetryPlugin
-import kresil.ktor.plugins.retry.client.kRetry
-
-class NetworkError : Exception()
+import kresil.ktor.client.plugins.retry.KresilRetryPlugin
+import kresil.ktor.client.plugins.retry.kRetry
 
 suspend fun main() {
     val serverJob = CoroutineScope(Dispatchers.Default).launch { startUnreliableServer() }

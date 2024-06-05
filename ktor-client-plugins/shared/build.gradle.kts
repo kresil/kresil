@@ -11,7 +11,7 @@ repositories {
 }
 
 kotlin {
-    // applyDefaultHierarchyTemplate(), explicitly setting the hierarchy for learning purposes
+    // applyDefaultHierarchyTemplate()
     jvm()
     androidTarget {
         // Needed for the Android library artifact to be published
@@ -51,54 +51,16 @@ kotlin {
     }*/
 
     sourceSets {
-
-
         // Source Set Category: Common
         // use `by creating` if a source set does not exist yet
-        val commonMain by getting {
-            dependencies {
-                // api (former compile) is used to expose the dependency to the consumers
-                api(project(":kresil-lib:lib"))
-                implementation(libs.kotlinx.coroutines.core)
-                implementation(libs.ktor.client.core)
-            }
+        commonMain.dependencies {
+            // api (former compile) is used to expose the dependency to the consumers
+            api(project(":kresil-lib:lib"))
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.ktor.client.core)
         }
-        val commonTest by getting {
-            dependencies {
-                implementation(libs.kotlin.test)
-            }
-        }
-
-        // Source Set Category: Intermediary
-        val nativeMain by getting {
-            dependsOn(commonMain)
-        }
-
-        val nativeTest by getting {
-            dependsOn(commonTest)
-        }
-
-        // Source Set Category: Platform
-        val androidMain by getting {
-            dependsOn(commonMain)
-        }
-
-        val androidUnitTest by getting {
-            dependsOn(commonTest)
-        }
-
-        val jsMain by getting {
-            dependsOn(commonMain)
-            dependencies {
-                implementation(libs.kotlin.stdlib.js)
-            }
-        }
-
-        val jsTest by getting {
-            dependsOn(commonTest)
-            dependencies {
-                implementation(libs.kotlin.test.js)
-            }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
         }
     }
 }

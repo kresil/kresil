@@ -1,4 +1,4 @@
-package kresil.ktor.plugins.retry.client
+package kresil.ktor.client.plugins.retry
 
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -7,13 +7,13 @@ import io.ktor.client.request.*
 import io.ktor.util.*
 import io.ktor.util.logging.*
 import kotlinx.coroutines.CompletableJob
-import kresil.ktor.plugins.retry.client.config.RetryPluginConfig
-import kresil.ktor.plugins.retry.client.config.RetryPluginConfigBuilder
-import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
+import kresil.ktor.client.plugins.retry.config.RetryPluginConfig
+import kresil.ktor.client.plugins.retry.config.RetryPluginConfigBuilder
+import kresil.ktor.client.plugins.retry.exceptions.RetryOnCallException
 import kresil.retry.Retry
 import kresil.retry.config.retryConfig
 
-private val logger = KtorSimpleLogger("kresil.ktor.plugins.retry.client.KresilRetryPlugin")
+private val logger = KtorSimpleLogger("kresil.ktor.client.plugins.retry.KresilRetryPlugin")
 
 // TODO: find another way to store global configuration
 private lateinit var globalConfig: RetryPluginConfig
@@ -38,7 +38,7 @@ private lateinit var globalConfig: RetryPluginConfig
  *      // retryOnTimeout()
  *      constantDelay(2.seconds)
  *      // noDelay()
- *      // customDelay { attempt, lastThrowable -> ... }
+ *      // customDelay { attempt, context -> ... }
  *      modifyRequestOnRetry { request, attempt ->
  *           request.headers.append("X_RETRY_COUNT", "$attempt")
  *      }

@@ -1,4 +1,4 @@
-package kresil.ktor.plugins.retry.client.config
+package kresil.ktor.client.plugins.retry.config
 
 import io.ktor.client.network.sockets.*
 import io.ktor.client.plugins.*
@@ -14,8 +14,8 @@ import kresil.retry.delay.RetryDelayStrategy
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kresil.ktor.plugins.retry.client.KresilRetryPlugin
-import kresil.ktor.plugins.retry.client.exceptions.RetryOnCallException
+import kresil.ktor.client.plugins.retry.KresilRetryPlugin
+import kresil.ktor.client.plugins.retry.exceptions.RetryOnCallException
 
 /**
  * Predicate to determine if an HTTP call should be retried based on the request and response.
