@@ -16,15 +16,18 @@ Additionally, Kresil offers extensions for [Ktor](https://ktor.io/) as plugins.
 
 ## Modules
 
-- 📁 [kresil-lib](kresil-lib/lib/src): Core module with the resilience mechanisms;
-- 📁 [ktor-client-plugins](ktor-client-plugins/shared/src): Mechanisms integration for Ktor client;
-- 📁 [ktor-server-plugins](ktor-server-plugins/shared/src): Mechanisms integration for Ktor server.
+- 📁 [kresil-lib](kresil-lib/lib/README.md): Core module with the resilience mechanisms;
+- 📁 [ktor-client-plugins](ktor-client-plugins/shared/README.md): Mechanisms integration for Ktor Client;
+- 📁 [ktor-server-plugins](ktor-server-plugins/shared/README.md): Mechanisms integration for Ktor Server.
+- 📁 [beta-demo](beta-demo/README.md): Applications for demonstration purposes.
 
 ## Retry
 
 The [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
 is a resilience mechanism
-that can be used to retry an operation when it fails and the failure is a transient error. Operations can be decorated and executed on demand. A retry mechanism is initialized with a configuration that,
+that can be used to retry an operation when it fails, and the failure is a transient error.
+Operations can be decorated and executed on demand.
+A retry mechanism is initialized with a configuration that,
 through pre-configured policies, defines its behaviour.
 
 ### State Machine
@@ -56,12 +59,7 @@ The retry mechanism implements the following state machine:
 
 ```kotlin
 // use predefined retry policies
-val retry = Retry(
-    retryConfig {
-        maxAttempts = 3 // initial call + 2 retries
-        exponentialDelay()
-    }
-)
+val defaultRetry = Retry()
 
 // use custom policies
 val retry = Retry(
@@ -127,19 +125,21 @@ The circuit breaker implements the following state machine:
 
 ```kotlin
 // use predefined policies
-val circuitBreaker = CircuitBreaker()
+val defaultCircuitBreaker = CircuitBreaker()
 
 // use custom policies
 val circuitBreaker = CircuitBreaker(
     circuitBreakerConfig {
-        slidingWindowSize = 10
-        minimumThroughput = 5
         failureRateThreshold = 0.5
-        waitDurationInOpenState = 10.seconds
+        constantDelayInOpenState(500.milliseconds)
         recordResultPredicate { it is "success" }
         recordExceptionPredicate { it is NetworkError }
+        slidingWindows(size = 5, minimumThroughput = 2, type = COUNT_BASED)
     }
 )
+
+// wire the circuit breaker
+circuitBreaker.wire()
 
 // execute an operation under the circuit breaker
 val result = circuitBreaker.executeOperation {
