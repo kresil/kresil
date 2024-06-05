@@ -108,14 +108,6 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
     }
 
     /**
-     * Configures the retry predicate, used to determine if, based on the caught throwable, the underlying request should be retried.
-     * @param predicate the predicate to use.
-     */
-    fun retryOnExceptionPredicate(predicate: OnExceptionPredicate) {
-        retryPredicate = predicate
-    }
-
-    /**
      * Configures the retry delay strategy to have no delay between retries (i.e., retries are immediate and do not use
      * any custom delay provider.
      * @see [constantDelay]
