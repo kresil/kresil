@@ -1,5 +1,10 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
+    application
+}
+
+application {
+    mainClass = "application.MainKt"
 }
 
 repositories {
