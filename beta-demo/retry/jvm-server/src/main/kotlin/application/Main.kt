@@ -3,35 +3,24 @@ package application
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
-import io.ktor.server.html.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlin.random.Random
-import kotlinx.html.*
 
 var errorRate: Double = 0.0
 
 fun main() {
     embeddedServer(Netty, port = 8080) {
+        install(CORS) {
+            anyHost()
+        }
         routing {
-            get("/") {
-                // show the error rate
-                call.respondHtml {
-                    head {
-                        title { +"Configurable Error Rate Server" }
-                    }
-                    body {
-                        h1 {
-                            +"Configurable Error Rate Server"
-                        }
-                        p {
-                            +"Current error rate: $errorRate"
-                        }
-                    }
-                }
+            get("/error") {
+                call.respond(HttpStatusCode.OK, errorRate.toString())
             }
-            get("/config-error") {
+            get("/error-config") {
                 val rate = call.request.queryParameters["rate"]?.toDoubleOrNull()
                 if (rate != null && rate in 0.0..1.0) {
                     errorRate = rate
