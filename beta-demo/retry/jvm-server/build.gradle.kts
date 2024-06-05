@@ -7,16 +7,10 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":ktor-client-plugins:shared"))
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.configyaml)
     implementation(libs.logback.classic)
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-
-kotlin {
-    jvmToolchain(21)
 }

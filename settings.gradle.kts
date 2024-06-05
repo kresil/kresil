@@ -6,6 +6,9 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.5.0"
+}
 
 dependencyResolutionManagement {
     @Suppress("UnstableApiUsage")
@@ -35,7 +38,5 @@ include(":ktor-server-plugins:apps:jvm-app")
 include(":ktor-server-plugins:apps:kotlin-jvm-app")
 
 // demo
-include(":demo:retry:jvm-server")
-include(":demo:retry:jvm-client-retry")
-include(":demo:retry:jvm-client-no-retry")
-
+include(":beta-demo:retry:jvm-server")
+include(":beta-demo:retry:js-client")
