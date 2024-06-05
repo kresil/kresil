@@ -81,11 +81,30 @@ class CircuitBreaker(
             config.slidingWindow.size,
             config.slidingWindow.minimumThroughput
         )
+
         SlidingWindowType.TIME_BASED -> TODO()
     }
-    private val stateReducer = CircuitBreakerStateReducer(slidingWindow, config)
+    val stateReducer = CircuitBreakerStateReducer(slidingWindow, config)
 
     suspend fun currentState() = stateReducer.currentState()
+
+    /**
+     * Wires the circuit breaker to the operation to be protected.
+     * If the circuit breaker is in the [Open] state or in the [HalfOpen] state and the number of calls attempted
+     * does not exceed the permitted number of calls in the half-open state, a [CallNotPermittedException] is thrown;
+     * otherwise, the operation is allowed to proceed.
+     */
+    suspend fun wire() =
+        when (val observedState = currentState()) {
+            Closed -> Unit
+            is Open -> throw CallNotPermittedException()
+            is HalfOpen -> {
+                if (observedState.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
+                    throw CallNotPermittedException()
+                }
+                Unit
+            }
+        }
 
     /**
      * Executes the given operation decorated by this circuit breaker and returns its result,
@@ -93,18 +112,10 @@ class CircuitBreaker(
      */
     // TODO: introduce all operation types here later (Supplier, Function, BiFunction)
     // TODO: add resultMapper to map the result of the operation
-    suspend fun <R> executeOperation(block: suspend () -> R): R =
-        when (val state = currentState()) {
-            Closed -> executeAndDispatch(block)
-            is Open -> throw CallNotPermittedException()
-            is HalfOpen -> {
-                if (state.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
-                    throw CallNotPermittedException()
-                }
-                executeAndDispatch(block)
-            }
-
-        }
+    suspend fun <R> executeOperation(block: suspend () -> R): R {
+        wire()
+        return executeAndDispatch(block)
+    }
 
     /**
      * Executes the given operation and dispatches the necessary events based on its
