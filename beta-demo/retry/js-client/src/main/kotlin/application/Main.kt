@@ -7,16 +7,20 @@ import io.ktor.http.HttpStatusCode.Companion.InternalServerError
 import io.ktor.util.logging.*
 import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kresil.ktor.plugins.retry.client.KresilRetryPlugin
-import org.w3c.dom.*
+import kresil.ktor.plugins.retry.client.kRetry
+import org.w3c.dom.HTMLButtonElement
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.HTMLSpanElement
 import kotlin.time.Duration.Companion.milliseconds
 
-val logger = KtorSimpleLogger("retry-client")
+private val logger = KtorSimpleLogger("retry-client")
 
-val clientWithRetry = HttpClient {
+private val client = HttpClient {
     install(KresilRetryPlugin) {
         retryOnServerErrors()
         maxAttempts = 3
@@ -24,61 +28,132 @@ val clientWithRetry = HttpClient {
     }
 }
 
-val scope = MainScope()
+object ServerPaths {
+    const val BASE_URL = "http://localhost:8080"
+    const val ERROR = "$BASE_URL/error"
+    const val ERROR_CONFIG = "$BASE_URL/error-config"
+    const val TEST = "$BASE_URL/test"
+}
 
 suspend fun main() {
-    val errorRateDisplay = document.getElementById("current-error-rate") as HTMLSpanElement
+    val scope = MainScope()
+    val errorRateDisplay =
+        document.getElementById("current-error-rate") as HTMLSpanElement
+    updateErrorRate(errorRateDisplay)
+    setErrorRateButtonEventListener(scope, errorRateDisplay)
 
-    val retryTotalRequestsDisplay = document.getElementById("retry-total-requests") as HTMLSpanElement
-    val retryTotalErrorsDisplay = document.getElementById("retry-total-errors") as HTMLSpanElement
-    val retryErrorRateDisplay = document.getElementById("retry-error-rate") as HTMLSpanElement
+    launchClientWithRetryPlugin(scope)
+    launchClientWithoutRetryPlugin(scope)
 
+}
+
+private fun launchClientWithoutRetryPlugin(scope: CoroutineScope) {
     scope.launch {
-        var serverErrorsWithRetry = 0
-        var totalNrOfRequestsWithRetry = 0
-        logger.info("Starting client loop")
-        repeat(1) {
-            delay(250.milliseconds)
-            totalNrOfRequestsWithRetry++
+        // no retry stats
+        val noRetryTotalRequestsDisplayElement =
+            document.getElementById("no-retry-total-requests") as HTMLSpanElement
+        val noRetryTotalErrorsDisplayElement =
+            document.getElementById("no-retry-total-errors") as HTMLSpanElement
+        val noRetryErrorRateDisplayElement =
+            document.getElementById("no-retry-error-rate") as HTMLSpanElement
+        testServer(
+            totalRequestsDisplayElement = noRetryTotalRequestsDisplayElement,
+            totalErrorsDisplayElement = noRetryTotalErrorsDisplayElement,
+            errorRateDisplayElement = noRetryErrorRateDisplayElement,
+            useRetry = false
+        )
+    }
+}
 
-            var response: HttpResponse? = null
-            try {
-                response = clientWithRetry.get("http://localhost:8080/test")
-            } catch (_: Exception) {}
+private fun launchClientWithRetryPlugin(scope: CoroutineScope) {
+    scope.launch {
+        // retry stats
+        val retryTotalRequestsDisplayElement =
+            document.getElementById("retry-total-requests") as HTMLSpanElement
+        val retryTotalErrorsDisplayElement =
+            document.getElementById("retry-total-errors") as HTMLSpanElement
+        val retryErrorRateDisplayElement =
+            document.getElementById("retry-error-rate") as HTMLSpanElement
+        testServer(
+            totalRequestsDisplayElement = retryTotalRequestsDisplayElement,
+            totalErrorsDisplayElement = retryTotalErrorsDisplayElement,
+            errorRateDisplayElement = retryErrorRateDisplayElement,
+            useRetry = true
+        )
+    }
+}
 
-            if (response == null || response.status == InternalServerError) {
-                serverErrorsWithRetry++
+private fun setErrorRateButtonEventListener(scope: CoroutineScope, errorRateDisplay: HTMLSpanElement) {
+    val setErrorRateButton =
+        document.getElementById("set-error-rate-button") as HTMLButtonElement
+    setErrorRateButton.onclick = {
+        val errorRateInput =
+            document.getElementById("error-rate-input") as HTMLInputElement
+        val errorRate = errorRateInput.value
+        scope.launch {
+            val response: HttpResponse = client.get("${ServerPaths.ERROR_CONFIG}?rate=$errorRate")
+            logger.info("Response: $response")
+            if (response.status.value == 200) {
+                updateErrorRate(errorRateDisplay)
+            } else {
+                window.alert("Failed to set error rate")
             }
-
-            val clientErrorRate = serverErrorsWithRetry.toDouble() / totalNrOfRequestsWithRetry
-
-            logger.info("Total requests with retry: $totalNrOfRequestsWithRetry")
-            logger.info("Total errors with retry: $serverErrorsWithRetry")
-            logger.info("Error rate with retry: $clientErrorRate")
-            retryTotalRequestsDisplay.textContent = totalNrOfRequestsWithRetry.toString()
-            retryTotalErrorsDisplay.textContent = serverErrorsWithRetry.toString()
-            retryErrorRateDisplay.textContent = clientErrorRate.toString()
         }
     }
+}
 
-    val setErrorRateButton = document.getElementById("set-error-rate-button") as HTMLButtonElement
-    setErrorRateButton.onclick = {
-        val errorRateInput = document.getElementById("error-rate-input") as HTMLInputElement
-        val errorRate = errorRateInput.value
-        var failed = false
-        scope.launch {
-            lateinit var response: HttpResponse
-            try {
-                response = clientWithRetry.get("http://localhost:8080/error-config?rate=$errorRate")
-            } catch (e: Exception) {
-                failed = true
-            }
-            logger.info("Response: $response")
-            if (response.status.value != 200 || failed) {
-                window.alert("Failed to set error rate")
+private suspend fun updateErrorRate(errorRateDisplay: HTMLSpanElement) {
+    val response: HttpResponse = client.get(ServerPaths.ERROR)
+    logger.info("Update error rate response: $response")
+    if (response.status.value == 200) {
+        val errorRate = response.bodyAsText()
+        errorRateDisplay.textContent = errorRate
+    } else {
+        window.alert("Failed to get error rate, server might be down")
+    }
+}
+
+private suspend fun testServer(
+    totalRequestsDisplayElement: HTMLSpanElement,
+    totalErrorsDisplayElement: HTMLSpanElement,
+    errorRateDisplayElement: HTMLSpanElement,
+    useRetry: Boolean,
+) {
+    var serverErrors = 0
+    var totalNrOfRequests = 0
+    logger.info("Starting client loop")
+    while (true) {
+        delay(250.milliseconds)
+        totalNrOfRequests++
+
+        var response: HttpResponse? = null
+        try {
+            val url = ServerPaths.TEST
+            response = if (useRetry) {
+                client.get(url)
             } else {
-                errorRateDisplay.textContent = errorRate
+                client.get {
+                    url(url)
+                    kRetry(true)
+                }
             }
+        } catch (_: Exception) {
+        }
+
+        if (response == null || response.status == InternalServerError) {
+            serverErrors++
+        }
+
+        val clientErrorRate = serverErrors.toDouble() / totalNrOfRequests
+        val retryMode = if (useRetry) "with retry" else "without retry"
+        totalRequestsDisplayElement.textContent = totalNrOfRequests.toString().also {
+            logger.info("Total requests $retryMode: $totalNrOfRequests")
+        }
+        totalErrorsDisplayElement.textContent = serverErrors.toString().also {
+            logger.info("Total errors $retryMode: $serverErrors")
+        }
+        errorRateDisplayElement.textContent = clientErrorRate.toString().also {
+            logger.info("Error rate $retryMode: $clientErrorRate")
         }
     }
 }
