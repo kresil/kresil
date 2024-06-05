@@ -13,37 +13,38 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kresil.ktor.client.plugins.retry.KresilRetryPlugin
-import kresil.ktor.client.plugins.retry.kRetry
+import kresil.circuitbreaker.exceptions.CallNotPermittedException
+import kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin
+import kotlin.time.Duration.Companion.milliseconds
+
+private const val PORT = 8080
 
 private suspend fun main() {
     val serverJob = CoroutineScope(Dispatchers.Default).launch { startUnreliableServer() }
     val client = HttpClient(CIO) {
-        install(KresilRetryPlugin) {
-            retryOnServerErrors()
-            maxAttempts = 5
-            noDelay()
-            modifyRequestOnRetry { request, attempt ->
-                request.headers.append("GLOBAL_RETRY_COUNT", attempt.toString())
-            }
+        install(KresilCircuitBreakerPlugin) {
+            permittedNumberOfCallsInHalfOpenState = 2
+            noDelayInOpenState()
+            failureRateThreshold = 0.5
+            slidingWindow(4, 4)
+            recordFailureOnServerErrors()
         }
-        /*install(HttpTimeout) {
-            requestTimeoutMillis = 10
-            connectTimeoutMillis = 10
-            socketTimeoutMillis = 10
-        }*/
-        // install(HttpRequestRetry)
     }
 
-    client.post {
-        url("http://127.0.0.1:8080/")
-        setBody("Hello, Kresil!")
-        kRetry(true) {
-            exponentialDelay()
-            modifyRequestOnRetry { request, attempt ->
-                request.headers.append("PER_REQUEST_RETRY_COUNT", attempt.toString())
+    repeat(10) {
+        delay(250.milliseconds)
+        try {
+            client.post {
+                url("http://127.0.0.1:$PORT/")
+                setBody("Hello, Kresil!")
             }
+        } catch (e: CallNotPermittedException) {
+            println("Client received error: ${e.message}")
+        } catch (e: Exception) {
+            println("Unexpected error: ${e.message}")
+            return@repeat
         }
     }
     client.close()
@@ -52,14 +53,15 @@ private suspend fun main() {
 
 private suspend fun startUnreliableServer() {
     var requestCount = 0
-    embeddedServer(Netty, port = 8080) {
+    embeddedServer(Netty, port = PORT) {
         routing {
             post("/") {
                 val text = call.receiveText()
                 requestCount += 1
                 println("Server received request nr(${requestCount}): $text")
                 when (requestCount) {
-                    in 1..4 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
+                    in 1..2 -> call.respondText("Server is back online!")
+                    in 3..6 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
                     else -> call.respondText("Server is back online!")
                 }
             }
