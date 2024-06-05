@@ -19,7 +19,7 @@ import kotlin.time.Duration.Companion.minutes
  * Builder for configuring a [CircuitBreakerConfig] instance.
  * Use [circuitBreakerConfig] to create one.
  */
-class CircuitBreakerConfigBuilder internal constructor(
+class CircuitBreakerConfigBuilder(
     override val baseConfig: CircuitBreakerConfig = defaultCircuitBreakerConfig,
 ) : ConfigBuilder<CircuitBreakerConfig> {
 
