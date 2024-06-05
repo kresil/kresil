@@ -14,7 +14,7 @@ import kresil.core.reducer.Reducer
 import kresil.core.slidingwindow.FailureRateSlidingWindow
 import kotlin.time.ComparableTimeMark
 import kotlin.time.Duration
-import kotlin.time.TestTimeSource
+import kotlin.time.TimeSource
 
 /**
  * A thread-safe state machine that acts as a reducer for a [CircuitBreaker].
@@ -110,12 +110,12 @@ class CircuitBreakerStateReducer<T>(
             nrOfTransitionsToOpenState = 1
         }
         val nextDelayDurationInOpenState = config.delayStrategyInOpenState(nrOfTransitionsToOpenState, Unit)
-        val openStateStartTimeMark = TestTimeSource().markNow()
+        val openStateStartTimeMark = TimeSource.Monotonic.markNow()
         _state = Open(nextDelayDurationInOpenState, openStateStartTimeMark)
     }
 
     private fun transitionToClosedState() {
-        slidingWindow.clear()
+        // TODO: should sliding window be cleared when transitioning to closed state?
         _state = Closed
     }
 
@@ -123,7 +123,7 @@ class CircuitBreakerStateReducer<T>(
         _state = if (config.maxWaitDurationInHalfOpenState == Duration.ZERO) {
             HalfOpen(nrOfCallsAttempted, null)
         } else {
-            val halfStateStartTimeMark = TestTimeSource().markNow()
+            val halfStateStartTimeMark = TimeSource.Monotonic.markNow()
             HalfOpen(nrOfCallsAttempted, halfStateStartTimeMark)
         }
     }

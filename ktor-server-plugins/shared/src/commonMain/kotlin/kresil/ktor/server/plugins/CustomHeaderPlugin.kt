@@ -1,4 +1,4 @@
-package kresil.ktor.plugins.retry.server
+package kresil.ktor.server.plugins
 
 import io.ktor.server.application.*
 

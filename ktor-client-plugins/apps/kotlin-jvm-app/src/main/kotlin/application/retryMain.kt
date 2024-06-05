@@ -14,12 +14,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kresil.ktor.plugins.retry.client.KresilRetryPlugin
-import kresil.ktor.plugins.retry.client.kRetry
+import kresil.ktor.client.plugins.retry.KresilRetryPlugin
+import kresil.ktor.client.plugins.retry.kRetry
 
-class NetworkError : Exception()
-
-suspend fun main() {
+private suspend fun main() {
     val serverJob = CoroutineScope(Dispatchers.Default).launch { startUnreliableServer() }
     val client = HttpClient(CIO) {
         install(KresilRetryPlugin) {
@@ -52,7 +50,7 @@ suspend fun main() {
     serverJob.cancelAndJoin()
 }
 
-suspend fun startUnreliableServer() {
+private suspend fun startUnreliableServer() {
     var requestCount = 0
     embeddedServer(Netty, port = 8080) {
         routing {

@@ -1,41 +1,33 @@
-package kresil.circuitbreaker.config
+package kresil.ktor.client.plugins.circuitbreaker.config
 
+import io.ktor.client.statement.*
+import kresil.circuitbreaker.config.CircuitBreakerConfigBuilder
 import kresil.circuitbreaker.delay.CircuitBreakerDelayProvider
 import kresil.circuitbreaker.delay.CircuitBreakerDelayStrategy
-import kresil.circuitbreaker.slidingwindow.SlidingWindow
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
-import kresil.circuitbreaker.state.CircuitBreakerState.*
+import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
+import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.core.builders.ConfigBuilder
-import kresil.core.callbacks.OnExceptionPredicate
-import kresil.core.callbacks.OnResultPredicate
-import kresil.core.delay.DelayStrategyOptions
+import kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
+internal typealias RecordResponsePredicate = (HttpResponse) -> Boolean
+
 /**
- * Builder for configuring a [CircuitBreakerConfig] instance.
- * Use [circuitBreakerConfig] to create one.
+ * Builder for configuring the [KresilCircuitBreakerPlugin].
  */
-class CircuitBreakerConfigBuilder(
-    override val baseConfig: CircuitBreakerConfig = defaultCircuitBreakerConfig,
-) : ConfigBuilder<CircuitBreakerConfig> {
+class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerPluginConfig) :
+    ConfigBuilder<CircuitBreakerPluginConfig> {
 
-    private companion object {
-        const val MAX_FAILURE_RATE_THRESHOLD = 1.0
-        const val MIN_FAILURE_RATE_THRESHOLD = 0.0
-    }
-
-    // delay strategy options
-    private val delayStrategyInOpenStateOptions = DelayStrategyOptions
+    private val baseCbreakerConfig = baseConfig.circuitBreakerConfig
+    private val cbreakerConfigBuilder: CircuitBreakerConfigBuilder =
+        CircuitBreakerConfigBuilder(baseCbreakerConfig)
 
     // state
-    private var recordExceptionPredicate: OnExceptionPredicate = baseConfig.recordExceptionPredicate
-    private var recordResultPredicate: OnResultPredicate = baseConfig.recordResultPredicate
-    private var delayStrategyInOpenState: CircuitBreakerDelayStrategy = baseConfig.delayStrategyInOpenState
-    private var slidingWindow: SlidingWindow = baseConfig.slidingWindow
+    private var recordResponseAsFailurePredicate: RecordResponsePredicate = baseConfig.recordResponseAsFailurePredicate
 
     /**
      * Configures the rate in percentage (e.g., **0.5 for 50%**)
@@ -44,11 +36,9 @@ class CircuitBreakerConfigBuilder(
      *
      * Should be between `0.0` exclusive and `1.0` inclusive.
      */
-    var failureRateThreshold: Double = baseConfig.failureRateThreshold
+    var failureRateThreshold: Double = baseCbreakerConfig.failureRateThreshold
         set(value) {
-            require(value > MIN_FAILURE_RATE_THRESHOLD && value <= MAX_FAILURE_RATE_THRESHOLD) {
-                "Failure rate threshold must be between ${MIN_FAILURE_RATE_THRESHOLD.toInt()} exclusive and ${MAX_FAILURE_RATE_THRESHOLD.toInt()} inclusive"
-            }
+            cbreakerConfigBuilder.failureRateThreshold = value
             field = value
         }
 
@@ -58,9 +48,9 @@ class CircuitBreakerConfigBuilder(
      * If [maxWaitDurationInHalfOpenState] is set to `Duration.ZERO`, the circuit breaker will wait indefinitely
      * in the [HalfOpen] state until the permitted number of calls is reached.
      */
-    var permittedNumberOfCallsInHalfOpenState: Int = baseConfig.permittedNumberOfCallsInHalfOpenState
+    var permittedNumberOfCallsInHalfOpenState: Int = baseCbreakerConfig.permittedNumberOfCallsInHalfOpenState
         set(value) {
-            require(value > 0) { "Permitted number of calls in ${HalfOpen::class.simpleName} state must be greater than 0" }
+            cbreakerConfigBuilder.permittedNumberOfCallsInHalfOpenState = value
             field = value
         }
 
@@ -70,9 +60,9 @@ class CircuitBreakerConfigBuilder(
      * If set to `Duration.ZERO`, the circuit breaker will wait indefinitely in the [HalfOpen] state
      * until [permittedNumberOfCallsInHalfOpenState] is reached.
      */
-    var maxWaitDurationInHalfOpenState: Duration = baseConfig.maxWaitDurationInHalfOpenState
+    var maxWaitDurationInHalfOpenState: Duration = baseCbreakerConfig.maxWaitDurationInHalfOpenState
         set(value) {
-            requireNonNegativeDuration(value, "${HalfOpen::class.simpleName} state")
+            cbreakerConfigBuilder.maxWaitDurationInHalfOpenState = value
             field = value
         }
 
@@ -85,9 +75,7 @@ class CircuitBreakerConfigBuilder(
      * @param type the type of the sliding window. See [SlidingWindowType] for more information about the available types.
      */
     fun slidingWindow(size: Int, minimumThroughput: Int = 100, type: SlidingWindowType = COUNT_BASED) {
-        require(size > 0) { "Sliding window size must be greater than 0" }
-        require(minimumThroughput > 0) { "Minimum throughput must be greater than 0" }
-        slidingWindow = SlidingWindow(size, minimumThroughput, type)
+        cbreakerConfigBuilder.slidingWindow(size, minimumThroughput, type)
     }
 
     /**
@@ -99,7 +87,7 @@ class CircuitBreakerConfigBuilder(
      * @see [customDelayProviderInOpenState]
      */
     fun noDelayInOpenState() {
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.noDelay()
+        cbreakerConfigBuilder.noDelayInOpenState()
     }
 
     /**
@@ -114,8 +102,7 @@ class CircuitBreakerConfigBuilder(
      */
     @Throws(IllegalArgumentException::class)
     fun constantDelayInOpenState(duration: Duration) {
-        requirePositiveDuration(duration, "Delay")
-        delayStrategyInOpenState = { _, _ -> duration }
+        cbreakerConfigBuilder.constantDelayInOpenState(duration)
     }
 
     /**
@@ -145,9 +132,7 @@ class CircuitBreakerConfigBuilder(
         initialDelay: Duration = 500L.milliseconds,
         maxDelay: Duration = 1.minutes,
     ) {
-        requirePositiveDuration(initialDelay, "Initial delay")
-        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.linear(initialDelay, maxDelay)
+        cbreakerConfigBuilder.linearDelayInOpenState(initialDelay, maxDelay)
     }
 
     /**
@@ -180,10 +165,7 @@ class CircuitBreakerConfigBuilder(
         multiplier: Double = 2.0, // not using constant to be readable for the user
         maxDelay: Duration = 1.minutes,
     ) {
-        requirePositiveDuration(initialDelay, "Initial delay")
-        require(multiplier > 1.0) { "Multiplier must be greater than 1" }
-        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.exponential(initialDelay, multiplier, maxDelay)
+        cbreakerConfigBuilder.exponentialDelayInOpenState(initialDelay, multiplier, maxDelay)
     }
 
     /**
@@ -209,7 +191,7 @@ class CircuitBreakerConfigBuilder(
      * @see [customDelayProviderInOpenState]
      **/
     fun customDelayInOpenState(delayStrategyInOpenState: CircuitBreakerDelayStrategy) {
-        this.delayStrategyInOpenState = delayStrategyInOpenState
+        cbreakerConfigBuilder.customDelayInOpenState(delayStrategyInOpenState)
     }
 
     /**
@@ -225,65 +207,32 @@ class CircuitBreakerConfigBuilder(
      * @see [customDelayInOpenState]
      */
     fun customDelayProviderInOpenState(delayProvider: CircuitBreakerDelayProvider) {
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.customProvider(delayProvider)
+        cbreakerConfigBuilder.customDelayProviderInOpenState(delayProvider)
     }
 
     /**
-     * Configures the predicate that determines whether an exception should be recorded as a failure,
-     * and as such, increase the failure rate.
+     * Configures a predicate to record the response of a call.
+     * The predicate should return `true` if the response is to be considered a failure; `false` otherwise.
      */
-    fun recordExceptionPredicate(predicate: OnExceptionPredicate) {
-        recordExceptionPredicate = predicate
+    fun recordFailure(predicate: RecordResponsePredicate) {
+        recordResponseAsFailurePredicate = predicate
     }
 
     /**
-     * Configures the predicate that determines whether a result of an operation
-     * should be recorded as a failure, and as such, increase the failure rate.
+     * Determines whether to record as failure the server responses with status codes in the range of 500..599.
      */
-    fun recordResultPredicate(predicate: OnResultPredicate) {
-        recordResultPredicate = predicate
+    fun recordFailureOnServerErrors() {
+        recordFailure { response ->
+            response.status.value in 500..599
+        }
     }
 
-    override fun build() = CircuitBreakerConfig(
-        failureRateThreshold,
-        slidingWindow,
-        permittedNumberOfCallsInHalfOpenState,
-        delayStrategyInOpenState,
-        maxWaitDurationInHalfOpenState,
-        recordExceptionPredicate,
-        recordResultPredicate
-    )
-
-    /**
-     * Validates that the duration is **equal to or greater than 0**.
-     * @param duration the duration to validate.
-     * @param qualifier the qualifier to use in the exception message.
-     * @throws IllegalArgumentException if the duration is less than 0
-     */
-    @Throws(IllegalArgumentException::class)
-    private fun requireNonNegativeDuration(duration: Duration, qualifier: String) {
-        require(duration >= ZERO) { "$qualifier duration must be greater than or equal to 0" }
-    }
-
-    /**
-     * Validates that the duration is **greater than 0**.
-     * @param duration the duration to validate.
-     * @param qualifier the qualifier to use in the exception message.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0
-     */
-    @Throws(IllegalArgumentException::class)
-    private fun requirePositiveDuration(duration: Duration, qualifier: String) {
-        require(duration > ZERO) { "$qualifier duration must be greater than 0" }
+    override fun build(): CircuitBreakerPluginConfig {
+        val cBreakerConfig = cbreakerConfigBuilder.build()
+        return CircuitBreakerPluginConfig(
+            circuitBreakerConfig = cBreakerConfig,
+            recordResponseAsFailurePredicate = recordResponseAsFailurePredicate
+        )
     }
 
 }
-
-private val defaultCircuitBreakerConfig = CircuitBreakerConfig(
-    failureRateThreshold = 0.5,
-    slidingWindow = SlidingWindow(100, 100, COUNT_BASED),
-    permittedNumberOfCallsInHalfOpenState = 10,
-    delayStrategyInOpenState = DelayStrategyOptions.constant(1.minutes),
-    maxWaitDurationInHalfOpenState = ZERO,
-    recordExceptionPredicate = { true },
-    recordResultPredicate = { false },
-)
