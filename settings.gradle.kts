@@ -40,3 +40,5 @@ include(":ktor-server-plugins:apps:kotlin-jvm-app")
 // demo
 include(":beta-demo:retry:jvm-server")
 include(":beta-demo:retry:js-client")
+include(":beta-demo:circuitbreaker:jvm-server")
+include(":beta-demo:circuitbreaker:js-client")

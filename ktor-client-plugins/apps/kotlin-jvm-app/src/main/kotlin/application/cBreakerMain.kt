@@ -38,7 +38,7 @@ private suspend fun main() {
 
     repeat(25) {
         delay(250.milliseconds)
-        println("Client: sending request nr(${it + 1})")
+        println("Client sending request nr(${it + 1})")
         try {
             client.post {
                 url("http://127.0.0.1:$PORT/")
@@ -57,20 +57,24 @@ private suspend fun main() {
 
 private suspend fun startUnreliableServer() {
     var requestCount = 0
+    var cycleCount = 'a'
     embeddedServer(Netty, port = PORT) {
         routing {
             post("/") {
                 val text = call.receiveText()
-                requestCount += 1
-                println("Server received request nr(${requestCount}): $text")
+                requestCount++
+                println("Server received request nr(${requestCount}-${cycleCount}): $text")
+                delay(1.seconds) // simulate server processing time
                 when (requestCount) {
-                    in 1..2 -> call.respondText("Server is back online!")
+                    in 1..2 -> call.respondText("Server recovered and is back online", status = HttpStatusCode.OK)
                     in 3..4 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
                     else -> {
-                        println("Server is being overloaded")
-                        delay(2.seconds) // simulate response delay from being overloaded
-                        if (requestCount == 6) requestCount = 0 // simulate server recovery
-                        call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
+                        delay(4.seconds) // simulate response delay from being overloaded
+                        call.respondText("Server is being overloaded upon restarting", status = HttpStatusCode.ServiceUnavailable)
+                        if (requestCount >= 6) {
+                            requestCount = 0
+                            cycleCount++
+                        }
                     }
                 }
             }
