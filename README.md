@@ -6,10 +6,10 @@ and [Polly](https://github.com/App-vNext/Polly) for .NET. The library offers met
 resilience mechanisms in a functional style, using higher-order functions (decorators) while providing a concise API.
 Additionally, Kresil offers extensions for [Ktor](https://ktor.io/) as plugins.
 
-## Mechanisms
+## Resilience Mechanisms
 
 - 🔁 [Retry](#retry): Repeats failed executions;
-- ⚡ [Circuit Breaker](#circuit-breaker): Temporarily blocks possible failures (🚧).
+- ⛔ [Circuit Breaker](#circuit-breaker): Temporarily blocks possible failures (🚧).
 
 > [!NOTE]
 > The symbol 🚧 means that the mechanism is under development.
@@ -19,7 +19,7 @@ Additionally, Kresil offers extensions for [Ktor](https://ktor.io/) as plugins.
 - 📁 [kresil-lib](kresil-lib/lib/README.md): Core module with the resilience mechanisms;
 - 📁 [ktor-client-plugins](ktor-client-plugins/shared/README.md): Mechanisms integration for Ktor Client;
 - 📁 [ktor-server-plugins](ktor-server-plugins/shared/README.md): Mechanisms integration for Ktor Server.
-- 📁 [beta-demo](beta-demo/README.md): Applications for demonstration purposes.
+- 📁 [beta-demo](beta-demo/README.md): Applications for resilience mechanisms demonstration.
 
 ## Retry
 
@@ -99,7 +99,13 @@ retry.cancelListeners()
 
 The [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
 is a resilience mechanism
-that can be used to protect a system component from overloading or failing. A circuit breaker is initialized with a configuration that,
+that can be used to protect a system component from overloading or failing.
+By monitoring the health of the system, the circuit breaker can short-circuit
+execution requests when it detects that the system component is not behaving as expected.
+After a timeout,
+the circuit breaker allows a limited number of test requests to pass through to see if the system has recovered.
+Depending on the test results, the circuit breaker can resume normal operation or continue to short-circuit requests.
+A circuit breaker is initialized with a configuration that,
 through pre-configured policies, define its behaviour.
 
 ### State Machine
