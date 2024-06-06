@@ -1,4 +1,4 @@
-## Circuit Breaker Demo ⚡
+## Circuit Breaker Demo ⛔
 
 This is a demo of the Circuit Breaker mechanism functionality 
 available from the Kresil library as a plugin for Ktor Client.
