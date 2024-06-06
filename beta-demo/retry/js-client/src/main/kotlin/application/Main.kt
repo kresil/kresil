@@ -11,8 +11,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kresil.ktor.plugins.retry.client.KresilRetryPlugin
-import kresil.ktor.plugins.retry.client.kRetry
+import kresil.ktor.client.plugins.retry.KresilRetryPlugin
+import kresil.ktor.client.plugins.retry.kRetry
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLSpanElement
@@ -28,7 +28,7 @@ private val client = HttpClient {
     }
 }
 
-object ServerPaths {
+private object ServerPaths {
     const val BASE_URL = "http://localhost:8080"
     const val ERROR = "$BASE_URL/error"
     const val ERROR_CONFIG = "$BASE_URL/error-config"

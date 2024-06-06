@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Ktor JS Clients</title>
+    <title>🔁 Kresil Retry Plugin</title>
     <style>
         #container {
             display: flex;
@@ -35,31 +35,31 @@
     </style>
 </head>
 <body>
-<h1>Kresil Ktor Retry Plugin</h1>
+<h1>🔁 Kresil Ktor Retry Plugin</h1>
 <div id="container">
     <div id="log-container-with-retry">
         <h2>Client with Retry</h2>
         <div id="messages-with-retry"></div>
         <div class="stats" id="retry-stats">
-            <h3>Total Requests: <span id="retry-total-requests">0</span></h3>
-            <h3>Total Errors: <span id="retry-total-errors">0</span></h3>
-            <h3>Client Error Rate: <span id="retry-error-rate">0.0</span></h3>
+            <h3>📨 Total Requests: <span id="retry-total-requests">0</span></h3>
+            <h3>❌ Total Errors: <span id="retry-total-errors">0</span></h3>
+            <h3>📉 Client Error Rate: <span id="retry-error-rate">0.0</span></h3>
         </div>
     </div>
     <div id="controls">
         <input id="error-rate-input" type="text" placeholder="Enter error rate (0.0 - 1.0)">
         <button id="set-error-rate-button">Set Error Rate</button>
         <div class="stats">
-            <div>Current Server Error Rate: <span id="current-error-rate">0.0</span></div>
+            <h5>⚠️ Current Server Error Rate: <span id="current-error-rate">0.0</span>⚠️</h5>
         </div>
     </div>
     <div id="log-container-without-retry">
         <h2>Client without Retry</h2>
         <div id="messages-without-retry"></div>
         <div class="stats" id="no-retry-stats">
-            <h3>Total Requests: <span id="no-retry-total-requests">0</span></h3>
-            <h3>Total Errors: <span id="no-retry-total-errors">0</span></h3>
-            <h3>Client Error Rate: <span id="no-retry-error-rate">0.0</span></h3>
+            <h3>📨 Total Requests: <span id="no-retry-total-requests">0</span></h3>
+            <h3>❌ Total Errors: <span id="no-retry-total-errors">0</span></h3>
+            <h3>📉 Client Error Rate: <span id="no-retry-error-rate">0.0</span></h3>
         </div>
     </div>
 </div>
