@@ -4,8 +4,11 @@ import kresil.core.delay.DelayStrategyOptions.constant
 import kresil.core.delay.DelayStrategyOptions.customProvider
 import kresil.core.delay.DelayStrategyOptions.exponential
 import kresil.core.delay.DelayStrategyOptions.noDelay
+import kresil.core.delay.provider.CtxDelayProvider
+import kresil.core.delay.provider.DelayProvider
 import kotlin.math.pow
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
 
 /**
  * Represents a delay strategy with context used to determine the delay duration between attempts, where:
@@ -43,13 +46,11 @@ typealias DelayStrategy = suspend (attempt: Int) -> Duration
  */
 internal object DelayStrategyOptions {
 
-    // TODO: add checks for parameters
-
     /**
      * A delay strategy that has no delay between attempts.
      * Attempts are immediate and do not use any custom delay provider.
      */
-    fun noDelay(): DelayStrategy = { _ -> Duration.ZERO }
+    fun noDelay(): DelayStrategy = { _ -> ZERO }
 
     /**
      * A delay strategy that uses a constant delay duration.
@@ -113,6 +114,54 @@ internal object DelayStrategyOptions {
      */
     fun DelayStrategy.toEmptyCtxDelayStrategy(): CtxDelayStrategy<Unit> = { attempt, _ ->
         this(attempt)
+    }
+
+    /**
+     * Validates the [exponential] delay parameters.
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1.0, or the max delay is less than the initial delay.
+     */
+    @Throws(IllegalArgumentException::class)
+    fun validateExponentialDelayParams(initialDelay: Duration, multiplier: Double, maxDelay: Duration) {
+        initialDelay.requirePositive("Initial delay")
+        require(multiplier > 1.0) { "Multiplier must be greater than 1" }
+        require(initialDelay < maxDelay) { "Max delay duration must be greater than initial delay" }
+    }
+
+    /**
+     * Validates the [linear] delay parameters.
+     * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the max delay is less than the initial delay.
+     */
+    @Throws(IllegalArgumentException::class)
+    fun validateLinearDelayParams(initialDelay: Duration, maxDelay: Duration) {
+        initialDelay.requirePositive("Initial delay")
+        require(initialDelay < maxDelay) { "Max delay duration must be greater than initial delay" }
+    }
+
+    /**
+     * Validates the [constant] delay parameters.
+     * @throws IllegalArgumentException if the delay is less than 0
+     */
+    @Throws(IllegalArgumentException::class)
+    fun validateConstantDelayParams(delay: Duration) {
+        delay.requireNonNegative("Constant delay")
+    }
+
+    /**
+     * Validates that the duration is in fact a non-negative duration.
+     * @throws IllegalArgumentException if the duration is less than 0
+     */
+    @Throws(IllegalArgumentException::class)
+    fun Duration.requireNonNegative(qualifier: String) {
+        require(this >= ZERO) { "$qualifier duration must be greater than or equal to zero" }
+    }
+
+    /**
+     * Validates that the duration is in fact a positive duration.
+     * @throws IllegalArgumentException if the duration is less than or equal to 0
+     */
+    @Throws(IllegalArgumentException::class)
+    fun Duration.requirePositive(qualifier: String) {
+        require(this > ZERO) { "$qualifier duration must be greater than zero" }
     }
 
 }

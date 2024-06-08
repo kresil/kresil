@@ -131,7 +131,6 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
     /**
      * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
      * @param duration the constant delay between retries.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0.
      * @see [noDelay]
      * @see [linearDelay]
      * @see [exponentialDelay]
@@ -158,7 +157,6 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * **Note:** The delay is capped at the `maxDelay` value.
      * @param initialDelay the initial delay before the first retry.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
      * @see [noDelay]
      * @see [constantDelay]
      * @see [exponentialDelay]
@@ -189,7 +187,6 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0, the multiplier is less than or equal to 1.
      * @see [noDelay]
      * @see [constantDelay]
      * @see [linearDelay]

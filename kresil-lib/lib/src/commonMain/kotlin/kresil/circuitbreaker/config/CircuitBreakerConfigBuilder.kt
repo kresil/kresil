@@ -8,10 +8,14 @@ import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
 import kresil.core.delay.CtxDelayStrategy
-import kresil.core.delay.DelayProvider
+import kresil.core.delay.provider.DelayProvider
 import kresil.core.delay.DelayStrategy
 import kresil.core.delay.DelayStrategyOptions
+import kresil.core.delay.DelayStrategyOptions.requireNonNegative
 import kresil.core.delay.DelayStrategyOptions.toEmptyCtxDelayStrategy
+import kresil.core.delay.DelayStrategyOptions.validateConstantDelayParams
+import kresil.core.delay.DelayStrategyOptions.validateExponentialDelayParams
+import kresil.core.delay.DelayStrategyOptions.validateLinearDelayParams
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.milliseconds
@@ -74,7 +78,7 @@ class CircuitBreakerConfigBuilder(
      */
     var maxWaitDurationInHalfOpenState: Duration = baseConfig.maxWaitDurationInHalfOpenState
         set(value) {
-            requireNonNegativeDuration(value, "${HalfOpen::class.simpleName} state")
+            value.requireNonNegative("${HalfOpen::class.simpleName} state")
             field = value
         }
 
@@ -109,50 +113,25 @@ class CircuitBreakerConfigBuilder(
     /**
      * Configures the circuit breaker delay strategy to use a constant delay between transitions from [Open] to [HalfOpen].
      * @param duration the constant delay between transitions.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0.
      * @see [noDelayInOpenState]
      * @see [linearDelayInOpenState]
      * @see [exponentialDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
     fun constantDelayInOpenState(duration: Duration) {
-        requirePositiveDuration(duration, "Delay")
+        validateConstantDelayParams(duration)
         delayStrategyInOpenState = delayStrategyInOpenStateOptions
             .constant(duration)
             .toEmptyCtxDelayStrategy()
     }
 
-    /**
-     * Configures the circuit breaker delay strategy to use a linear delay between transitions from [Open] to [HalfOpen].
-     * The delay between transitions is calculated using the formula:
-     *
-     * `initialDelay * attempt`, where `attempt` is the current transition attempt.
-     *
-     * Example:
-     * ```
-     * linearDelayInOpenState(500.milliseconds, 4.seconds)
-     * // Delay between transitions will be as follows:
-     * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
-     * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
-     * @param initialDelay the initial delay before the first transition.
-     * @param maxDelay the maximum delay between transitions. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
-     * @see [noDelayInOpenState]
-     * @see [constantDelayInOpenState]
-     * @see [customDelayInOpenState]
-     * @see [customDelayProviderInOpenState]
-     */
-    @Throws(IllegalArgumentException::class)
+
     fun linearDelayInOpenState(
         initialDelay: Duration = 500L.milliseconds,
         maxDelay: Duration = 1.minutes,
     ) {
-        requirePositiveDuration(initialDelay, "Initial delay")
-        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
+        validateLinearDelayParams(initialDelay, maxDelay)
         delayStrategyInOpenState = delayStrategyInOpenStateOptions
             .linear(initialDelay, maxDelay)
             .toEmptyCtxDelayStrategy()
@@ -175,22 +154,18 @@ class CircuitBreakerConfigBuilder(
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between transitions.
      * @param maxDelay the maximum delay between transitions. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the multiplier is less than or equal to 1.0.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
      * @see [linearDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
     fun exponentialDelayInOpenState(
         initialDelay: Duration = 500L.milliseconds,
         multiplier: Double = 2.0, // not using constant to be readable for the user
         maxDelay: Duration = 1.minutes,
     ) {
-        requirePositiveDuration(initialDelay, "Initial delay")
-        require(multiplier > 1.0) { "Multiplier must be greater than 1" }
-        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
+        validateExponentialDelayParams(initialDelay, multiplier, maxDelay)
         delayStrategyInOpenState = delayStrategyInOpenStateOptions
                 .exponential(initialDelay, multiplier, maxDelay)
                 .toEmptyCtxDelayStrategy()
@@ -265,29 +240,6 @@ class CircuitBreakerConfigBuilder(
         recordExceptionPredicate,
         recordResultPredicate
     )
-
-    /**
-     * Validates that the duration is **equal to or greater than 0**.
-     * @param duration the duration to validate.
-     * @param qualifier the qualifier to use in the exception message.
-     * @throws IllegalArgumentException if the duration is less than 0
-     */
-    @Throws(IllegalArgumentException::class)
-    private fun requireNonNegativeDuration(duration: Duration, qualifier: String) {
-        require(duration >= ZERO) { "$qualifier duration must be greater than or equal to 0" }
-    }
-
-    /**
-     * Validates that the duration is **greater than 0**.
-     * @param duration the duration to validate.
-     * @param qualifier the qualifier to use in the exception message.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0
-     */
-    @Throws(IllegalArgumentException::class)
-    private fun requirePositiveDuration(duration: Duration, qualifier: String) {
-        require(duration > ZERO) { "$qualifier duration must be greater than 0" }
-    }
-
 }
 
 private val defaultCircuitBreakerConfig = CircuitBreakerConfig(

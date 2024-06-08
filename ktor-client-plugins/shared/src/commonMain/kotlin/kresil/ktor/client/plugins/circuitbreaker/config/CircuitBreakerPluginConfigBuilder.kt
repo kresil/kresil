@@ -7,7 +7,7 @@ import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.core.builders.ConfigBuilder
-import kresil.core.delay.DelayProvider
+import kresil.core.delay.provider.DelayProvider
 import kresil.core.delay.DelayStrategy
 import kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin
 import kotlin.time.Duration
@@ -93,14 +93,12 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
     /**
      * Configures the circuit breaker delay strategy to use a constant delay between transitions from [Open] to [HalfOpen].
      * @param duration the constant delay between transitions.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0.
      * @see [noDelayInOpenState]
      * @see [linearDelayInOpenState]
      * @see [exponentialDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
     fun constantDelayInOpenState(duration: Duration) {
         cbreakerConfigBuilder.constantDelayInOpenState(duration)
     }
@@ -121,13 +119,11 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * **Note:** The delay is capped at the `maxDelay` value.
      * @param initialDelay the initial delay before the first transition.
      * @param maxDelay the maximum delay between transitions. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
     fun linearDelayInOpenState(
         initialDelay: Duration = 500L.milliseconds,
         maxDelay: Duration = 1.minutes,
@@ -152,14 +148,12 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between transitions.
      * @param maxDelay the maximum delay between transitions. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the multiplier is less than or equal to 1.0.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
      * @see [linearDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
     fun exponentialDelayInOpenState(
         initialDelay: Duration = 500L.milliseconds,
         multiplier: Double = 2.0, // not using constant to be readable for the user
