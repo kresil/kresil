@@ -1,4 +1,4 @@
-package circuitbreaker
+package kresil.mechanisms.circuitbreaker
 
 import kotlinx.coroutines.test.runTest
 import kresil.circuitbreaker.CircuitBreaker
@@ -126,7 +126,7 @@ class CircuitBreakerConfigTests {
         }
 
         // then: an exception should be thrown
-        assertEquals("HalfOpen state duration must be greater than or equal to 0", ex.message)
+        assertEquals("HalfOpen state duration must be greater than or equal to zero", ex.message)
     }
 
 }

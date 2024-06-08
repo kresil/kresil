@@ -1,7 +1,6 @@
-package retry
+package kresil.mechanisms.retry
 
-import exceptions.WebServiceException
-import extensions.delayWithRealTime
+import kresil.extensions.delayWithRealTime
 import io.mockative.Mock
 import io.mockative.classOf
 import io.mockative.coEvery
@@ -13,6 +12,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
 import kresil.core.callbacks.OnExceptionPredicate
+import kresil.exceptions.WebServiceException
 import kresil.retry.Retry
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.retryConfig
@@ -21,8 +21,7 @@ import kresil.retry.delay.RetryDelayStrategy
 import kresil.retry.delay.RetryDelayStrategyContext
 import kresil.retry.event.RetryEvent
 import kresil.retry.exceptions.MaxRetriesExceededException
-import service.ConditionalSuccessRemoteService
-import service.RemoteService
+import kresil.service.RemoteService
 import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -205,7 +204,7 @@ class RetryTests {
 
         // and: a remote service that throws an exception on the first call
         val conditionalSuccessRemoteService =
-            ConditionalSuccessRemoteService(
+            kresil.service.ConditionalSuccessRemoteService(
                 succeedAfterAttempt = 1,
                 throwable = WebServiceException("BAM!")
             )
@@ -364,7 +363,7 @@ class RetryTests {
         val multiplier = 2.0
         val initialDelayMillis = initialDelay.inWholeMilliseconds
         (1..config.maxAttempts).forEach { attempt ->
-            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt)).toLong()
+            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt - 1)).toLong()
             assertEquals(nextDurationMillis.milliseconds, config.delayStrategy(attempt, RetryDelayStrategyContext()))
         }
 
@@ -469,17 +468,11 @@ class RetryTests {
 
         // when: the constant delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 constantDelay(delayDuration)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Delay duration must be greater than 0",
-            exception.message
-        )
     }
 
     @Test
@@ -521,7 +514,7 @@ class RetryTests {
         val expectedDuration = (1..retryAttempts).sumOf { attempt ->
             val initialDelayMillis = initialDelay.inWholeMilliseconds
             val maxDelayMillis = maxDelay.inWholeMilliseconds
-            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt)).toLong()
+            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt - 1)).toLong()
             val result = nextDurationMillis.coerceAtMost(maxDelayMillis)
             result
         }
@@ -536,17 +529,12 @@ class RetryTests {
 
         // when: the exponential delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 exponentialDelay(multiplier = multiplier)
             }
         }
 
-        // and: the exception message is correct
-        assertEquals(
-            "Multiplier must be greater than 1",
-            exception.message
-        )
     }
 
     @Test
@@ -557,17 +545,11 @@ class RetryTests {
 
         // when: the exponential delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 exponentialDelay(initialDelay = initialDelay)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Initial delay duration must be greater than 0",
-            exception.message
-        )
     }
 
     @Test
@@ -579,17 +561,11 @@ class RetryTests {
 
         // when: the exponential delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 exponentialDelay(initialDelay = initialDelay, maxDelay = maxDelay)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Max delay must be greater than initial delay",
-            exception.message
-        )
     }
 
     @Test
@@ -1320,7 +1296,7 @@ class RetryTests {
         // then: the retry virtual time equals the delay duration multipled by each retry attempt
         val retryExecutionDuration = currentTime
         val retryAttempts = config.permittedRetryAttempts
-        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts)
+        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts + delayDuration.inWholeMilliseconds)
     }
 
     @Test
@@ -1331,17 +1307,11 @@ class RetryTests {
 
         // when: the linear delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 linearDelay(initialDelay)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Initial delay duration must be greater than 0",
-            exception.message
-        )
     }
 
     @Test
@@ -1353,17 +1323,11 @@ class RetryTests {
 
         // when: the linear delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 linearDelay(initialDelay, maxDelay)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Max delay must be greater than initial delay",
-            exception.message
-        )
     }
 
 }

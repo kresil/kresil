@@ -1,7 +1,5 @@
-package circuitbreaker
+package kresil.mechanisms.circuitbreaker
 
-import exceptions.NetworkException
-import exceptions.WebServiceException
 import io.mockative.Mock
 import io.mockative.classOf
 import io.mockative.coEvery
@@ -11,7 +9,8 @@ import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.state.CircuitBreakerState
-import service.RemoteService
+import kresil.exceptions.WebServiceException
+import kresil.service.RemoteService
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
@@ -93,7 +92,7 @@ class CircuitBreakerTests {
 
         // and: a remote service that always throws an exception
         val exceptionsToThrow = List(nrOfCallsToCalculateFailureRate) { index ->
-            if (index % 2 == 0) NetworkException("Thanks Vodafone!")
+            if (index % 2 == 0) kresil.exceptions.NetworkException("Thanks Vodafone!")
             else WebServiceException("BAM!") // only half of the calls are considered failures
         }.toTypedArray()
         coEvery { remoteService.suspendSupplier() }
@@ -102,7 +101,7 @@ class CircuitBreakerTests {
         // when: the remote service is called multiple times until the failure rate can be calculated
         repeat(nrOfCallsToCalculateFailureRate) { index ->
             if (index % 2 == 0) {
-                assertFailsWith<NetworkException> {
+                assertFailsWith<kresil.exceptions.NetworkException> {
                     circuitBreaker.executeOperation {
                         remoteService.suspendSupplier()
                     }
@@ -177,7 +176,7 @@ class CircuitBreakerTests {
             if (index < slidingWindowSize) {
                 WebServiceException("BAM!")
             } else {
-                NetworkException("Thanks Vodafone!")
+                kresil.exceptions.NetworkException("Thanks Vodafone!")
             }
         }.toTypedArray()
         coEvery { remoteService.suspendSupplier() }
@@ -192,7 +191,7 @@ class CircuitBreakerTests {
                     }
                 }
             } else {
-                assertFailsWith<NetworkException> {
+                assertFailsWith<kresil.exceptions.NetworkException> {
                     circuitBreaker.executeOperation {
                         remoteService.suspendSupplier()
                     }

@@ -1,4 +1,4 @@
-package service
+package kresil.service
 
 /**
  * A remote service that given a specific number of attempts, will succeed after that number of attempts.

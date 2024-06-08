@@ -1,4 +1,4 @@
-package core
+package kresil.core
 
 import kresil.core.utils.RingBuffer
 import kotlin.test.Test
