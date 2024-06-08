@@ -67,7 +67,10 @@ internal object DelayStrategyOptions {
      * @param maxDelay The maximum delay between attempts. Used as a safety net to prevent infinite delays.
      */
     fun linear(initialDelay: Duration, maxDelay: Duration): DelayStrategy =
-        exponential(initialDelay, 1.0, maxDelay)
+        { attempt ->
+            val nextDuration = initialDelay * attempt
+            nextDuration.coerceAtMost(maxDelay)
+        }
 
     /**
      * A delay strategy that uses an exponential function to calculate the next delay duration.
@@ -83,8 +86,8 @@ internal object DelayStrategyOptions {
         maxDelay: Duration,
     ): DelayStrategy =
         { attempt ->
-            val nextDurationMillis = initialDelay * multiplier.pow(attempt)
-            nextDurationMillis.coerceAtMost(maxDelay)
+            val nextDuration = initialDelay * multiplier.pow(attempt - 1)
+            nextDuration.coerceAtMost(maxDelay)
         }
 
     /**
