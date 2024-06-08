@@ -2,13 +2,13 @@ package kresil.ktor.client.plugins.circuitbreaker.config
 
 import io.ktor.client.statement.*
 import kresil.circuitbreaker.config.CircuitBreakerConfigBuilder
-import kresil.circuitbreaker.delay.CircuitBreakerDelayProvider
-import kresil.circuitbreaker.delay.CircuitBreakerDelayStrategy
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.core.builders.ConfigBuilder
+import kresil.core.delay.DelayProvider
+import kresil.core.delay.DelayStrategy
 import kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -176,7 +176,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      *
      * Example:
      * ```
-     * customDelayInOpenState { attempt, _ ->
+     * customDelayInOpenState { attempt ->
      *      attempt % 2 == 0 -> 1.seconds
      *      else -> 3.seconds
      * }
@@ -190,7 +190,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * @see [exponentialDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      **/
-    fun customDelayInOpenState(delayStrategyInOpenState: CircuitBreakerDelayStrategy) {
+    fun customDelayInOpenState(delayStrategyInOpenState: DelayStrategy) {
         cbreakerConfigBuilder.customDelayInOpenState(delayStrategyInOpenState)
     }
 
@@ -198,7 +198,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * Configures the circuit breaker delay strategy to use a custom delay provider between transitions from [Open] to [HalfOpen].
      * In contrast to [customDelayInOpenState], this method enables caller control over the delay provider (which is the
      * [kotlinx.coroutines.delay] by default) and optional additional state between transitions.
-     * See [CircuitBreakerDelayProvider] for more information.
+     * See [DelayProvider] for more information.
      * @param delayProvider the custom delay provider to use.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
@@ -206,7 +206,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * @see [exponentialDelayInOpenState]
      * @see [customDelayInOpenState]
      */
-    fun customDelayProviderInOpenState(delayProvider: CircuitBreakerDelayProvider) {
+    fun customDelayProviderInOpenState(delayProvider: DelayProvider) {
         cbreakerConfigBuilder.customDelayProviderInOpenState(delayProvider)
     }
 

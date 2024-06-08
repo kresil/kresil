@@ -34,13 +34,14 @@ class CircuitBreakerConfigTests {
         assertEquals(100, minimumThroughput)
         assertEquals(SlidingWindowType.COUNT_BASED, type)
         assertEquals(10, config.permittedNumberOfCallsInHalfOpenState)
-        val constantDuration = DelayStrategyOptions.constant<Unit>(1.minutes).invoke(Int.MAX_VALUE, Unit)
+        val constantDuration = DelayStrategyOptions.constant(1.minutes).invoke(Int.MAX_VALUE)
         for (i in 1..100) {
             assertEquals(constantDuration, config.delayStrategyInOpenState(i, Unit))
         }
         assertEquals(Duration.ZERO, config.maxWaitDurationInHalfOpenState)
         assertFalse(config.recordResultPredicate(Any()))
         assertTrue(config.recordExceptionPredicate(Exception()))
+        assertTrue(config.recordExceptionPredicate(Error()))
     }
 
     @Test

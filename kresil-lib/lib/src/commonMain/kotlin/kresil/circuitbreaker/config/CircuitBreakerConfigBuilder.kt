@@ -1,7 +1,5 @@
 package kresil.circuitbreaker.config
 
-import kresil.circuitbreaker.delay.CircuitBreakerDelayProvider
-import kresil.circuitbreaker.delay.CircuitBreakerDelayStrategy
 import kresil.circuitbreaker.slidingwindow.SlidingWindow
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
@@ -9,7 +7,11 @@ import kresil.circuitbreaker.state.CircuitBreakerState.*
 import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
+import kresil.core.delay.CtxDelayStrategy
+import kresil.core.delay.DelayProvider
+import kresil.core.delay.DelayStrategy
 import kresil.core.delay.DelayStrategyOptions
+import kresil.core.delay.DelayStrategyOptions.toEmptyCtxDelayStrategy
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.milliseconds
@@ -34,7 +36,7 @@ class CircuitBreakerConfigBuilder(
     // state
     private var recordExceptionPredicate: OnExceptionPredicate = baseConfig.recordExceptionPredicate
     private var recordResultPredicate: OnResultPredicate = baseConfig.recordResultPredicate
-    private var delayStrategyInOpenState: CircuitBreakerDelayStrategy = baseConfig.delayStrategyInOpenState
+    private var delayStrategyInOpenState: CtxDelayStrategy<Unit> = baseConfig.delayStrategyInOpenState
     private var slidingWindow: SlidingWindow = baseConfig.slidingWindow
 
     /**
@@ -99,7 +101,9 @@ class CircuitBreakerConfigBuilder(
      * @see [customDelayProviderInOpenState]
      */
     fun noDelayInOpenState() {
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.noDelay()
+        delayStrategyInOpenState = delayStrategyInOpenStateOptions
+            .noDelay()
+            .toEmptyCtxDelayStrategy()
     }
 
     /**
@@ -115,7 +119,9 @@ class CircuitBreakerConfigBuilder(
     @Throws(IllegalArgumentException::class)
     fun constantDelayInOpenState(duration: Duration) {
         requirePositiveDuration(duration, "Delay")
-        delayStrategyInOpenState = { _, _ -> duration }
+        delayStrategyInOpenState = delayStrategyInOpenStateOptions
+            .constant(duration)
+            .toEmptyCtxDelayStrategy()
     }
 
     /**
@@ -147,7 +153,9 @@ class CircuitBreakerConfigBuilder(
     ) {
         requirePositiveDuration(initialDelay, "Initial delay")
         require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.linear(initialDelay, maxDelay)
+        delayStrategyInOpenState = delayStrategyInOpenStateOptions
+            .linear(initialDelay, maxDelay)
+            .toEmptyCtxDelayStrategy()
     }
 
     /**
@@ -183,20 +191,22 @@ class CircuitBreakerConfigBuilder(
         requirePositiveDuration(initialDelay, "Initial delay")
         require(multiplier > 1.0) { "Multiplier must be greater than 1" }
         require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.exponential(initialDelay, multiplier, maxDelay)
+        delayStrategyInOpenState = delayStrategyInOpenStateOptions
+                .exponential(initialDelay, multiplier, maxDelay)
+                .toEmptyCtxDelayStrategy()
     }
 
     /**
      * Configures the circuit breaker delay strategy
      * to use a custom delay between transitions from [Open] to [HalfOpen],
      * based on the current attempt and additional context.
-     * The attempt is the number of times the circuit breaker transitioned from [Open] to [HalfOpen].
+     * The attempt is the number of times the circuit breaker will transition from [Open] to [HalfOpen].
      *
      * Example:
      * ```
-     * customDelayInOpenState { attempt, _ ->
-     *      attempt % 2 == 0 -> 1.seconds
-     *      else -> 3.seconds
+     * customDelayInOpenState { attempt ->
+     *    if (attempt % 2 == 0) 1.seconds
+     *    else 2.seconds
      * }
      * ```
      * Where:
@@ -208,15 +218,15 @@ class CircuitBreakerConfigBuilder(
      * @see [exponentialDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      **/
-    fun customDelayInOpenState(delayStrategyInOpenState: CircuitBreakerDelayStrategy) {
-        this.delayStrategyInOpenState = delayStrategyInOpenState
+    fun customDelayInOpenState(delayStrategyInOpenState: DelayStrategy) {
+        this.delayStrategyInOpenState = delayStrategyInOpenState.toEmptyCtxDelayStrategy()
     }
 
     /**
      * Configures the circuit breaker delay strategy to use a custom delay provider between transitions from [Open] to [HalfOpen].
      * In contrast to [customDelayInOpenState], this method enables caller control over the delay provider (which is the
      * [kotlinx.coroutines.delay] by default) and optional additional state between transitions.
-     * See [CircuitBreakerDelayProvider] for more information.
+     * See [DelayProvider] for more information.
      * @param delayProvider the custom delay provider to use.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
@@ -224,8 +234,10 @@ class CircuitBreakerConfigBuilder(
      * @see [exponentialDelayInOpenState]
      * @see [customDelayInOpenState]
      */
-    fun customDelayProviderInOpenState(delayProvider: CircuitBreakerDelayProvider) {
-        delayStrategyInOpenState = delayStrategyInOpenStateOptions.customProvider(delayProvider)
+    fun customDelayProviderInOpenState(delayProvider: DelayProvider) {
+        delayStrategyInOpenState = delayStrategyInOpenStateOptions
+            .customProvider(delayProvider)
+            .toEmptyCtxDelayStrategy()
     }
 
     /**
@@ -282,7 +294,9 @@ private val defaultCircuitBreakerConfig = CircuitBreakerConfig(
     failureRateThreshold = 0.5,
     slidingWindow = SlidingWindow(100, 100, COUNT_BASED),
     permittedNumberOfCallsInHalfOpenState = 10,
-    delayStrategyInOpenState = DelayStrategyOptions.constant(1.minutes),
+    delayStrategyInOpenState = DelayStrategyOptions
+        .constant(1.minutes)
+        .toEmptyCtxDelayStrategy(),
     maxWaitDurationInHalfOpenState = ZERO,
     recordExceptionPredicate = { true },
     recordResultPredicate = { false },

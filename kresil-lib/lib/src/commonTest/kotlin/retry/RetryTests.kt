@@ -16,7 +16,7 @@ import kresil.core.callbacks.OnExceptionPredicate
 import kresil.retry.Retry
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.retryConfig
-import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryCtxDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kresil.retry.delay.RetryDelayStrategyContext
 import kresil.retry.event.RetryEvent
@@ -764,7 +764,7 @@ class RetryTests {
     fun retryWithStatefulCustomDelayProvider() = runTest {
 
         // given: a stateful custom delay provider
-        val statefulDelayProvider = object : RetryDelayProvider {
+        val statefulDelayProvider = object : RetryCtxDelayProvider {
             var delayProviderRetryCounter = 0
                 private set
 
@@ -819,7 +819,7 @@ class RetryTests {
     fun retryWithStatelessCustomDelayProvider() = runTest {
 
         // given: a stateless custom delay provider
-        val statelessDelayProvider = RetryDelayProvider { attempt, _ ->
+        val statelessDelayProvider = RetryCtxDelayProvider { attempt, _ ->
             val nextDuration = when {
                 attempt % 2 == 0 -> 1.seconds
                 else -> 2.seconds

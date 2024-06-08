@@ -140,7 +140,7 @@ val circuitBreaker = CircuitBreaker(
         constantDelayInOpenState(500.milliseconds)
         recordResultPredicate { it is "success" }
         recordExceptionPredicate { it is NetworkError }
-        slidingWindows(size = 5, minimumThroughput = 2, type = COUNT_BASED)
+        slidingWindow(size = 5, minimumThroughput = 2, type = COUNT_BASED)
     }
 )
 

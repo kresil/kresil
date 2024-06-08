@@ -9,7 +9,7 @@ import io.ktor.http.*
 import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.retry.config.RetryConfigBuilder
-import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryCtxDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -97,6 +97,14 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      */
     fun retryOnTimeout() {
         retryPredicate = { it.isTimeoutException() }
+    }
+
+    /**
+     * Configures the retry predicate, used to determine if, based on the caught throwable, the underlying request should be retried.
+     * @param predicate the predicate to use.
+     */
+    fun retryOnException(predicate: OnExceptionPredicate) {
+        retryPredicate = predicate
     }
 
     /**
@@ -225,7 +233,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * Configures the retry delay strategy to use a custom delay provider.
      * In contrast to [customDelay], this method enables caller control over the delay provider (which is the
      * [kotlinx.coroutines.delay] by default) and optional additional state between retries.
-     * See [RetryDelayProvider] for more information and examples of usage.
+     * See [RetryCtxDelayProvider] for more information and examples of usage.
      * @param delayProvider the custom delay provider to use.
      * @see [noDelay]
      * @see [constantDelay]
@@ -233,7 +241,7 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * @see [exponentialDelay]
      * @see [customDelay]
      */
-    fun customDelayProvider(delayProvider: RetryDelayProvider) {
+    fun customDelayProvider(delayProvider: RetryCtxDelayProvider) {
         retryConfigBuilder.customDelayProvider(delayProvider)
     }
 

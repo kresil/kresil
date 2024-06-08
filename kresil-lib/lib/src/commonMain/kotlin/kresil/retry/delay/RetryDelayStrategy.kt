@@ -1,10 +1,10 @@
 package kresil.retry.delay
 
-import kresil.core.delay.DelayStrategy
+import kresil.core.delay.CtxDelayStrategy
 
 /**
  * Represents the delay strategy that determines next delay duration before retrying an operation,
  * based on the current attempt and additional context.
- * @see [DelayStrategy]
+ * @see [CtxDelayStrategy]
  */
-typealias RetryDelayStrategy = DelayStrategy<RetryDelayStrategyContext>
+typealias RetryDelayStrategy = CtxDelayStrategy<RetryDelayStrategyContext>

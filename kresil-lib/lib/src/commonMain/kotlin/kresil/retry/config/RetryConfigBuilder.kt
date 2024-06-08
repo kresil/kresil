@@ -1,11 +1,12 @@
 package kresil.retry.config
 
 import kresil.core.builders.ConfigBuilder
-import kresil.core.callbacks.ResultMapper
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
+import kresil.core.callbacks.ResultMapper
+import kresil.core.delay.DelayStrategy
 import kresil.core.delay.DelayStrategyOptions
-import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryCtxDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -62,7 +63,9 @@ class RetryConfigBuilder(
      * @see [customDelayProvider]
      */
     fun noDelay() {
-        delayStrategy = retryDelayStrategyOptions.noDelay()
+        delayStrategy = retryDelayStrategyOptions
+            .noDelay()
+            .toRetryDelayStrategy()
     }
 
     /**
@@ -110,7 +113,9 @@ class RetryConfigBuilder(
     ) {
         requirePositiveDuration(initialDelay, "Initial delay")
         require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategy = retryDelayStrategyOptions.linear(initialDelay, maxDelay)
+        delayStrategy = retryDelayStrategyOptions
+            .linear(initialDelay, maxDelay)
+            .toRetryDelayStrategy()
     }
 
     /**
@@ -146,7 +151,9 @@ class RetryConfigBuilder(
         requirePositiveDuration(initialDelay, "Initial delay")
         require(multiplier > 1.0) { "Multiplier must be greater than 1" }
         require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategy = retryDelayStrategyOptions.exponential(initialDelay, multiplier, maxDelay)
+        delayStrategy = retryDelayStrategyOptions
+            .exponential(initialDelay, multiplier, maxDelay)
+            .toRetryDelayStrategy()
     }
 
     /**
@@ -155,13 +162,11 @@ class RetryConfigBuilder(
      * Example:
      * ```
      * customDelay { attempt, context ->
-     *      attempt % 2 == 0 -> 1.seconds
-     *      else -> 3.seconds
+     *      if (attempt % 2 == 0) 1.seconds
+     *      else if (context.lastThrowable is IOException) 2.seconds
+     *      else 3.seconds
      * }
      * ```
-     * Where:
-     * - `attempt` is the current retry attempt. Starts at **1**.
-     * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
      * @see [noDelay]
      * @see [constantDelay]
@@ -177,7 +182,7 @@ class RetryConfigBuilder(
      * Configures the retry delay strategy to use a custom delay provider.
      * In contrast to [customDelay], this method enables caller control over the delay provider (which is the
      * [kotlinx.coroutines.delay] by default) and optional additional state between retries.
-     * See [RetryDelayProvider] for more information and examples of usage.
+     * See [RetryCtxDelayProvider] for more information and examples of usage.
      * @param delayProvider the custom delay provider to use.
      * @see [noDelay]
      * @see [constantDelay]
@@ -185,7 +190,7 @@ class RetryConfigBuilder(
      * @see [exponentialDelay]
      * @see [customDelay]
      */
-    fun customDelayProvider(delayProvider: RetryDelayProvider) {
+    fun customDelayProvider(delayProvider: RetryCtxDelayProvider) {
         delayStrategy = retryDelayStrategyOptions.customProvider(delayProvider)
     }
 
@@ -246,11 +251,19 @@ private val defaultRetryConfig = RetryConfig(
     retryPredicate = { true },
     retryOnResultPredicate = { false },
     delayStrategy = DelayStrategyOptions.exponential(
-        initialDelay = 500.milliseconds,
-        multiplier = 2.0,
-        maxDelay = 1.minutes
-    ),
+            initialDelay = 500.milliseconds,
+            multiplier = 2.0,
+            maxDelay = 1.minutes
+    ).toRetryDelayStrategy(),
     resultMapper = { result: Any?, throwable: Throwable? ->
         throwable?.let { throw it } ?: result
     }
 )
+
+
+/**
+ * Converts a [DelayStrategy] into a [RetryDelayStrategy] by ignoring the context.
+ */
+private fun DelayStrategy.toRetryDelayStrategy(): RetryDelayStrategy = { attempt, _ ->
+    this(attempt)
+}
