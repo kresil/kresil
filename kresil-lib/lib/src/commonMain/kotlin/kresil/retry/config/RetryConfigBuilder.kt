@@ -4,11 +4,8 @@ import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
 import kresil.core.callbacks.ResultMapper
-import kresil.core.delay.DelayStrategy
-import kresil.core.delay.DelayStrategyOptions
-import kresil.core.delay.DelayStrategyOptions.validateConstantDelayParams
-import kresil.core.delay.DelayStrategyOptions.validateExponentialDelayParams
-import kresil.core.delay.DelayStrategyOptions.validateLinearDelayParams
+import kresil.core.delay.strategy.DelayStrategy
+import kresil.core.delay.strategy.DelayStrategyOptions
 import kresil.retry.delay.RetryCtxDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kotlin.time.Duration
@@ -73,35 +70,58 @@ class RetryConfigBuilder(
     }
 
     /**
-     * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
+     * Configures the retry delay strategy to use a constant delay.
+     * The delay between retries is calculated using the formula:
+     * - `delay + jitter`
+     *
+     * Example:
+     * ```
+     * constant(500.milliseconds)
+     * // Delay between attempts will be 500ms
+     * constant(500.milliseconds, 0.1)
+     * // Delay between attempts will be something like:
+     * // [495ms, 513ms, 502ms, 507ms, 499ms, ...]
+     * ```
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param duration the constant delay between retries.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [noDelay]
      * @see [linearDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
      */
-    fun constantDelay(duration: Duration) {
-        validateConstantDelayParams(duration)
-        delayStrategy = { _, _ -> duration }
+    fun constantDelay(
+        duration: Duration,
+        randomizationFactor: Double = 0.0,
+    ) {
+        delayStrategy = retryDelayStrategyOptions
+            .constant(duration, randomizationFactor)
+            .toRetryDelayStrategy()
     }
 
     /**
-     * Configures the retry delay strategy to use a linear delay.
+     * Configures the retry delay strategy to use the linear backoff algorithm.
      * The delay between retries is calculated using the formula:
-     *
-     * `initialDelay * attempt`, where `attempt` is the current retry attempt.
+     * - `initialDelay + (initialDelay * (attempt - 1) * multiplier) + jitter`,
+     * where `attempt` is the current delay attempt which starts at **1**.
      *
      * Example:
      * ```
-     * linearDelay(500.milliseconds, 4.seconds)
-     * // Delay between retries will be as follows:
+     * linearDelay(500.milliseconds, 1.0, 1.minutes)
+     * // Delay between transitions will be as follows:
      * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
+     * linearDelay(500.milliseconds, 1.0, 1.minutes, 0.1)
+     * // Delay between transitions will be something like:
+     * // [450ms, 1.1s, 1.4s, 2.2s, 2.3s, 3.1s, 3.4s, 4s, 4s, 4s, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param initialDelay the initial delay before the first retry.
+     * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [constantDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
@@ -109,31 +129,37 @@ class RetryConfigBuilder(
      */
     fun linearDelay(
         initialDelay: Duration = 500L.milliseconds,
+        multiplier: Double = 1.0,
         maxDelay: Duration = 1.minutes,
+        randomizationFactor: Double = 0.0,
     ) {
-        validateLinearDelayParams(initialDelay, maxDelay)
         delayStrategy = retryDelayStrategyOptions
-            .linear(initialDelay, maxDelay)
+            .linear(initialDelay, multiplier, maxDelay, randomizationFactor)
             .toRetryDelayStrategy()
     }
 
     /**
      * Configures the retry delay strategy to use the exponential backoff algorithm.
      * The delay between retries is calculated using the formula:
-     *
-     * `initialDelay * multiplier^attempt`, where `attempt` is the current retry attempt.
+     * The algorithm is based on the formula:
+     * - `(initialDelay * multiplier^(attempt - 1)) + jitter`,
+     * where `attempt` is the current delay attempt which starts at **1**.
      *
      * Example:
      * ```
-     * exponentialDelay(500.milliseconds, 2.0, 1.minutes)
-     * // Delay between retries will be as follows:
+     * exponential(500.milliseconds, 2.0, 1.minutes)
+     * // Delay between transitions will be as follows:
      * // [500ms, 1s, 2s, 4s, 8s, 16s, 32s, 1m, 1m, 1m, ...]
+     * exponential(500.milliseconds, 2.0, 1.minutes, 0.1)
+     * // Delay between transitions will be something like:
+     * // [450ms, 1.1s, 1.4s, 2.2s, 2.3s, 3.1s, 3.4s, 4s, 4s, 4s, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [noDelay]
      * @see [constantDelay]
      * @see [linearDelay]
@@ -142,12 +168,12 @@ class RetryConfigBuilder(
      */
     fun exponentialDelay(
         initialDelay: Duration = 500L.milliseconds,
-        multiplier: Double = 2.0, // not using constant to be readable for the user
+        multiplier: Double = 2.0,
         maxDelay: Duration = 1.minutes,
+        randomizationFactor: Double = 0.0,
     ) {
-        validateExponentialDelayParams(initialDelay, multiplier, maxDelay)
         delayStrategy = retryDelayStrategyOptions
-            .exponential(initialDelay, multiplier, maxDelay)
+            .exponential(initialDelay, maxDelay, multiplier, randomizationFactor)
             .toRetryDelayStrategy()
     }
 
@@ -158,7 +184,7 @@ class RetryConfigBuilder(
      * ```
      * customDelay { attempt, context ->
      *      if (attempt % 2 == 0) 1.seconds
-     *      else if (context.lastThrowable is IOException) 2.seconds
+     *      // additional state can be used from the context
      *      else 3.seconds
      * }
      * ```
@@ -237,7 +263,8 @@ private val defaultRetryConfig = RetryConfig(
     delayStrategy = DelayStrategyOptions.exponential(
         initialDelay = 500.milliseconds,
         multiplier = 2.0,
-        maxDelay = 1.minutes
+        maxDelay = 1.minutes,
+        randomizationFactor = 0.0
     ).toRetryDelayStrategy(),
     resultMapper = { result: Any?, throwable: Throwable? ->
         throwable?.let { throw it } ?: result

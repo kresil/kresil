@@ -129,64 +129,92 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
     }
 
     /**
-     * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
+     * Configures the retry delay strategy to use a constant delay.
+     * The delay between retries is calculated using the formula:
+     * - `delay + jitter`
+     *
+     * Example:
+     * ```
+     * constant(500.milliseconds)
+     * // Delay between attempts will be 500ms
+     * constant(500.milliseconds, 0.1)
+     * // Delay between attempts will be something like:
+     * // [495ms, 513ms, 502ms, 507ms, 499ms, ...]
+     * ```
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param duration the constant delay between retries.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [noDelay]
      * @see [linearDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
      */
-    fun constantDelay(duration: Duration) {
-        retryConfigBuilder.constantDelay(duration)
+    fun constantDelay(
+        duration: Duration,
+        randomizationFactor: Double = 0.0,
+    ) {
+        retryConfigBuilder.constantDelay(duration, randomizationFactor)
     }
 
     /**
-     * Configures the retry delay strategy to use a linear delay.
+     * Configures the retry delay strategy to use the linear backoff algorithm.
      * The delay between retries is calculated using the formula:
-     *
-     * `initialDelay * attempt`, where `attempt` is the current retry attempt.
+     * - `initialDelay + (initialDelay * (attempt - 1) * multiplier) + jitter`,
+     * where `attempt` is the current delay attempt which starts at **1**.
      *
      * Example:
      * ```
-     * linearDelay(500.milliseconds, 4.seconds)
-     * // Delay between retries will be as follows:
+     * linearDelay(500.milliseconds, 1.0, 1.minutes)
+     * // Delay between transitions will be as follows:
      * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
+     * linearDelay(500.milliseconds, 1.0, 1.minutes, 0.1)
+     * // Delay between transitions will be something like:
+     * // [450ms, 1.1s, 1.4s, 2.2s, 2.3s, 3.1s, 3.4s, 4s, 4s, 4s, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param initialDelay the initial delay before the first retry.
+     * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @see [noDelay]
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [constantDelay]
-     * @see [exponentialDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
+     * @see [noDelay]
      */
     fun linearDelay(
         initialDelay: Duration = 500L.milliseconds,
-        maxDelay: Duration = 1.minutes
+        multiplier: Double = 1.0,
+        maxDelay: Duration = 1.minutes,
+        randomizationFactor: Double = 0.0,
     ) {
-        retryConfigBuilder.linearDelay(initialDelay, maxDelay)
+        retryConfigBuilder.linearDelay(initialDelay, multiplier, maxDelay, randomizationFactor)
     }
 
     /**
      * Configures the retry delay strategy to use the exponential backoff algorithm.
      * The delay between retries is calculated using the formula:
-     *
-     * `initialDelay * multiplier^attempt`, where `attempt` is the current retry attempt.
+     * The algorithm is based on the formula:
+     * - `(initialDelay * multiplier^(attempt - 1)) + jitter`,
+     * where `attempt` is the current delay attempt which starts at **1**.
      *
      * Example:
      * ```
-     * exponentialDelay(500.milliseconds, 2.0, 1.minutes)
-     * // Delay between retries will be as follows:
+     * exponential(500.milliseconds, 2.0, 1.minutes)
+     * // Delay between transitions will be as follows:
      * // [500ms, 1s, 2s, 4s, 8s, 16s, 32s, 1m, 1m, 1m, ...]
+     * exponential(500.milliseconds, 2.0, 1.minutes, 0.1)
+     * // Delay between transitions will be something like:
+     * // [450ms, 1.1s, 1.4s, 2.2s, 2.3s, 3.1s, 3.4s, 4s, 4s, 4s, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [noDelay]
      * @see [constantDelay]
      * @see [linearDelay]
@@ -195,10 +223,11 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      */
     fun exponentialDelay(
         initialDelay: Duration = 500L.milliseconds,
-        multiplier: Double = 2.0, // not using constant to be readable for the user
+        multiplier: Double = 2.0,
         maxDelay: Duration = 1.minutes,
+        randomizationFactor: Double = 0.0,
     ) {
-        retryConfigBuilder.exponentialDelay(initialDelay, multiplier, maxDelay)
+        retryConfigBuilder.exponentialDelay(initialDelay, multiplier, maxDelay, randomizationFactor)
     }
 
     /**
@@ -206,15 +235,12 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      *
      * Example:
      * ```
-     * customDelay { attempt, lastThrowable ->
-     *      attempt % 2 == 0 -> 1.seconds
-     *      lastThrowable is WebServiceException -> 2.seconds
-     *      else -> 3.seconds
+     * customDelay { attempt, context ->
+     *      if (attempt % 2 == 0) 1.seconds
+     *      // additional state can be used from the context
+     *      else 3.seconds
      * }
      * ```
-     * Where:
-     * - `attempt` is the current retry attempt. Starts at **1**.
-     * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
      * @see [noDelay]
      * @see [constantDelay]
@@ -263,7 +289,6 @@ class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : Con
      * Aggregates all configured retry predicates to determine if the HTTP call should be retried based on the caught throwable.
      */
     private fun aggregateRetryPredicates(throwable: Throwable): Boolean {
-        // add internal RetryOnCallException to the retry predicate
         if (throwable is RetryOnCallException) return true
         return retryPredicate(throwable)
     }

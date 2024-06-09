@@ -1,12 +1,13 @@
 package kresil.core.delay.provider
 
 import kotlin.time.Duration
-import kresil.core.delay.DelayStrategy
+import kresil.core.delay.strategy.DelayStrategy
 
 /**
  * A delay provider executes the actual waiting period, in contrast to a [DelayStrategy],
  * which only determines the delay duration.
  * This provider can be used to implement custom delay logic with optional state between attempts.
+ * See [CtxDelayProvider] for a context-aware version.
  *
  * **Stateless Example**:
  * ```
