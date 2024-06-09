@@ -1325,7 +1325,7 @@ class RetryTests {
         // then: an exception is thrown
         assertFailsWith<IllegalArgumentException> {
             retryConfig {
-                linearDelay(initialDelay, maxDelay)
+                linearDelay(initialDelay, maxDelay = maxDelay)
             }
         }
     }

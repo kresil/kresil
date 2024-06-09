@@ -5,7 +5,7 @@ import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.state.CircuitBreakerState
-import kresil.core.delay.DelayStrategyOptions
+import kresil.core.delay.strategy.DelayStrategyOptions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

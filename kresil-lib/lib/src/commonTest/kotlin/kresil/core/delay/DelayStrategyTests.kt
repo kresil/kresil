@@ -1,26 +1,24 @@
 package kresil.core.delay
 
 import kotlinx.coroutines.test.runTest
-import kresil.core.delay.DelayStrategyOptions.constant
-import kresil.core.delay.DelayStrategyOptions.exponential
-import kresil.core.delay.DelayStrategyOptions.linear
-import kresil.core.delay.DelayStrategyOptions.noDelay
-import kresil.core.delay.DelayStrategyOptions.validateConstantDelayParams
-import kresil.core.delay.DelayStrategyOptions.validateExponentialDelayParams
-import kresil.core.delay.DelayStrategyOptions.validateLinearDelayParams
 import kresil.core.delay.provider.CtxDelayProvider
 import kresil.core.delay.provider.DelayProvider
+import kresil.core.delay.strategy.DelayStrategyOptions.constant
+import kresil.core.delay.strategy.DelayStrategyOptions.customProvider
+import kresil.core.delay.strategy.DelayStrategyOptions.exponential
+import kresil.core.delay.strategy.DelayStrategyOptions.linear
+import kresil.core.delay.strategy.DelayStrategyOptions.noDelay
 import kresil.extensions.randomTo
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-class DelayStrategyOptionsTest {
+class DelayStrategyTests {
 
     @Test
     fun validateNoDelayStrategy() = runTest {
@@ -66,14 +64,21 @@ class DelayStrategyOptionsTest {
     }
 
     @Test
-    fun constantDelayStrategyWithInvalidDelay() = runTest {
-        // given: an invalid constant delay duration
-        val delay = (-500).milliseconds
+    fun validateConstantDelayStrategyWithJitter() = runTest {
+        // given: a constant delay duration
+        val delay = 500.milliseconds
+        val randomizationFactor = 0.1
 
-        // when: the delay duration is calculated
-        // then: an exception should be thrown
-        assertFailsWith<IllegalArgumentException> {
-            validateConstantDelayParams(delay)
+        // and: expected values
+        val expectedValues = List(10) { jitterDurationRange(delay, randomizationFactor) }
+
+        // when: the delay duration is requested
+        val constantDelay = constant(delay, randomizationFactor)
+
+        // then: delay duration should be in the expected range
+        expectedValues.forEachIndexed { index, expectedDelay ->
+            val delayDuration = constantDelay(index + 1)
+            assertTrue(delayDuration in expectedDelay)
         }
     }
 
@@ -97,7 +102,7 @@ class DelayStrategyOptionsTest {
             10 to 5.seconds
         )
         // when: the delay duration is calculated
-        val linearDelay = linear(initialDelay, maxDelay)
+        val linearDelay = linear(initialDelay, maxDelay = maxDelay)
 
         // then: delay duration should be correct
         map.forEach { (attempt, expectedDelay) ->
@@ -106,35 +111,36 @@ class DelayStrategyOptionsTest {
     }
 
     @Test
-    fun linearDelayStrategyWithInvalidInitialDelay() = runTest {
-        // given: linear delay strategy parameters
-        val initialDelay = ZERO
-        val maxDelay = 1.minutes
-
-        // when: the delay duration is calculated
-        // then: an exception should be thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
-            validateLinearDelayParams(initialDelay, maxDelay)
-        }
-
-        // and: the exception message should be correct
-        assertEquals("Initial delay duration must be greater than zero", exception.message)
-    }
-
-    @Test
-    fun linearDelayStrategyWithInvalidMaxDelay() = runTest {
+    fun validateLinearDelayStrategyWithJitter() = runTest {
         // given: linear delay strategy parameters
         val initialDelay = 500.milliseconds
-        val maxDelay = (-1).minutes
+        val maxDelay = 1.minutes
+        val randomizationFactor = 0.1
 
-        // when: the delay duration is calculated
-        // then: an exception should be thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
-            validateLinearDelayParams(initialDelay, maxDelay)
+        // and: expected values
+        val expectedValues = mapOf(
+            1 to 500.milliseconds,
+            2 to 1.seconds,
+            3 to 1.5.seconds,
+            4 to 2.seconds,
+            5 to 2.5.seconds,
+            6 to 3.seconds,
+            7 to 3.5.seconds,
+            8 to 4.seconds,
+            9 to 4.5.seconds,
+            10 to 5.seconds
+        ).mapValues {
+            jitterDurationRange(it.value, randomizationFactor)
         }
 
-        // and: the exception message should be correct
-        assertEquals("Max delay duration must be greater than initial delay", exception.message)
+        // when: the delay duration is calculated
+        val linearDelay = linear(initialDelay, maxDelay = maxDelay, randomizationFactor = randomizationFactor)
+
+        // then: delay duration should be in the expected range
+        expectedValues.forEach { (attempt, expectedDelay) ->
+            val delayDuration = linearDelay(attempt)
+            assertTrue(delayDuration in expectedDelay)
+        }
     }
 
     @Test
@@ -159,7 +165,7 @@ class DelayStrategyOptionsTest {
         )
 
         // when: the delay duration is calculated
-        val exponentialDelay = exponential(initialDelay, multiplier, maxDelay)
+        val exponentialDelay = exponential(initialDelay, maxDelay, multiplier)
 
         // then: delay duration should be correct
         map.forEach { (attempt, expectedDelay) ->
@@ -168,54 +174,38 @@ class DelayStrategyOptionsTest {
     }
 
     @Test
-    fun exponentialDelayStrategyWithInvalidInitialDelay() = runTest {
-        // given: exponential delay strategy parameters
-        val initialDelay = ZERO
-        val multiplier = 2.0
-        val maxDelay = 1.minutes
-
-        // when: the delay duration is calculated
-        // then: an exception should be thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
-            validateExponentialDelayParams(initialDelay, multiplier, maxDelay)
-        }
-
-        // and: the exception message should be correct
-        assertEquals("Initial delay duration must be greater than zero", exception.message)
-    }
-
-    @Test
-    fun exponentialDelayStrategyWithInvalidMultiplier() = runTest {
-        // given: exponential delay strategy parameters
-        val initialDelay = 500.milliseconds
-        val multiplier = 0.0
-        val maxDelay = 1.minutes
-
-        // when: the delay duration is calculated
-        // then: an exception should be thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
-            validateExponentialDelayParams(initialDelay, multiplier, maxDelay)
-        }
-
-        // and: the exception message should be correct
-        assertEquals("Multiplier must be greater than 1", exception.message)
-    }
-
-    @Test
-    fun exponentialDelayStrategyWithInvalidMaxDelay() = runTest {
+    fun validateExponentialDelayStrategyWithJitter() = runTest {
         // given: exponential delay strategy parameters
         val initialDelay = 500.milliseconds
         val multiplier = 2.0
-        val maxDelay = (-1).minutes
+        val maxDelay = 1.minutes
+        val randomizationFactor = 0.25
 
-        // when: the delay duration is calculated
-        // then: an exception should be thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
-            validateExponentialDelayParams(initialDelay, multiplier, maxDelay)
+        // and: expected values
+        val expectedValues = mapOf(
+            1 to 500.milliseconds,
+            2 to 1.seconds,
+            3 to 2.seconds,
+            4 to 4.seconds,
+            5 to 8.seconds,
+            6 to 16.seconds,
+            7 to 32.seconds,
+            8 to 1.minutes,
+            9 to 1.minutes,
+            10 to 1.minutes
+        ).mapValues {
+            jitterDurationRange(it.value, randomizationFactor)
         }
 
-        // and: the exception message should be correct
-        assertEquals("Max delay duration must be greater than initial delay", exception.message)
+        // when: the delay duration is calculated
+        val exponentialDelay = exponential(initialDelay, maxDelay, multiplier, randomizationFactor)
+
+        // then: delay duration should be in the expected range
+        expectedValues.forEach { (attempt, expectedDelay) ->
+            val delayDuration = exponentialDelay(attempt)
+            assertTrue(delayDuration in expectedDelay)
+        }
+
     }
 
     @Test
@@ -233,7 +223,7 @@ class DelayStrategyOptionsTest {
         }
 
         // when: the delay duration is calculated
-        val delayDuration = DelayStrategyOptions.customProvider(customProvider)
+        val delayDuration = customProvider(customProvider)
 
         repeat(10) {
             // then: the state should be updated
@@ -244,11 +234,6 @@ class DelayStrategyOptionsTest {
         }
 
     }
-
-    fun <TContext> customProvider(provider: CtxDelayProvider<TContext>): CtxDelayStrategy<TContext> =
-        { attempt, context ->
-            provider.delay(attempt, context)
-        }
 
     @Test
     fun validateCustomProviderCtxDelayStrategy() = runTest {
@@ -277,5 +262,10 @@ class DelayStrategyOptionsTest {
             // and: the context should be updated
             assertEquals(200.milliseconds * (it + 1), delayDuration(it + 1, Context(it + 1)))
         }
+    }
+
+    private fun jitterDurationRange(duration: Duration, factor: Double): ClosedRange<Duration> {
+        val jitter = duration * factor
+        return (duration - jitter)..(duration + jitter)
     }
 }
