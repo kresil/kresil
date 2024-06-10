@@ -940,7 +940,6 @@ class RetryTests {
 
     @Test
     fun retryListenersCancellationDoesNotCancelUnderlyingScope() = runTest {
-
         // given: a retry instance
         val retry = Retry()
 
