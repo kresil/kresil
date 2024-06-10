@@ -23,13 +23,11 @@ private lateinit var globalConfig: RetryPluginConfig
  * configuration and the [HttpRequestRetry] plugin provided by Ktor.
  * Configuration can be done globally when installing the plugin,
  * and on a per-request basis with the [kRetry] function.
+ *
  * Examples of usage:
  * ```
  * // use predefined retry policies
- * install(KresilRetryPlugin) {
- *      retryOnServerErrors()
- *      exponentialDelay()
- * }
+ * install(KresilRetryPlugin)
  *
  * // use custom policies
  * install(KresilRetryPlugin) {
@@ -49,6 +47,7 @@ private lateinit var globalConfig: RetryPluginConfig
  *     kRetry(disable = true)
  * }
  * ```
+ * @see Retry
  */
 val KresilRetryPlugin = createClientPlugin(
     name = "KresilRetryPlugin",

@@ -110,7 +110,7 @@ class CircuitBreaker(
     /**
      * Wires the circuit breaker to the operation to be protected.
      * If the circuit breaker is in the [Open] state or in the [HalfOpen] state and the number of calls attempted
-     * does not exceed the permitted number of calls in the half-open state, a [CallNotPermittedException] is thrown;
+     * does exceed the permitted number of calls in the half-open state, a [CallNotPermittedException] is thrown;
      * otherwise, the operation is allowed to proceed.
      */
     suspend fun wire() = when (val observedState = currentState()) {

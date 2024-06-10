@@ -15,6 +15,29 @@ import kotlin.time.Duration.Companion.seconds
 
 private val logger = KtorSimpleLogger("kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin")
 
+/**
+ * A plugin that enables the client to use the Kresil [CircuitBreaker] mechanism to prevent
+ * requests from being sent to a service that is likely to fail.
+ * Configuration can be done globally when installing the plugin.
+ *
+ * Examples of usage:
+ * ```
+ * // use predefined circuit breaker policies
+ * install(KresilCircuitBreakerPlugin)
+ *
+ * // use custom policies
+ * install(KresilCircuitBreakerPlugin) {
+ *      failureRateThreshold = 0.5
+ *      slidingWindow(size = 100)
+ *      exponentialDelayInOpenState()
+ *      permittedNumberOfCallsInHalfOpenState = 5
+ *      maxWaitDurationInHalfOpenState = ZERO
+ *      recordFailureOnServerErrors()
+ * }
+ * ```
+ *
+ * @see CircuitBreaker
+ */
 val KresilCircuitBreakerPlugin = createClientPlugin(
     name = "KresilCircuitBreakerPlugin",
     createConfiguration = {
@@ -26,6 +49,9 @@ val KresilCircuitBreakerPlugin = createClientPlugin(
     val circuitBreaker = CircuitBreaker(config = circuitBreakerConfig)
 
     onRequest { _, _ ->
+        circuitBreaker.onEvent {
+            logger.info("Event: $it")
+        }
         // asks for permission to proceed with the request
         logger.info("Requesting permission to proceed with the request")
         circuitBreaker.wire()
@@ -35,12 +61,14 @@ val KresilCircuitBreakerPlugin = createClientPlugin(
     onResponse { response ->
         // Record success or failure after the response
         if (pluginConfig.recordResponseAsFailurePredicate(response)) {
-            logger.info("Recording response as failure")
             circuitBreaker.stateReducer.dispatch(OPERATION_FAILURE)
         } else {
-            logger.info("Recording response as success")
             circuitBreaker.stateReducer.dispatch(OPERATION_SUCCESS)
         }
+    }
+
+    onClose {
+        circuitBreaker.cancelListeners()
     }
 }
 
