@@ -21,6 +21,7 @@ import kresil.retry.delay.RetryDelayStrategy
 import kresil.retry.delay.RetryDelayStrategyContext
 import kresil.retry.event.RetryEvent
 import kresil.retry.exceptions.MaxRetriesExceededException
+import kresil.service.ConditionalSuccessRemoteService
 import kresil.service.RemoteService
 import kotlin.math.pow
 import kotlin.test.Test
@@ -204,7 +205,7 @@ class RetryTests {
 
         // and: a remote service that throws an exception on the first call
         val conditionalSuccessRemoteService =
-            kresil.service.ConditionalSuccessRemoteService(
+            ConditionalSuccessRemoteService(
                 succeedAfterAttempt = 1,
                 throwable = WebServiceException("BAM!")
             )

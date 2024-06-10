@@ -9,12 +9,18 @@ import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.state.CircuitBreakerState
+import kresil.exceptions.NetworkException
 import kresil.exceptions.WebServiceException
+import kresil.extensions.delayWithRealTime
 import kresil.service.RemoteService
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class CircuitBreakerTests {
 
@@ -22,22 +28,13 @@ class CircuitBreakerTests {
     val remoteService = mock(classOf<RemoteService>())
 
     @Test
-    fun circuitBreakerShouldOpenWhenFailureRateExceedsThreshold() =
-        circuitBreakerShouldOpenWhenFailureRateExceedsThresholdAndMinimumThroughputIsMet(0.9)
-
-    @Test
-    fun circuitBreakerShouldOpenWhenFailureRateEqualsTheMaximumThreshold() =
-        circuitBreakerShouldOpenWhenFailureRateExceedsThresholdAndMinimumThroughputIsMet(1.0)
-
-    private fun circuitBreakerShouldOpenWhenFailureRateExceedsThresholdAndMinimumThroughputIsMet(
-        failureRateThreshold: Double,
-    ) = runTest {
+    fun circuitBreakerShouldOpenWhenFailureRateExceedsThresholdAndMinimumThroughputIsMet() = runTest {
         // given: a circuit breaker configuration
         val nrOfCallsToCalculateFailureRate = 1000
         val config = circuitBreakerConfig {
             this.failureRateThreshold = failureRateThreshold
             slidingWindow(
-                size = nrOfCallsToCalculateFailureRate * 2,
+                size = 2000,
                 minimumThroughput = nrOfCallsToCalculateFailureRate
             )
             recordExceptionPredicate { it is WebServiceException }
@@ -54,6 +51,7 @@ class CircuitBreakerTests {
 
         // when: the remote service is called multiple times until the failure rate can be calculated
         repeat(nrOfCallsToCalculateFailureRate) {
+            // then: the exception is thrown
             assertFailsWith<WebServiceException> {
                 circuitBreaker.executeOperation {
                     remoteService.suspendSupplier()
@@ -76,9 +74,9 @@ class CircuitBreakerTests {
     @Test
     fun circuitBreakerShouldNotOpenWhenFailureRateIsBelowThreshold() = runTest {
         // given: a circuit breaker configuration
-        val nrOfCallsToCalculateFailureRate = 1000
+        val nrOfCallsToCalculateFailureRate = 100
         val config = circuitBreakerConfig {
-            failureRateThreshold = 0.51 // 0.5 would trigger the Open state
+            failureRateThreshold = 0.51
             slidingWindow(
                 size = nrOfCallsToCalculateFailureRate,
                 minimumThroughput = nrOfCallsToCalculateFailureRate
@@ -92,8 +90,8 @@ class CircuitBreakerTests {
 
         // and: a remote service that always throws an exception
         val exceptionsToThrow = List(nrOfCallsToCalculateFailureRate) { index ->
-            if (index % 2 == 0) kresil.exceptions.NetworkException("Thanks Vodafone!")
-            else WebServiceException("BAM!") // only half of the calls are considered failures
+            if (index % 2 == 0) NetworkException("Thanks Vodafone!")
+            else WebServiceException("BAM!") // note: that only half of the calls are considered failures
         }.toTypedArray()
         coEvery { remoteService.suspendSupplier() }
             .throwsMany(*exceptionsToThrow)
@@ -101,7 +99,7 @@ class CircuitBreakerTests {
         // when: the remote service is called multiple times until the failure rate can be calculated
         repeat(nrOfCallsToCalculateFailureRate) { index ->
             if (index % 2 == 0) {
-                assertFailsWith<kresil.exceptions.NetworkException> {
+                assertFailsWith<NetworkException> {
                     circuitBreaker.executeOperation {
                         remoteService.suspendSupplier()
                     }
@@ -115,7 +113,7 @@ class CircuitBreakerTests {
             }
         }
 
-        // and: the circuit breaker should be in the Closed state
+        // then: the circuit breaker should be in the Closed state
         assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
     }
 
@@ -143,7 +141,7 @@ class CircuitBreakerTests {
 
         // when: the remote service is called multiple times until the failure rate can be calculated
         repeat(nrOfCallsToCalculateFailureRate) {
-            circuitBreaker.executeOperation<String?> { // TODO: why does this needs to be parameterized?
+            circuitBreaker.executeOperation<String?> {
                 remoteService.suspendSupplier()
             }
         }
@@ -158,7 +156,7 @@ class CircuitBreakerTests {
         val slidingWindowSize = 5
         val minimumThroughput = slidingWindowSize * 2
         val config = circuitBreakerConfig {
-            failureRateThreshold = 0.00001 // low threshold to trigger the Open state quickly
+            failureRateThreshold = 0.0000000001 // low threshold to trigger the Open state quickly
             slidingWindow(
                 size = slidingWindowSize,
                 minimumThroughput = minimumThroughput
@@ -176,7 +174,7 @@ class CircuitBreakerTests {
             if (index < slidingWindowSize) {
                 WebServiceException("BAM!")
             } else {
-                kresil.exceptions.NetworkException("Thanks Vodafone!")
+                NetworkException("Thanks Vodafone!")
             }
         }.toTypedArray()
         coEvery { remoteService.suspendSupplier() }
@@ -191,7 +189,7 @@ class CircuitBreakerTests {
                     }
                 }
             } else {
-                assertFailsWith<kresil.exceptions.NetworkException> {
+                assertFailsWith<NetworkException> {
                     circuitBreaker.executeOperation {
                         remoteService.suspendSupplier()
                     }
@@ -200,10 +198,382 @@ class CircuitBreakerTests {
         }
 
         // then: the circuit breaker should be in the Closed state,
-        //  because the recorded exceptions in the sliding window are now considered successes
+        //  because the recorded results in the sliding window are now considered successes
         assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
     }
 
-    // TODO half Open state tests (back and forth between Open and Closed)
+    @Test
+    fun halfOpenStateShouldTransitionToClosedStateWhenFailureRateIsBelowThreshold() = runTest {
+        // given: a circuit breaker configuration
+        val minimumThroughput = 10
+        val delayInOpenState = 3.seconds
+        val config = circuitBreakerConfig {
+            failureRateThreshold = 0.5
+            slidingWindow(
+                size = minimumThroughput,
+                minimumThroughput = minimumThroughput
+            )
+            maxWaitDurationInHalfOpenState = ZERO
+            constantDelayInOpenState(delayInOpenState)
+            permittedNumberOfCallsInHalfOpenState = 1
+            recordExceptionPredicate { it is WebServiceException }
+        }
+
+        // and: a circuit breaker instance
+        val circuitBreaker = CircuitBreaker(config)
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // and: a remote service that always throws an exception
+        val notAFailure = NetworkException("Thanks Vodafone!")
+        val failure = WebServiceException("BAM!")
+        val exceptionsToThrow = List(minimumThroughput) { index ->
+            if (index % 2 == 0) failure
+            else notAFailure // note: that only half of the calls are considered failures
+        } + notAFailure
+        coEvery { remoteService.suspendSupplier() }
+            .throwsMany(*exceptionsToThrow.toTypedArray())
+
+        // and: functions to register a success or a failure
+        suspend fun registerSuccess() {
+            assertFailsWith<NetworkException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        suspend fun registerFailure() {
+            assertFailsWith<WebServiceException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        // when: the remote service is called multiple times until the failure rate can be calculated
+        repeat(minimumThroughput) { index ->
+            if (index % 2 == 0) registerFailure()
+            else registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Open state
+        val openState = circuitBreaker.currentState()
+        assertIs<CircuitBreakerState.Open>(openState)
+        // and: the values in this state should be correct
+        assertEquals(delayInOpenState, openState.delayDuration)
+        // when: a call to the remote service is performed
+        // then: the call should not be permitted
+        assertFailsWith<CallNotPermittedException> {
+            circuitBreaker.executeOperation {
+                remoteService.suspendSupplier()
+            }
+        }
+
+        // when: the delay duration has been exceeded
+        delayWithRealTime(delayInOpenState)
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+
+        // when: the remote service is called enough times to make up the permitted number of
+        //  calls in the HalfOpen state
+        repeat(config.permittedNumberOfCallsInHalfOpenState) {
+            registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Closed state because the failure rate is below the threshold
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+    }
+
+    @Test
+    fun halfOpenStateShouldTransitionToOpenStateWhenFailureRateExceedsThreshold() = runTest {
+        // given: a circuit breaker configuration
+        val windowSize = 10
+        val initialDelay = 3.seconds
+        val config = circuitBreakerConfig {
+            failureRateThreshold = 0.5
+            slidingWindow(
+                size = windowSize,
+                minimumThroughput = windowSize
+            )
+            maxWaitDurationInHalfOpenState = ZERO
+            linearDelayInOpenState(initialDelay = initialDelay, multiplier = 1.0)
+            permittedNumberOfCallsInHalfOpenState = 3
+            recordExceptionPredicate { it is WebServiceException }
+        }
+
+        // and: a circuit breaker instance
+        val circuitBreaker = CircuitBreaker(config)
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // and: a remote service that always throws an exception
+        val notAFailure = NetworkException("Thanks Vodafone!")
+        val failure = WebServiceException("BAM!")
+        val exceptionsToThrow = List(windowSize) { index ->
+            if (index % 2 == 0) failure
+            else notAFailure // note: that only half of the calls are considered failures
+        } + listOf( // half-open state -> open state
+            notAFailure,
+            failure,
+            failure
+        ) + listOf( // half-open state -> closed state
+            notAFailure,
+            notAFailure,
+            notAFailure
+        )
+        coEvery { remoteService.suspendSupplier() }
+            .throwsMany(*exceptionsToThrow.toTypedArray())
+
+        // and: functions to register a success or a failure
+        suspend fun registerSuccess() {
+            assertFailsWith<NetworkException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        suspend fun registerFailure() {
+            assertFailsWith<WebServiceException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        // when: the remote service is called multiple times until the failure rate can be calculated
+        repeat(windowSize) { index ->
+            if (index % 2 == 0) registerFailure()
+            else registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState()).apply {
+            // and: the values in this state should be correct
+            assertEquals(initialDelay, delayDuration)
+        }
+        // when: a call to the remote service is performed
+        // then: the call should not be permitted
+        assertFailsWith<CallNotPermittedException> {
+            circuitBreaker.executeOperation {
+                remoteService.suspendSupplier()
+            }
+        }
+
+        // when: the delay duration has been exceeded
+        delayWithRealTime(initialDelay)
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+
+        // when: the remote service is called enough times to make up the permitted number of
+        //  calls in the HalfOpen state
+        repeat(config.permittedNumberOfCallsInHalfOpenState) {
+            if (it == 0) {
+                registerSuccess()
+            } else {
+                registerFailure()
+            }
+        }
+
+        // then: the circuit breaker should be in the Open state because the failure rate exceeds the threshold
+        val linearDelayInSecondAttempt = initialDelay * 2
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState()).apply {
+            // and: the values in this state should be correct
+            assertEquals(linearDelayInSecondAttempt, delayDuration)
+        }
+        // when: a call to the remote service is performed
+        // then: the call should not be permitted
+        assertFailsWith<CallNotPermittedException> {
+            circuitBreaker.executeOperation {
+                remoteService.suspendSupplier()
+            }
+        }
+
+        // when: the delay duration has been exceeded
+        delayWithRealTime(linearDelayInSecondAttempt)
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+
+        // when: the remote service is called enough times to make up the permitted number of
+        //  calls in the HalfOpen state
+        repeat(config.permittedNumberOfCallsInHalfOpenState) {
+            registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Closed state because the failure rate is below the threshold
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+    }
+
+    @Test
+    fun halfOpenStateShouldTransitionToOpenStateAfterMaxAwaitDurationIsExceeded() = runTest {
+        // given: a circuit breaker configuration
+        val windowSize = 10
+        val delayInOpenState = 250.milliseconds
+        val maxWaitDurationInHalfOpenState = 800.milliseconds
+        val config = circuitBreakerConfig {
+            failureRateThreshold = 0.5
+            slidingWindow(
+                size = windowSize,
+                minimumThroughput = windowSize
+            )
+            this.maxWaitDurationInHalfOpenState = maxWaitDurationInHalfOpenState
+            constantDelayInOpenState(delayInOpenState)
+            permittedNumberOfCallsInHalfOpenState = 3
+            recordExceptionPredicate { it is WebServiceException }
+        }
+
+        // and: a circuit breaker instance
+        val circuitBreaker = CircuitBreaker(config)
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // and: a remote service that always throws an exception
+        val notAFailure = NetworkException("Thanks Vodafone!")
+        val failure = WebServiceException("BAM!")
+        val exceptionsToThrow = List(windowSize) { index ->
+            if (index % 2 == 0) failure
+            else notAFailure // note: that only half of the calls are considered failures
+        } + listOf( // half-open state -> open state
+            notAFailure,
+            failure,
+            failure
+        )
+        coEvery { remoteService.suspendSupplier() }
+            .throwsMany(*exceptionsToThrow.toTypedArray())
+
+        // and: functions to register a success or a failure
+        suspend fun registerSuccess() {
+            assertFailsWith<NetworkException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        suspend fun registerFailure() {
+            assertFailsWith<WebServiceException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        // when: the remote service is called multiple times until the failure rate can be calculated
+        repeat(windowSize) { index ->
+            if (index % 2 == 0) registerFailure()
+            else registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+
+        repeat(10) {
+            // when: the delay duration has been exceeded
+            delayWithRealTime(delayInOpenState)
+
+            // then: the circuit breaker should be in the HalfOpen state
+            assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+
+            // when: the max wait duration in the HalfOpen state has been exceeded
+            delayWithRealTime(maxWaitDurationInHalfOpenState)
+
+            // then: the circuit breaker should be in the Open state
+            assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+        }
+    }
+
+    @Test
+    fun slidingWindowShouldNotResetInContinuousCycles() = runTest {
+        // given: a circuit breaker configuration
+        val minimumThroughput = 10
+        val delayInOpenState = 3.seconds
+        val config = circuitBreakerConfig {
+            failureRateThreshold = 0.5
+            slidingWindow(
+                size = minimumThroughput,
+                minimumThroughput = minimumThroughput
+            )
+            maxWaitDurationInHalfOpenState = ZERO
+            constantDelayInOpenState(delayInOpenState)
+            permittedNumberOfCallsInHalfOpenState = 1
+            recordExceptionPredicate { it is WebServiceException }
+        }
+
+        // and: a circuit breaker instance
+        val circuitBreaker = CircuitBreaker(config)
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // and: a remote service that always throws an exception
+        val notAFailure = NetworkException("Thanks Vodafone!")
+        val failure = WebServiceException("BAM!")
+        val exceptionsToThrow = List(minimumThroughput) { index ->
+            if (index % 2 == 0) failure
+            else notAFailure // note: that only half of the calls are considered failures
+        } + notAFailure + failure
+        coEvery { remoteService.suspendSupplier() }
+            .throwsMany(*exceptionsToThrow.toTypedArray())
+
+        // and: functions to register a success or a failure
+        suspend fun registerSuccess() {
+            assertFailsWith<NetworkException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        suspend fun registerFailure() {
+            assertFailsWith<WebServiceException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        // when: the remote service is called multiple times until the failure rate can be calculated
+        repeat(minimumThroughput) { index ->
+            if (index % 2 == 0) registerFailure()
+            else registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Open state
+        val openState = circuitBreaker.currentState()
+        assertIs<CircuitBreakerState.Open>(openState)
+        // and: the values in this state should be correct
+        assertEquals(delayInOpenState, openState.delayDuration)
+        // when: a call to the remote service is performed
+        // then: the call should not be permitted
+        assertFailsWith<CallNotPermittedException> {
+            circuitBreaker.executeOperation {
+                remoteService.suspendSupplier()
+            }
+        }
+
+        // when: the delay duration has been exceeded
+        delayWithRealTime(delayInOpenState)
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+
+        // when: the remote service is called enough times to make up the permitted number of
+        //  calls in the HalfOpen state
+        repeat(config.permittedNumberOfCallsInHalfOpenState) {
+            registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Closed state because the failure rate is below the threshold
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // when: the remote service is called again and a failure is recorded
+        registerFailure()
+
+        // then: the circuit breaker should be in the Open state
+        //  which means the sliding window did not reset
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+
+    }
 
 }

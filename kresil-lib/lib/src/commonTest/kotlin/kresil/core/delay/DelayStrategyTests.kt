@@ -104,7 +104,31 @@ class DelayStrategyTests {
         // when: the delay duration is calculated
         val linearDelay = linear(initialDelay, maxDelay = maxDelay)
 
-        // then: delay duration should be correct
+        // then: the delay duration should be correct
+        map.forEach { (attempt, expectedDelay) ->
+            assertEquals(expectedDelay, linearDelay(attempt))
+        }
+    }
+
+    @Test
+    fun validateLinearDelayStrategyWithNonDefaultMultiplier() = runTest {
+        // given: linear delay strategy parameters
+        val initialDelay = 100.milliseconds
+        val multiplier = 2.0
+
+        // and: expected values
+        val map = mapOf(
+            1 to 100.milliseconds,
+            2 to 300.milliseconds,
+            3 to 500.milliseconds,
+            4 to 700.milliseconds,
+            5 to 900.milliseconds,
+        )
+
+        // when: the delay duration is calculated
+        val linearDelay = linear(initialDelay, multiplier = multiplier)
+
+        // then: the delay duration should be correct
         map.forEach { (attempt, expectedDelay) ->
             assertEquals(expectedDelay, linearDelay(attempt))
         }
@@ -167,7 +191,31 @@ class DelayStrategyTests {
         // when: the delay duration is calculated
         val exponentialDelay = exponential(initialDelay, maxDelay, multiplier)
 
-        // then: delay duration should be correct
+        // then: the delay duration should be correct
+        map.forEach { (attempt, expectedDelay) ->
+            assertEquals(expectedDelay, exponentialDelay(attempt))
+        }
+    }
+
+    @Test
+    fun validateExponentialDelayStrategyWithNonDefaultMultiplier() = runTest {
+        // given: exponential delay strategy parameters
+        val initialDelay = 100.milliseconds
+        val multiplier = 3.0
+
+        // and: expected values
+        val map = mapOf(
+            1 to 100.milliseconds,
+            2 to 300.milliseconds,
+            3 to 900.milliseconds,
+            4 to 2700.milliseconds,
+            5 to 8100.milliseconds,
+        )
+
+        // when: the delay duration is calculated
+        val exponentialDelay = exponential(initialDelay, multiplier = multiplier)
+
+        // then: the delay duration should be correct
         map.forEach { (attempt, expectedDelay) ->
             assertEquals(expectedDelay, exponentialDelay(attempt))
         }
