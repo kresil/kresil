@@ -1,11 +1,11 @@
 package kresil.core.reducer
 
-
-//TODO should not have any side effects
 /**
  * Similiar to React's [useReducer](https://react.dev/reference/react/useReducer)
- * hook, this contract defines the responsibility that implementations must have to encapsulate
- * and manage the state of a component.
+ * hook, this contract defines a reducer that can be used to manage the state of a component.
+ * A reducer should be used to manage the state of a component in a deterministic way (i.e., given the same
+ * sequence of events, the reducer should always produce the same state - pure function).
+ *
  * To alter the internal state of a component, callers can use [dispatch] to emit events.
  * The current state can be consulted using the [currentState] method.
  * @param State the type of the state.

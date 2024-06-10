@@ -5,8 +5,7 @@ import kotlin.time.ComparableTimeMark
 import kotlin.time.Duration
 
 /**
- * Represents the possible states of a circuit breaker.
- * @see CircuitBreaker
+ * Represents the possible states of a [CircuitBreaker].
  */
 sealed class CircuitBreakerState {
 
@@ -27,9 +26,10 @@ sealed class CircuitBreakerState {
     ) : CircuitBreakerState()
 
     /**
-     * Represents the state where the circuit breaker is half-open, and **only a limited number of calls are allowed**.
-     * @param nrOfCallsAttempted The number of calls attempted in the half-open state. If this number exceeds the
-     * configured maximum number of calls allowed in the half-open state,
+     * Represents the state where the circuit breaker is [HalfOpen],
+     * and **only a limited/permitted number of calls are allowed** to test if the underlying operation is still failing.
+     * @param nrOfCallsAttempted The number of calls attempted in the [HalfOpen] state. If this number exceeds the
+     * configured maximum number of calls allowed in the [HalfOpen] state,
      * subsequent calls will be rejected as the state will transition back to the [Open] state.
      * @param startTimerMark The time mark at which the circuit breaker entered this state. Could be `null` if
      * the maximum wait duration in this state was configured to be `Duration.ZERO`.

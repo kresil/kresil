@@ -9,12 +9,12 @@ import kresil.circuitbreaker.CircuitBreaker
 enum class CircuitBreakerReducerEvent {
 
     /**
-     * Represents a successful operation that should be recorded.
+     * Represents an event where the protected operation execution was successful.
      */
     OPERATION_SUCCESS,
 
     /**
-     * Represents a failed operation that should be recorded.
+     * Represents an event where the protected operation execution failed.
      */
     OPERATION_FAILURE,
 }

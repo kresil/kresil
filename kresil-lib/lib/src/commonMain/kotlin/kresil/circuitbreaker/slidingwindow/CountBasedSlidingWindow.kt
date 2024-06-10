@@ -20,13 +20,12 @@ internal class CountBasedSlidingWindow(
 
     // state
     private var records: Long = 0 // used to keep track of accumulated records
+    private val buffer = RingBuffer<Boolean>(capacity)
 
     init {
         require(capacity > 0) { "Capacity must be greater than 0" }
         require(minimumThroughput > 0) { "Minimum throughput must be greater than 0" }
     }
-
-    private val buffer = RingBuffer<Boolean>(capacity)
 
     override fun recordSuccess() {
         recordResult(true)

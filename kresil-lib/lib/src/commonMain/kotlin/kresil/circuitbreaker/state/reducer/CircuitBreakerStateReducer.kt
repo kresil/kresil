@@ -54,13 +54,13 @@ class CircuitBreakerStateReducer<T>(
 
     override suspend fun dispatch(event: CircuitBreakerReducerEvent): Unit = lock.withLock {
         when (val state = _state) {
-            Closed -> when (event) {
-                OPERATION_SUCCESS -> slidingWindow.recordSuccess()
-                OPERATION_FAILURE -> {
-                    slidingWindow.recordFailure()
-                    if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
-                        transitionToOpenState(false)
-                    }
+            Closed -> {
+                when (event) {
+                    OPERATION_SUCCESS -> slidingWindow.recordSuccess()
+                    OPERATION_FAILURE -> slidingWindow.recordFailure()
+                }
+                if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
+                    transitionToOpenState(false)
                 }
             }
 
@@ -68,17 +68,16 @@ class CircuitBreakerStateReducer<T>(
 
             is HalfOpen -> {
                 when (event) {
-                    OPERATION_SUCCESS -> noOperation
-                    // if one of the calls made in the HalfOpen state fails,
-                    // transition back to the Open state
-                    OPERATION_FAILURE -> {
-                        transitionToOpenState(true)
-                        return@withLock
-                    }
+                    OPERATION_SUCCESS -> slidingWindow.recordSuccess()
+                    OPERATION_FAILURE -> slidingWindow.recordFailure()
                 }
                 val nrOfCallsAttempted = state.nrOfCallsAttempted + 1
                 if (nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
-                    transitionToClosedState()
+                    if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
+                        transitionToOpenState(true)
+                    } else {
+                        transitionToClosedState()
+                    }
                 } else {
                     transitionToHalfOpenState(nrOfCallsAttempted)
                 }
@@ -116,6 +115,7 @@ class CircuitBreakerStateReducer<T>(
 
     private fun transitionToClosedState() {
         // TODO: should sliding window be cleared when transitioning to closed state?
+        //  a test will fail if it is cleared
         _state = Closed
     }
 
@@ -127,4 +127,5 @@ class CircuitBreakerStateReducer<T>(
             HalfOpen(nrOfCallsAttempted, halfStateStartTimeMark)
         }
     }
+
 }

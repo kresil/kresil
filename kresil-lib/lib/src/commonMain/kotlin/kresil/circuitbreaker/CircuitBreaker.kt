@@ -46,8 +46,8 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
  * to the [HalfOpen] state.
  * - In the [HalfOpen] state,
  * the circuit breaker allows a (configurable) number of calls to test if the underlying operation is still failing.
- * If one of the calls fails, the circuit breaker transitions back to the [Open] state.
- * If all calls succeed, the circuit breaker transitions to the [Closed] state.
+ * After all calls have been attempted, the circuit breaker transitions back to the [Open] state if newly calculated
+ * failure rate exceeds or equals the threshold; otherwise, it transitions to the [Closed] state.
  *
  * Examples of usage:
  * ```
@@ -57,14 +57,16 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
  * // use custom policies
  * val circuitBreaker = CircuitBreaker(
  *   circuitBreakerConfig {
- *     slidingWindowSize = 10
- *     minimumThroughput = 5
  *     failureRateThreshold = 0.5
+ *     slidingWindow(size = 10, minimumThroughput = 10)
  *     waitDurationInOpenState = 10.seconds
  *     recordResultPredicate { it is "success" }
  *     recordExceptionPredicate { it is NetworkError }
  *   }
  * )
+ *
+ * // get the current state of the circuit breaker
+ * val observedState = circuitBreaker.currentState()
  *
  * // execute an operation under the circuit breaker
  * val result = circuitBreaker.executeOperation {
@@ -94,23 +96,21 @@ class CircuitBreaker(
      * does not exceed the permitted number of calls in the half-open state, a [CallNotPermittedException] is thrown;
      * otherwise, the operation is allowed to proceed.
      */
-    suspend fun wire() =
-        when (val observedState = currentState()) {
-            Closed -> Unit
-            is Open -> throw CallNotPermittedException()
-            is HalfOpen -> {
-                if (observedState.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
-                    throw CallNotPermittedException()
-                }
-                Unit
+    suspend fun wire() = when (val observedState = currentState()) {
+        Closed -> Unit
+        is Open -> throw CallNotPermittedException()
+        is HalfOpen -> {
+            if (observedState.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
+                throw CallNotPermittedException()
             }
+            Unit
         }
+    }
 
     /**
      * Executes the given operation decorated by this circuit breaker and returns its result,
      * while handling any possible failure and emitting the necessary events.
      */
-    // TODO: introduce all operation types here later (Supplier, Function, BiFunction)
     // TODO: add resultMapper to map the result of the operation
     suspend fun <R> executeOperation(block: suspend () -> R): R {
         wire()
