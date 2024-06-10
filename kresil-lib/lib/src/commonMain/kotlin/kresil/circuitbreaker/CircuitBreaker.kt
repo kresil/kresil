@@ -1,16 +1,21 @@
 package kresil.circuitbreaker
 
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.launch
 import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.config.defaultCircuitBreakerConfig
+import kresil.circuitbreaker.event.CircuitBreakerEvent
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
+import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.circuitbreaker.state.CircuitBreakerState.Closed
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_SUCCESS
 import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
+import kresil.core.events.FlowEventListenerImpl
 
 /**
  * A [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
@@ -73,10 +78,22 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
  *   // operation
  * }
  *
+ * // listen to specific events
+ * circuitBreaker.onCallNotPermitted {
+ *   // action
+ * }
+ *
+ * // listen to all events
+ * circuitBreaker.onEvent {
+ *   // action
+ * }
+ *
+ * // cancel all registered listeners
+ * circuitBreaker.cancelListeners()
  */
 class CircuitBreaker(
     val config: CircuitBreakerConfig = defaultCircuitBreakerConfig(),
-) { // TODO: needs to implement flow event listener
+) : FlowEventListenerImpl<CircuitBreakerEvent>() {
 
     private val slidingWindow = when (config.slidingWindow.type) {
         SlidingWindowType.COUNT_BASED -> CountBasedSlidingWindow(
@@ -86,7 +103,7 @@ class CircuitBreaker(
 
         SlidingWindowType.TIME_BASED -> TODO()
     }
-    val stateReducer = CircuitBreakerStateReducer(slidingWindow, config)
+    val stateReducer = CircuitBreakerStateReducer(slidingWindow, config, events)
 
     suspend fun currentState() = stateReducer.currentState()
 
@@ -98,10 +115,10 @@ class CircuitBreaker(
      */
     suspend fun wire() = when (val observedState = currentState()) {
         Closed -> Unit
-        is Open -> throw CallNotPermittedException()
+        is Open -> throwCallIsNotPermitted()
         is HalfOpen -> {
             if (observedState.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
-                throw CallNotPermittedException()
+                throwCallIsNotPermitted()
             }
             Unit
         }
@@ -147,7 +164,7 @@ class CircuitBreaker(
      */
     private suspend fun <R> handleFailure(throwable: Throwable): R =
         when (currentState()) {
-            is Open -> throw CallNotPermittedException()
+            is Open -> throwCallIsNotPermitted()
             Closed, is HalfOpen -> {
                 if (config.recordExceptionPredicate(throwable)) {
                     stateReducer.dispatch(OPERATION_FAILURE)
@@ -156,6 +173,78 @@ class CircuitBreaker(
                 }
                 throw throwable
             }
+        }
+
+    private suspend fun throwCallIsNotPermitted(): Nothing {
+        events.emit(CircuitBreakerEvent.CallNotPermitted)
+        throw CallNotPermittedException()
+    }
+
+    /**
+     * Executes the given [action] when a request is not permitted by the circuit breaker, either
+     * because it is in the [Open] state or the permitted number of calls in the [HalfOpen] state has been exceeded and
+     * the circuit breaker is still in the [HalfOpen] state.
+     * @see [onEvent]
+     * @see [cancelListeners]
+     */
+    suspend fun onCallNotPermitted(action: suspend () -> Unit) =
+        scope.launch {
+            events
+                .filterIsInstance<CircuitBreakerEvent.CallNotPermitted>()
+                .collect { action() }
+        }
+
+    /**
+     * Executes the given [action] when the circuit breaker resets.
+     * @see [onEvent]
+     * @see [cancelListeners]
+     */
+    suspend fun onReset(action: suspend () -> Unit) =
+        scope.launch {
+            events
+                .filterIsInstance<CircuitBreakerEvent.Reset>()
+                .collect { action() }
+        }
+
+    /**
+     * Executes the given [action] when the circuit breaker transitions to a new state.
+     * @see [onEvent]
+     * @see [cancelListeners]
+     */
+    suspend fun onStateTransition(
+        action: suspend (
+            fromState: CircuitBreakerState,
+            toState: CircuitBreakerState,
+            manual: Boolean,
+        ) -> Unit,
+    ) = scope.launch {
+            events
+                .filterIsInstance<CircuitBreakerEvent.StateTransition>()
+                .collect { action(it.fromState, it.toState, it.manual) }
+        }
+
+    /**
+     * Executes the given [action] when an operation succeeds.
+     * @see [onEvent]
+     * @see [cancelListeners]
+     */
+    suspend fun onOperationSuccess(action: suspend () -> Unit) =
+        scope.launch {
+            events
+                .filterIsInstance<CircuitBreakerEvent.RecordedSuccess>()
+                .collect { action() }
+        }
+
+    /**
+     * Executes the given [action] when an operation fails.
+     * @see [onEvent]
+     * @see [cancelListeners]
+     */
+    suspend fun onOperationFailure(action: suspend () -> Unit) =
+        scope.launch {
+            events
+                .filterIsInstance<CircuitBreakerEvent.RecordedFailure>()
+                .collect { action() }
         }
 
 }

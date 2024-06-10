@@ -85,13 +85,11 @@ import kresil.retry.context.RetryContext
  * // listen to specific events
  * retry.onRetry { attempt -> println("Attempt: $attempt") }
  * retry.onError { throwable -> println("Error: $throwable") }
- * retry.onIgnoredError { throwable -> println("Ignored error: $throwable") }
- * retry.onSuccess { println("Success") }
  *
  * // listen to all events
  * retry.onEvent { event -> println(event) }
  *
- * // cancel all listeners
+ * // cancel all registered listeners
  * retry.cancelListeners()
  * ```
  * @param config The configuration for the retry mechanism.

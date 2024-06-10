@@ -1,9 +1,11 @@
 package kresil.circuitbreaker.state.reducer
 
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.CircuitBreakerConfig
+import kresil.circuitbreaker.event.CircuitBreakerEvent
 import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.circuitbreaker.state.CircuitBreakerState.Closed
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
@@ -23,10 +25,12 @@ import kotlin.time.TimeSource
  * @param slidingWindow the sliding window used to record the result (success or failure)
  * of operations and calculate the failure rate.
  * @param config the configuration of the circuit breaker.
+ * @param events the shared flow to emit circuit breaker events to.
  */
-class CircuitBreakerStateReducer<T>(
-    private val slidingWindow: FailureRateSlidingWindow<T>,
-    private val config: CircuitBreakerConfig,
+class CircuitBreakerStateReducer<T> internal constructor(
+    val slidingWindow: FailureRateSlidingWindow<T>,
+    val config: CircuitBreakerConfig,
+    val events: MutableSharedFlow<CircuitBreakerEvent>
 ) : Reducer<CircuitBreakerState, CircuitBreakerReducerEvent> {
 
     private companion object {
@@ -56,8 +60,8 @@ class CircuitBreakerStateReducer<T>(
         when (val state = _state) {
             Closed -> {
                 when (event) {
-                    OPERATION_SUCCESS -> slidingWindow.recordSuccess()
-                    OPERATION_FAILURE -> slidingWindow.recordFailure()
+                    OPERATION_SUCCESS -> recordSuccess()
+                    OPERATION_FAILURE -> recordFailure()
                 }
                 if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
                     transitionToOpenState(false)
@@ -68,8 +72,8 @@ class CircuitBreakerStateReducer<T>(
 
             is HalfOpen -> {
                 when (event) {
-                    OPERATION_SUCCESS -> slidingWindow.recordSuccess()
-                    OPERATION_FAILURE -> slidingWindow.recordFailure()
+                    OPERATION_SUCCESS -> recordSuccess()
+                    OPERATION_FAILURE -> recordFailure()
                 }
                 val nrOfCallsAttempted = state.nrOfCallsAttempted + 1
                 if (nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
@@ -110,22 +114,42 @@ class CircuitBreakerStateReducer<T>(
         }
         val nextDelayDurationInOpenState = config.delayStrategyInOpenState(nrOfTransitionsToOpenState, Unit)
         val openStateStartTimeMark = TimeSource.Monotonic.markNow()
+        val oldState = _state
         _state = Open(nextDelayDurationInOpenState, openStateStartTimeMark)
+        events.emit(CircuitBreakerEvent.StateTransition(oldState, _state, false))
     }
 
-    private fun transitionToClosedState() {
+    private suspend fun transitionToClosedState() {
         // TODO: should sliding window be cleared when transitioning to closed state?
         //  a test will fail if it is cleared
+        val oldState = _state
         _state = Closed
+        events.emit(CircuitBreakerEvent.StateTransition(oldState, _state, false))
     }
 
-    private fun transitionToHalfOpenState(nrOfCallsAttempted: Int) {
+    private suspend fun transitionToHalfOpenState(nrOfCallsAttempted: Int) {
+        val oldState = _state
         _state = if (config.maxWaitDurationInHalfOpenState == Duration.ZERO) {
             HalfOpen(nrOfCallsAttempted, null)
         } else {
             val halfStateStartTimeMark = TimeSource.Monotonic.markNow()
             HalfOpen(nrOfCallsAttempted, halfStateStartTimeMark)
         }
+        if (oldState !is HalfOpen) {
+            events.emit(CircuitBreakerEvent.StateTransition(oldState, _state, false))
+        }
+    }
+
+    private suspend fun recordSuccess() {
+        slidingWindow.recordSuccess()
+        val currentFailureRate = slidingWindow.currentFailureRate()
+        events.emit(CircuitBreakerEvent.RecordedSuccess(currentFailureRate))
+    }
+
+    private suspend fun recordFailure() {
+        slidingWindow.recordFailure()
+        val currentFailureRate = slidingWindow.currentFailureRate()
+        events.emit(CircuitBreakerEvent.RecordedFailure(currentFailureRate))
     }
 
 }

@@ -20,10 +20,14 @@ sealed class CircuitBreakerState {
      * When exceeded, the circuit breaker will transition to the [HalfOpen] state.
      * @param startTimerMark The time mark at which the circuit breaker entered this state.
      */
-    data class Open(
+    data class Open internal constructor(
         val delayDuration: Duration,
-        val startTimerMark: ComparableTimeMark,
-    ) : CircuitBreakerState()
+        internal val startTimerMark: ComparableTimeMark,
+    ) : CircuitBreakerState() {
+        override fun toString(): String {
+            return "${Open::class.simpleName}(delayDuration=$delayDuration)"
+        }
+    }
 
     /**
      * Represents the state where the circuit breaker is [HalfOpen],
@@ -36,8 +40,12 @@ sealed class CircuitBreakerState {
      * Which means that the circuit breaker
      * will wait indefinitely in this state, until all permitted calls have been attempted.
      */
-    data class HalfOpen(
+    data class HalfOpen internal constructor(
         val nrOfCallsAttempted: Int,
-        val startTimerMark: ComparableTimeMark?,
-    ) : CircuitBreakerState()
+        internal val startTimerMark: ComparableTimeMark?,
+    ) : CircuitBreakerState() {
+        override fun toString(): String {
+            return "${HalfOpen::class.simpleName}(nrOfCallsAttempted=$nrOfCallsAttempted)"
+        }
+    }
 }
