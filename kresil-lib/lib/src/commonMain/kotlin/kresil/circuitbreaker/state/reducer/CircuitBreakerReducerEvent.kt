@@ -17,4 +17,9 @@ enum class CircuitBreakerReducerEvent {
      * Represents an event where the protected operation execution failed.
      */
     OPERATION_FAILURE,
+
+    /**
+     * Represents an event where the protected operation execution was not permitted.
+     */
+    FORCE_STATE_UPDATE,
 }

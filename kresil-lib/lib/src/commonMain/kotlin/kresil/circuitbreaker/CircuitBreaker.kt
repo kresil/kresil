@@ -12,6 +12,7 @@ import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.circuitbreaker.state.CircuitBreakerState.Closed
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.FORCE_STATE_UPDATE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_SUCCESS
 import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
@@ -103,23 +104,27 @@ class CircuitBreaker(
 
         SlidingWindowType.TIME_BASED -> TODO()
     }
+
     val stateReducer = CircuitBreakerStateReducer(slidingWindow, config, events)
 
-    suspend fun currentState() = stateReducer.currentState()
+    suspend fun currentState(): CircuitBreakerState {
+        stateReducer.dispatch(FORCE_STATE_UPDATE)
+        return stateReducer.currentState()
+    }
 
     /**
-     * Wires the circuit breaker to the operation to be protected.
+     * Checks the current state of the circuit breaker and decides whether the operation is allowed to proceed.
      * If the circuit breaker is in the [Open] state or in the [HalfOpen] state and the number of calls attempted
      * does exceed the permitted number of calls in the half-open state, a [CallNotPermittedException] is thrown;
      * otherwise, the operation is allowed to proceed.
+     * It also updates the state before throwing the exception.
      */
-    suspend fun wire() = when (val observedState = currentState()) {
+    suspend fun wire(): Unit = when (val observedState = currentState()) {
         Closed -> Unit
         is Open -> throwCallIsNotPermitted()
-        is HalfOpen -> {
-            if (observedState.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
-                throwCallIsNotPermitted()
-            }
+        is HalfOpen -> if (observedState.nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
+            throwCallIsNotPermitted()
+        } else {
             Unit
         }
     }
@@ -128,7 +133,7 @@ class CircuitBreaker(
      * Executes the given operation decorated by this circuit breaker and returns its result,
      * while handling any possible failure and emitting the necessary events.
      */
-    // TODO: add resultMapper to map the result of the operation
+    // TODO: add exceptionHandler to map the result of the operation
     suspend fun <R> executeOperation(block: suspend () -> R): R {
         wire()
         return executeAndDispatch(block)
@@ -218,10 +223,10 @@ class CircuitBreaker(
             manual: Boolean,
         ) -> Unit,
     ) = scope.launch {
-            events
-                .filterIsInstance<CircuitBreakerEvent.StateTransition>()
-                .collect { action(it.fromState, it.toState, it.manual) }
-        }
+        events
+            .filterIsInstance<CircuitBreakerEvent.StateTransition>()
+            .collect { action(it.fromState, it.toState, it.manual) }
+    }
 
     /**
      * Executes the given [action] when an operation succeeds.

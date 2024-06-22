@@ -19,13 +19,16 @@ sealed class CircuitBreakerState {
      * @param delayDuration The duration for which the circuit breaker will remain in this state.
      * When exceeded, the circuit breaker will transition to the [HalfOpen] state.
      * @param startTimerMark The time mark at which the circuit breaker entered this state.
+     * @param nrOfTransitionsToOpenStateInACycle The number of times the circuit breaker has transitioned
+     * to the [Open] state in a cycle (i.e., [Closed] -> [Open] starts a new cycle).
      */
     data class Open internal constructor(
         val delayDuration: Duration,
         internal val startTimerMark: ComparableTimeMark,
+        val nrOfTransitionsToOpenStateInACycle: Int
     ) : CircuitBreakerState() {
         override fun toString(): String {
-            return "${Open::class.simpleName}(delayDuration=$delayDuration)"
+            return "${Open::class.simpleName}(delayDuration=$delayDuration, nrOfTransitionsToOpenStateInACycle=$nrOfTransitionsToOpenStateInACycle)"
         }
     }
 
@@ -39,10 +42,13 @@ sealed class CircuitBreakerState {
      * the maximum wait duration in this state was configured to be `Duration.ZERO`.
      * Which means that the circuit breaker
      * will wait indefinitely in this state, until all permitted calls have been attempted.
+     * @param nrOfTransitionsToOpenStateInACycle The number of times the circuit breaker has transitioned
+     * to the [Open] state in a cycle (i.e., [Closed] -> [Open] starts a new cycle).
      */
     data class HalfOpen internal constructor(
         val nrOfCallsAttempted: Int,
         internal val startTimerMark: ComparableTimeMark?,
+        internal val nrOfTransitionsToOpenStateInACycle: Int
     ) : CircuitBreakerState() {
         override fun toString(): String {
             return "${HalfOpen::class.simpleName}(nrOfCallsAttempted=$nrOfCallsAttempted)"

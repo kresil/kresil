@@ -231,7 +231,7 @@ class CircuitBreakerTests {
         val exceptionsToThrow = List(minimumThroughput) { index ->
             if (index % 2 == 0) failure
             else notAFailure // note: that only half of the calls are considered failures
-        } + notAFailure
+        } + notAFailure // half-open state -> closed state
         coEvery { remoteService.suspendSupplier() }
             .throwsMany(*exceptionsToThrow.toTypedArray())
 
@@ -275,7 +275,10 @@ class CircuitBreakerTests {
         delayWithRealTime(delayInOpenState)
 
         // then: the circuit breaker should be in the HalfOpen state
-        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState()).apply {
+            // and: the values in this state should be correct
+            assertEquals(0, nrOfCallsAttempted)
+        }
 
         // when: the remote service is called enough times to make up the permitted number of
         //  calls in the HalfOpen state
@@ -355,6 +358,7 @@ class CircuitBreakerTests {
             // and: the values in this state should be correct
             assertEquals(initialDelay, delayDuration)
         }
+
         // when: a call to the remote service is performed
         // then: the call should not be permitted
         assertFailsWith<CallNotPermittedException> {
@@ -771,6 +775,5 @@ class CircuitBreakerTests {
             assertIs<CircuitBreakerState.Closed>(toState)
             assertFalse(manual)
         }
-
     }
 }
