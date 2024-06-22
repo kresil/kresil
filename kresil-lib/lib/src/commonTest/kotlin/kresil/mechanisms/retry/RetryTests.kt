@@ -1,6 +1,5 @@
 package kresil.mechanisms.retry
 
-import kresil.extensions.delayWithRealTime
 import io.mockative.Mock
 import io.mockative.classOf
 import io.mockative.coEvery
@@ -12,7 +11,9 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
 import kresil.core.callbacks.OnExceptionPredicate
+import kresil.core.callbacks.ResultMapper
 import kresil.exceptions.WebServiceException
+import kresil.extensions.delayWithRealTime
 import kresil.retry.Retry
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.retryConfig
@@ -29,6 +30,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration
@@ -1074,7 +1076,6 @@ class RetryTests {
 
     @Test
     fun retryWithDecoratedBiFunction() = runTest {
-
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1137,7 +1138,6 @@ class RetryTests {
 
     @Test
     fun overrideAConfiguration() = runTest {
-
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1159,7 +1159,6 @@ class RetryTests {
 
     @Test
     fun doNotPropagateExceptionOnError() = runTest {
-
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1211,8 +1210,7 @@ class RetryTests {
     }
 
     @Test
-    fun retryOnResultWithCustomExceptionHandler() = runTest {
-
+    fun doNotPropagateExceptionOnErrorWithRetryOnResult() = runTest {
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1245,7 +1243,8 @@ class RetryTests {
                 remoteService.suspendSupplier()
             }
         } catch (e: MaxRetriesExceededException) {
-            fail("Should not throw a MaxRetriesExceededException")
+            // then: the exception is not propagated
+            fail("The exception should not be propagated")
         } catch (e: Exception) {
             fail("unexpected exception: $e")
         }
@@ -1328,6 +1327,59 @@ class RetryTests {
                 linearDelay(initialDelay, maxDelay = maxDelay)
             }
         }
+    }
+
+    @Test
+    fun resultMapperInDecorationOverridesExceptionHandlerFromConfig() = runTest {
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val resultOfOperation = null
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            constantDelay(delayDuration)
+            retryOnResult { it == resultOfOperation }
+            disableExceptionHandler()
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        val input = "1"
+        val output = "1050"
+        coEvery { remoteService.suspendFunction(input) }
+            .returnsMany(
+                resultOfOperation,
+                resultOfOperation,
+                output
+            )
+
+        // and: a result mapper that maps the result to an integer or throws an exception
+        val resultMapperException = RuntimeException("BAM!")
+        val resultMapper: ResultMapper<String, Int> = { result, exception ->
+            println("Result: $result, Exception: $exception")
+            if (exception != null) throw resultMapperException
+            result?.toInt() ?: 3
+        }
+
+        // when: a decorated function is executed with the retry instance
+        val decorated = retry.decorateCtxFunction(
+            resultMapper = resultMapper
+        ) { _, a: String ->
+            remoteService.suspendFunction(a)
+        }
+
+        try {
+            // when: a decorated function is executed with the retry instance
+            val result = decorated(input)
+            // then: the result mapper is invoked
+            assertNotNull(result)
+            assertEquals(output.toInt(), result)
+        } catch (e: Throwable) {
+            fail("unexpected exception: $e")
+        }
+
     }
 
 }

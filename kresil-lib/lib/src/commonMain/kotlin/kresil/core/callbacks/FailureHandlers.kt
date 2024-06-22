@@ -17,6 +17,11 @@ typealias OnExceptionPredicate = (Throwable) -> Boolean
 typealias OnResultPredicate = (result: Any?) -> Boolean
 
 /**
+ * Callback to handle an exception that occurs during an operation (e.g., throwing an exception, logging, mapping the exception to a specific type).
+ */
+typealias ExceptionHandler = (Throwable) -> Throwable
+
+/**
  * Callback to map a result or an exception to a specific type and/or perform additional operations (e.g., logging, throwing an exception).
  */
-typealias ResultMapper = (Any?, Throwable?) -> Any?
+typealias ResultMapper<ResultA, ResultB> = (ResultA?, Throwable?) -> ResultB?

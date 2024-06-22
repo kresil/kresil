@@ -1,9 +1,9 @@
 package kresil.retry.config
 
 import kresil.core.builders.ConfigBuilder
+import kresil.core.callbacks.ExceptionHandler
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
-import kresil.core.callbacks.ResultMapper
 import kresil.core.delay.strategy.DelayStrategy
 import kresil.core.delay.strategy.DelayStrategyOptions
 import kresil.retry.delay.RetryCtxDelayProvider
@@ -24,7 +24,7 @@ class RetryConfigBuilder(
     private val retryDelayStrategyOptions = DelayStrategyOptions
 
     // state
-    private var resultMapper: ResultMapper = baseConfig.resultMapper
+    private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
     private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
     private var retryPredicate: OnExceptionPredicate = baseConfig.retryPredicate
     private var retryOnResultPredicate: OnResultPredicate = baseConfig.retryOnResultPredicate
@@ -216,29 +216,23 @@ class RetryConfigBuilder(
     }
 
     /**
-     * Configures the mapper to use when retry is finished.
-     *
-     * The mapper can be used, for example, to:
-     * - map the result or the exception to a specific type;
-     * - throw the caught exception;
-     * - log the exception and not throw it;
-     * - return a default value when an exception occurs;
-     * - etc.
-     * @param mapper the mapper to use.
+     * Configures the exception handler to use when retries are exhausted.
+     * By default, the exception, if any, is thrown.
+     * For example, if maximum attempts are reached and the exception handler is not set, the exception will be thrown.
+     * Use this method to handle exceptions that occur during the retry operation in a custom way (e.g., logging specific exceptions).
+     * @param handler the exception handler to use.
      */
-    fun resultMapper(mapper: ResultMapper) {
-        resultMapper = mapper
+    fun exceptionHandler(handler: ExceptionHandler) {
+        exceptionHandler = handler
     }
 
     /**
-     * Disables the exception handler mechanism.
-     * The default behaviour is to throw the exception when it occurs.
-     * This is a subtype of the [resultMapper] method,
-     * used when no mapping is needed and the eventuality of an exception
-     * should not be thrown.
+     * Disables the exception handler.
+     * By default, the exception, if any, is thrown.
+     * @see [exceptionHandler]
      */
     fun disableExceptionHandler() {
-        resultMapper = { result, _ -> result }
+        exceptionHandler = { it }
     }
 
     /**
@@ -249,7 +243,7 @@ class RetryConfigBuilder(
         retryPredicate,
         retryOnResultPredicate,
         delayStrategy,
-        resultMapper
+        exceptionHandler
     )
 }
 
@@ -266,9 +260,7 @@ private val defaultRetryConfig = RetryConfig(
         maxDelay = 1.minutes,
         randomizationFactor = 0.0
     ).toRetryDelayStrategy(),
-    resultMapper = { result: Any?, throwable: Throwable? ->
-        throwable?.let { throw it } ?: result
-    }
+    exceptionHandler = { throw it }
 )
 
 /**

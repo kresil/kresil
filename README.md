@@ -24,7 +24,7 @@ Additionally, Kresil offers extensions for [Ktor](https://ktor.io/) as plugins.
 ## Retry
 
 The [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
-is a resilience mechanism
+is a reactive resilience mechanism
 that can be used to retry an operation when it fails, and the failure is a transient error.
 Operations can be decorated and executed on demand.
 A retry mechanism is initialized with a configuration that,
@@ -69,7 +69,7 @@ val retry = Retry(
         retryOnResultIf { it is "success" }
         constantDelay(500.milliseconds)
         // customDelay { attempt, context -> ... }
-        // resultMapper { throwable -> ... }
+        // exceptionHandler { exception -> ... }
     }
 )
 
@@ -98,7 +98,7 @@ retry.cancelListeners()
 ## Circuit Breaker
 
 The [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
-is a resilience mechanism
+is a reactive resilience mechanism
 that can be used to protect a system component from overloading or failing.
 By monitoring the health of the system, the circuit breaker can short-circuit
 execution requests when it detects that the system component is not behaving as expected.

@@ -65,7 +65,7 @@ val KresilRetryPlugin = createClientPlugin(
         retry.onEvent { event -> logger.info("Retry event: $event") }
         lateinit var call: HttpClientCall
         try {
-            retry.executeSupplier { ctx ->
+            retry.executeCtxSupplier<Unit, Unit> { ctx ->
                 val subRequest = copyRequestAndPropagateCompletion(request)
                 if (ctx.attempt > 0) requestPluginConfig.modifyRequestOnRetry(subRequest, ctx.attempt)
                 call = proceed(subRequest) // proceed with the modified request
