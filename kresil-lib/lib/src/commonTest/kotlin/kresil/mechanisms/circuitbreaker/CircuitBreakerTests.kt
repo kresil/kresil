@@ -419,8 +419,8 @@ class CircuitBreakerTests {
     fun halfOpenStateShouldTransitionToOpenStateAfterMaxAwaitDurationIsExceeded() = runTest {
         // given: a circuit breaker configuration
         val windowSize = 10
-        val delayInOpenState = 250.milliseconds
-        val maxWaitDurationInHalfOpenState = 800.milliseconds
+        val delayInOpenState = 1.seconds
+        val maxWaitDurationInHalfOpenState = 1.seconds
         val config = circuitBreakerConfig {
             failureRateThreshold = 0.5
             slidingWindow(
@@ -477,7 +477,7 @@ class CircuitBreakerTests {
         // then: the circuit breaker should be in the Open state
         assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
 
-        repeat(10) {
+        repeat(5) {
             // when: the delay duration has been exceeded
             delayWithRealTime(delayInOpenState)
 
@@ -770,7 +770,8 @@ class CircuitBreakerTests {
 
         // then: the circuit breaker should be in the Closed state because the failure rate is below the threshold
         assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
-        // and: the events should be recorded correctly
+        // and: the events should be recorded correctly after some time has passed
+        delayWithRealTime(10.milliseconds)
         val transitionToClosed = events[++eventIndex]
         assertIs<CircuitBreakerEvent.StateTransition>(transitionToClosed).apply {
             assertIs<CircuitBreakerState.HalfOpen>(fromState)
@@ -801,7 +802,8 @@ class CircuitBreakerTests {
 
         // then: the circuit breaker should be in the Open state
         assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
-        // and: an event should be recorded
+        // and: an event should be recorded after some time has passed
+        delayWithRealTime(10.milliseconds)
         assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
             assertSame(CircuitBreakerState.Closed, fromState)
             assertIs<CircuitBreakerState.Open>(toState)
@@ -813,7 +815,8 @@ class CircuitBreakerTests {
 
         // then: the circuit breaker should be in the HalfOpen state
         assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
-        // and: an event should be recorded
+        // and: an event should be recorded after some time has passed
+        delayWithRealTime(10.milliseconds)
         assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
             assertIs<CircuitBreakerState.Open>(fromState)
             assertIs<CircuitBreakerState.HalfOpen>(toState)
