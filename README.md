@@ -73,8 +73,13 @@ val retry = Retry(
     }
 )
 
+// execute a supplier
+retry.executeSupplier {
+    // operation
+}
+
 // execute a supplier with context
-retry.executeSupplier { ctx ->
+retry.executeCtxSupplier { ctx ->
     // operation
 }
 
@@ -86,7 +91,7 @@ val decoratedSupplier = retry.decorateSupplier {
 val result = decoratedSupplier()
 
 // listen to specific events
-retry.onRetry { attempt -> println("Attempt: $attempt") }
+retry.onRetry { event -> println(event) }
 
 // listen to all events
 retry.onEvent { event -> println(event) }
@@ -151,4 +156,17 @@ circuitBreaker.wire()
 val result = circuitBreaker.executeOperation {
     // operation
 }
+
+// listen to specific events
+circuitBreaker.onCallNotPermitted {
+    // action
+}
+
+// listen to all events
+circuitBreaker.onEvent {
+    // action
+}
+
+// cancel all registered listeners
+circuitBreaker.cancelListeners()
 ```
