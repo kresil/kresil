@@ -5,8 +5,6 @@ import io.ktor.util.logging.*
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
-import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_FAILURE
-import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_SUCCESS
 import kresil.ktor.client.plugins.circuitbreaker.config.CircuitBreakerPluginConfig
 import kresil.ktor.client.plugins.circuitbreaker.config.CircuitBreakerPluginConfigBuilder
 import kotlin.time.Duration.Companion.ZERO
@@ -61,9 +59,9 @@ val KresilCircuitBreakerPlugin = createClientPlugin(
     onResponse { response ->
         // Record success or failure after the response
         if (pluginConfig.recordResponseAsFailurePredicate(response)) {
-            circuitBreaker.stateReducer.dispatch(OPERATION_FAILURE)
+            circuitBreaker.recordFailure()
         } else {
-            circuitBreaker.stateReducer.dispatch(OPERATION_SUCCESS)
+            circuitBreaker.recordSuccess()
         }
     }
 

@@ -1,22 +1,25 @@
 package kresil.retry
 
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kresil.core.callbacks.ResultMapper
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.BiFunction
+import kresil.core.oper.CtxBiFunction
+import kresil.core.oper.CtxFunction
+import kresil.core.oper.CtxSupplier
 import kresil.core.oper.Function
 import kresil.core.oper.Supplier
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.config.defaultRetryConfig
 import kresil.retry.context.RetryAsyncContextImpl
-import kresil.retry.event.RetryEvent
-import kresil.core.oper.CtxBiFunction
-import kresil.core.oper.CtxFunction
-import kresil.core.oper.CtxSupplier
 import kresil.retry.context.RetryContext
+import kresil.retry.event.RetryEvent
+import kresil.retry.event.RetryEvent.RetryOnError
+import kresil.retry.event.RetryEvent.RetryOnIgnoredError
+import kresil.retry.event.RetryEvent.RetryOnRetry
+import kresil.retry.event.RetryEvent.RetryOnSuccess
 
 /**
  * A [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
@@ -259,11 +262,10 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onRetry(action: suspend (Int) -> Unit) =
+    suspend fun onRetry(action: suspend (RetryOnRetry) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnRetry>()
-                .map { it.attempt }
+                .filterIsInstance<RetryOnRetry>()
                 .collect { action(it) }
         }
 
@@ -273,11 +275,10 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onError(action: suspend (Throwable) -> Unit) =
+    suspend fun onError(action: suspend (RetryOnError) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnError>()
-                .map { it.throwable }
+                .filterIsInstance<RetryOnError>()
                 .collect { action(it) }
         }
 
@@ -288,11 +289,10 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onIgnoredError(action: suspend (Throwable) -> Unit) =
+    suspend fun onIgnoredError(action: suspend (RetryOnIgnoredError) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnIgnoredError>()
-                .map { it.throwable }
+                .filterIsInstance<RetryOnIgnoredError>()
                 .collect { action(it) }
         }
 
@@ -301,11 +301,11 @@ class Retry(
      * The underlying event is emitted when the operation is completed successfully after a retry.
      * @see [onEvent]
      */
-    suspend fun onSuccess(action: suspend () -> Unit) =
+    suspend fun onSuccess(action: suspend (RetryOnSuccess) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnSuccess>()
-                .collect { action() }
+                .filterIsInstance<RetryOnSuccess>()
+                .collect { action(it) }
         }
 
     /**

@@ -3,8 +3,8 @@ package kresil.core.reducer
 /**
  * Similiar to React's [useReducer](https://react.dev/reference/react/useReducer)
  * hook, this contract defines a reducer that can be used to manage the state of a component.
- * The [reducer] method is used to reduce an event to a new state and potentially a list of effects.
- * This effect can be used to trigger side-effects, outside of the reducer, such as network requests or
+ * The [reducer] method is used to reduce an event to a new state and potentially produce a list of effects.
+ * This effect can be used to trigger side-effects, outside of the reducer, such as network requests, timers or
  * updating the UI.
  * A reducer should be used to manage the state of a component in a deterministic way (i.e., given the same
  * sequence of events, the reducer should always produce the same state - pure function).

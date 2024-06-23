@@ -5,6 +5,11 @@ import kotlinx.coroutines.launch
 import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.config.defaultCircuitBreakerConfig
 import kresil.circuitbreaker.event.CircuitBreakerEvent
+import kresil.circuitbreaker.event.CircuitBreakerEvent.CallNotPermitted
+import kresil.circuitbreaker.event.CircuitBreakerEvent.RecordedFailure
+import kresil.circuitbreaker.event.CircuitBreakerEvent.RecordedSuccess
+import kresil.circuitbreaker.event.CircuitBreakerEvent.Reset
+import kresil.circuitbreaker.event.CircuitBreakerEvent.StateTransition
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
@@ -15,6 +20,10 @@ import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.FORCE_STATE_UPDATE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_SUCCESS
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.RESET
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION_TO_CLOSED_STATE
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION_TO_HALF_OPEN_STATE
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION_TO_OPEN_STATE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
 import kresil.core.events.FlowEventListenerImpl
 
@@ -105,8 +114,25 @@ class CircuitBreaker(
         SlidingWindowType.TIME_BASED -> TODO()
     }
 
-    val stateReducer = CircuitBreakerStateReducer(slidingWindow, config, events)
+    private val stateReducer = CircuitBreakerStateReducer(slidingWindow, config, events)
 
+    /**
+     * Records a successful operation execution.
+     */
+    suspend fun recordSuccess() {
+        stateReducer.dispatch(OPERATION_SUCCESS)
+    }
+
+    /**
+     * Records a failed operation execution.
+     */
+    suspend fun recordFailure() {
+        stateReducer.dispatch(OPERATION_FAILURE)
+    }
+
+    /**
+     * Returns the current state of the circuit breaker as a snapshot.
+     */
     suspend fun currentState(): CircuitBreakerState {
         stateReducer.dispatch(FORCE_STATE_UPDATE)
         return stateReducer.currentState()
@@ -140,15 +166,43 @@ class CircuitBreaker(
     }
 
     /**
+     * Transitions the circuit breaker to the [Open] state, maintaining the recorded results.
+     */
+    suspend fun transitionToOpenState() {
+        stateReducer.dispatch(TRANSITION_TO_OPEN_STATE)
+    }
+
+    /**
+     * Transitions the circuit breaker to the [HalfOpen] state, maintaining the recorded results.
+     */
+    suspend fun transitionToHalfOpenState() {
+        stateReducer.dispatch(TRANSITION_TO_HALF_OPEN_STATE)
+    }
+
+    /**
+     * Transitions the circuit breaker to the [Closed] state, maintaining the recorded results.
+     */
+    suspend fun transitionToClosedState() {
+        stateReducer.dispatch(TRANSITION_TO_CLOSED_STATE)
+    }
+
+    /**
+     * Resets the circuit breaker to the [Closed] state, clearing the sliding window of any recorded results.
+     */
+    suspend fun reset() {
+        stateReducer.dispatch(RESET)
+    }
+
+    /**
      * Executes the given operation and dispatches the necessary events based on its
      * result and the configuration.
      */
     private suspend fun <R> executeAndDispatch(block: suspend () -> R): R {
         val result = safeExecute(block)
         if (config.recordResultPredicate(result)) {
-            stateReducer.dispatch(OPERATION_FAILURE)
+            recordFailure()
         } else {
-            stateReducer.dispatch(OPERATION_SUCCESS)
+            recordSuccess()
         }
         return result
     }
@@ -172,16 +226,16 @@ class CircuitBreaker(
             is Open -> throwCallIsNotPermitted()
             Closed, is HalfOpen -> {
                 if (config.recordExceptionPredicate(throwable)) {
-                    stateReducer.dispatch(OPERATION_FAILURE)
+                    recordFailure()
                 } else {
-                    stateReducer.dispatch(OPERATION_SUCCESS)
+                    recordSuccess()
                 }
                 throw throwable
             }
         }
 
     private suspend fun throwCallIsNotPermitted(): Nothing {
-        events.emit(CircuitBreakerEvent.CallNotPermitted)
+        events.emit(CallNotPermitted)
         throw CallNotPermittedException()
     }
 
@@ -192,11 +246,11 @@ class CircuitBreaker(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onCallNotPermitted(action: suspend () -> Unit) =
+    suspend fun onCallNotPermitted(action: suspend (CallNotPermitted) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<CircuitBreakerEvent.CallNotPermitted>()
-                .collect { action() }
+                .filterIsInstance<CallNotPermitted>()
+                .collect { action(it) }
         }
 
     /**
@@ -204,11 +258,11 @@ class CircuitBreaker(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onReset(action: suspend () -> Unit) =
+    suspend fun onReset(action: suspend (Reset) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<CircuitBreakerEvent.Reset>()
-                .collect { action() }
+                .filterIsInstance<Reset>()
+                .collect { action(it) }
         }
 
     /**
@@ -217,15 +271,11 @@ class CircuitBreaker(
      * @see [cancelListeners]
      */
     suspend fun onStateTransition(
-        action: suspend (
-            fromState: CircuitBreakerState,
-            toState: CircuitBreakerState,
-            manual: Boolean,
-        ) -> Unit,
+        action: suspend (StateTransition) -> Unit,
     ) = scope.launch {
         events
-            .filterIsInstance<CircuitBreakerEvent.StateTransition>()
-            .collect { action(it.fromState, it.toState, it.manual) }
+            .filterIsInstance<StateTransition>()
+            .collect { action(it) }
     }
 
     /**
@@ -233,11 +283,11 @@ class CircuitBreaker(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onOperationSuccess(action: suspend () -> Unit) =
+    suspend fun onOperationSuccess(action: suspend (RecordedSuccess) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<CircuitBreakerEvent.RecordedSuccess>()
-                .collect { action() }
+                .filterIsInstance<RecordedSuccess>()
+                .collect { action(it) }
         }
 
     /**
@@ -245,11 +295,25 @@ class CircuitBreaker(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onOperationFailure(action: suspend () -> Unit) =
+    suspend fun onOperationFailure(action: suspend (RecordedFailure) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<CircuitBreakerEvent.RecordedFailure>()
-                .collect { action() }
+                .filterIsInstance<RecordedFailure>()
+                .collect { action(it) }
         }
+
+    /**
+     * Executes the given [action] when a circuit breaker event occurs.
+     * This function can be used to listen to all retry events.
+     * @see [onCallNotPermitted]
+     * @see [onReset]
+     * @see [onStateTransition]
+     * @see [onOperationSuccess]
+     * @see [onOperationFailure]
+     * @see [cancelListeners]
+     */
+    override suspend fun onEvent(action: suspend (CircuitBreakerEvent) -> Unit) {
+        super.onEvent(action)
+    }
 
 }

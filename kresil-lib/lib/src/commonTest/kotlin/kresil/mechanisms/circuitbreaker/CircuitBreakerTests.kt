@@ -20,6 +20,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -625,6 +626,7 @@ class CircuitBreakerTests {
         circuitBreaker.onEvent {
             events.add(it)
         }
+        delayWithRealTime() // wait for listeners to be registered using real time
 
         // and: functions to register a success or a failure
         suspend fun registerSuccess() {
@@ -776,4 +778,282 @@ class CircuitBreakerTests {
             assertFalse(manual)
         }
     }
+
+    @Test
+    fun manualTransitions() = runTest {
+        // given: a circuit breaker instance
+        val circuitBreaker = CircuitBreaker()
+
+        // and: events to record the state transitions
+        val stateTransitionEvents = mutableListOf<CircuitBreakerEvent>()
+        circuitBreaker.onStateTransition {
+            stateTransitionEvents.add(it)
+        }
+        var index = 0
+        delayWithRealTime() // wait for listeners to be registered using real time
+
+        // when: the circuit breaker is created
+        // then: the circuit breaker should be in the Closed state
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // when: the circuit breaker is manually transitioned to the Open state
+        circuitBreaker.transitionToOpenState()
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+        // and: an event should be recorded
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+            assertSame(CircuitBreakerState.Closed, fromState)
+            assertIs<CircuitBreakerState.Open>(toState)
+            assertTrue(manual)
+        }
+
+        // when: the circuit breaker is manually transitioned to the HalfOpen state
+        circuitBreaker.transitionToHalfOpenState()
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+        // and: an event should be recorded
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+            assertIs<CircuitBreakerState.Open>(fromState)
+            assertIs<CircuitBreakerState.HalfOpen>(toState)
+            assertTrue(manual)
+        }
+
+        // when: the circuit breaker is manually transitioned to the Closed state
+        circuitBreaker.transitionToClosedState()
+
+        // then: the circuit breaker should be in the Closed state
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+        // and: an event should be recorded
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+            assertIs<CircuitBreakerState.HalfOpen>(fromState)
+            assertSame(CircuitBreakerState.Closed, toState)
+            assertTrue(manual)
+        }
+
+        // when: the circuit breaker is manually transitioned to the same Closed state
+        circuitBreaker.transitionToClosedState()
+
+        // then: the circuit breaker should be in the Closed state
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+        // and: no event should be recorded
+
+        // when: the circuit breaker is manually transitioned to the HalfOpen state
+        circuitBreaker.transitionToHalfOpenState()
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+        // and: an event should be recorded
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+            assertSame(CircuitBreakerState.Closed, fromState)
+            assertIs<CircuitBreakerState.HalfOpen>(toState)
+            assertTrue(manual)
+        }
+
+        // when: the circuit breaker is manually transitioned to the same HalfOpen state
+        circuitBreaker.transitionToHalfOpenState()
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
+
+        // when: the circuit breaker is manually transitioned to the Open state
+        circuitBreaker.transitionToOpenState()
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+        // and: an event should be recorded
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+            assertIs<CircuitBreakerState.HalfOpen>(fromState)
+            assertIs<CircuitBreakerState.Open>(toState)
+            assertTrue(manual)
+        }
+
+        // when: the circuit breaker is manually transitioned to the same Open state
+        circuitBreaker.transitionToOpenState()
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+
+        // when: the circuit breaker is manually transitioned to the Closed state
+        circuitBreaker.transitionToClosedState()
+
+        // then: the circuit breaker should be in the Closed state
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+        // and: an event should be recorded
+        @Suppress("UNUSED_CHANGED_VALUE")
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+            assertIs<CircuitBreakerState.Open>(fromState)
+            assertSame(CircuitBreakerState.Closed, toState)
+            assertTrue(manual)
+        }
+    }
+
+    @Test
+    fun subsequentManualTransitionsToOpenStateIncreaseCycleCount() = runTest {
+        // given: a circuit breaker instance
+        val circuitBreaker = CircuitBreaker()
+
+        // and: events to record the state transitions
+        val stateTransitionEvents = mutableListOf<CircuitBreakerEvent>()
+        circuitBreaker.onStateTransition {
+            stateTransitionEvents.add(it)
+        }
+        delayWithRealTime() // wait for listeners to be registered using real time
+
+        // when: the circuit breaker is manually transitioned to the Open state
+        circuitBreaker.transitionToOpenState()
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState()).apply {
+            // and: the cycle count should be 1
+            assertEquals(1, nrOfTransitionsToOpenStateInACycle)
+        }
+
+        // when: the circuit breaker is manually transitioned to the Open state again
+        circuitBreaker.transitionToOpenState()
+
+        // then: the circuit breaker should remain in the Open state without altering the cycle count
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState()).apply {
+            assertEquals(1, nrOfTransitionsToOpenStateInACycle)
+        }
+
+        // when: the circuit breaker is manually transitioned to the HalfOpen state
+        circuitBreaker.transitionToHalfOpenState()
+
+        // then: the circuit breaker should be in the HalfOpen state
+        assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState()).apply {
+            // and: this state should store the last cycle count
+            assertEquals(1, nrOfTransitionsToOpenStateInACycle)
+        }
+
+        // when: the circuit breaker is manually transitioned to the Open state
+        circuitBreaker.transitionToOpenState()
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState()).apply {
+            // and: the cycle count should be 2
+            assertEquals(2, nrOfTransitionsToOpenStateInACycle)
+        }
+
+        // when: the circuit breaker is manually transitioned to the Closed state
+        circuitBreaker.transitionToClosedState()
+
+        // then: the circuit breaker should be in the Closed state
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // when: the circuit breaker is manually transitioned to the Open state
+        circuitBreaker.transitionToOpenState()
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState()).apply {
+            // and: the cycle count should be 1, because a new cycle (closed -> open) started
+            assertEquals(1, nrOfTransitionsToOpenStateInACycle)
+        }
+
+    }
+
+    @Test
+    fun aResetShouldClearTheSlidingWindow() = runTest {
+        // given: a circuit breaker configuration
+        val windowSize = 10
+        val initialDelay = 3.seconds
+        val config = circuitBreakerConfig {
+            failureRateThreshold = 0.5
+            slidingWindow(
+                size = windowSize,
+                minimumThroughput = windowSize
+            )
+            maxWaitDurationInHalfOpenState = ZERO
+            linearDelayInOpenState(initialDelay = initialDelay, multiplier = 1.0)
+            permittedNumberOfCallsInHalfOpenState = 1
+            recordExceptionPredicate { it is WebServiceException }
+        }
+
+        // and: a circuit breaker instance
+        val circuitBreaker = CircuitBreaker(config)
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // and: a remote service that always throws an exception
+        val notAFailure = NetworkException("Thanks Vodafone!")
+        val failure = WebServiceException("BAM!")
+        val exceptionsToThrow = List(windowSize * 2) { index ->
+            if (index % 2 == 0) failure
+            else notAFailure // note: that only half of the calls are considered failures
+        }
+        coEvery { remoteService.suspendSupplier() }
+            .throwsMany(*exceptionsToThrow.toTypedArray())
+
+        // and: events to record the state transitions
+        val resetEvents = mutableListOf<CircuitBreakerEvent>()
+        val stateTransitionEvents = mutableListOf<CircuitBreakerEvent>()
+        circuitBreaker.onStateTransition {
+            stateTransitionEvents.add(it)
+        }
+        circuitBreaker.onReset {
+            resetEvents.add(it)
+        }
+        delayWithRealTime() // wait for listeners to be registered using real time
+
+        // and: functions to register a success or a failure
+        suspend fun registerSuccess() {
+            assertFailsWith<NetworkException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        suspend fun registerFailure() {
+            assertFailsWith<WebServiceException> {
+                circuitBreaker.executeOperation {
+                    remoteService.suspendSupplier()
+                }
+            }
+        }
+
+        // when: the remote service is called multiple times until the failure rate can be calculated
+        repeat(windowSize) { index ->
+            if (index % 2 == 0) registerFailure()
+            else registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+
+        // when: the circuit breaker is reset
+        circuitBreaker.reset()
+
+        // then: the circuit breaker should be in the Closed state
+        assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
+
+        // and: the remote service needs to be called again multiple times until the failure rate can be calculated
+        repeat(windowSize) { index ->
+            if (index % 2 == 0) registerFailure()
+            else registerSuccess()
+        }
+
+        // then: the circuit breaker should be in the Open state
+        assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
+
+        // and: the relevant events should be recorded correctly
+        assertEquals(3, stateTransitionEvents.size)
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[0]).apply {
+            assertSame(CircuitBreakerState.Closed, fromState)
+            assertIs<CircuitBreakerState.Open>(toState)
+            assertFalse(manual)
+        }
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[1]).apply {
+            assertIs<CircuitBreakerState.Open>(fromState)
+            assertSame(CircuitBreakerState.Closed, toState)
+            assertTrue(manual)
+        }
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[2]).apply {
+            assertSame(CircuitBreakerState.Closed, fromState)
+            assertIs<CircuitBreakerState.Open>(toState)
+            assertFalse(manual)
+        }
+        assertEquals(1, resetEvents.size)
+    }
+
 }
