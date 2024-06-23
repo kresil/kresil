@@ -1,6 +1,6 @@
 package kresil.retry.config
 
-import kresil.core.callbacks.ResultMapper
+import kresil.core.callbacks.ExceptionHandler
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
 import kresil.retry.Retry
@@ -14,7 +14,7 @@ import kresil.retry.delay.RetryDelayStrategy
  * @param retryPredicate the predicate to determine if the operation should be retried based on the caught throwable.
  * @param retryOnResultPredicate the predicate to determine if the operation should be retried based on its result.
  * @param delayStrategy the strategy to determine the delay duration between retries.
- * @param resultMapper a function to map the result or exception after retries are exhausted
+ * @param exceptionHandler the handler for exceptions that occur during a retry operation.
  * @see [Retry]
  */
 data class RetryConfig(
@@ -22,7 +22,7 @@ data class RetryConfig(
     val retryPredicate: OnExceptionPredicate,
     val retryOnResultPredicate: OnResultPredicate,
     val delayStrategy: RetryDelayStrategy,
-    val resultMapper: ResultMapper
+    val exceptionHandler: ExceptionHandler
 ) {
 
     /**

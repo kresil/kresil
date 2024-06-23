@@ -1,15 +1,22 @@
 package kresil.circuitbreaker.state.reducer
 
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.CircuitBreakerConfig
+import kresil.circuitbreaker.event.CircuitBreakerEvent
 import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.circuitbreaker.state.CircuitBreakerState.Closed
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.FORCE_STATE_UPDATE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_FAILURE
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.OPERATION_SUCCESS
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.RESET
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION_TO_CLOSED_STATE
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION_TO_HALF_OPEN_STATE
+import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION_TO_OPEN_STATE
 import kresil.core.reducer.Reducer
 import kresil.core.slidingwindow.FailureRateSlidingWindow
 import kotlin.time.ComparableTimeMark
@@ -23,108 +30,175 @@ import kotlin.time.TimeSource
  * @param slidingWindow the sliding window used to record the result (success or failure)
  * of operations and calculate the failure rate.
  * @param config the configuration of the circuit breaker.
+ * @param events the shared flow to emit circuit breaker events to.
  */
-class CircuitBreakerStateReducer<T>(
-    private val slidingWindow: FailureRateSlidingWindow<T>,
-    private val config: CircuitBreakerConfig,
-) : Reducer<CircuitBreakerState, CircuitBreakerReducerEvent> {
-
-    private companion object {
-        // signals that no operation should be performed
-        val noOperation = {}
-    }
+class CircuitBreakerStateReducer<T> internal constructor(
+    val slidingWindow: FailureRateSlidingWindow<T>,
+    val config: CircuitBreakerConfig,
+    val events: MutableSharedFlow<CircuitBreakerEvent>,
+) : Reducer<CircuitBreakerState, CircuitBreakerReducerEvent, CircuitBreakerReducerEffect>() {
 
     // reminder: mutexes are not reentrant and a coroutine should not suspend while holding a lock
     //  as it does not release it while suspended
     private val lock = Mutex()
+    private val isAboveThreshold: Boolean
+        get() = slidingWindow.currentFailureRate() >= config.failureRateThreshold
+    private val isToWaitIndefinitelyInHalfOpenState: Boolean =
+        config.maxWaitDurationInHalfOpenState == Duration.ZERO
 
     // internal state
     private var _state: CircuitBreakerState = Closed
-    private var nrOfTransitionsToOpenState: Int = 0
+    // reminder: sliding window is also part of the state
 
-    // internal events (that trigger state transitions)
-    private fun hasExceededDurationInState(timeMark: ComparableTimeMark, duration: Duration): Boolean =
-        timeMark.elapsedNow() >= duration
-
-    override suspend fun currentState(): CircuitBreakerState = lock.withLock {
-        // TODO: if reducers should be pure functions, where can an internal event be dispatched?
-        checkForInternalEvents()
-        _state
-    }
+    override suspend fun currentState(): CircuitBreakerState = lock.withLock { _state }
 
     override suspend fun dispatch(event: CircuitBreakerReducerEvent): Unit = lock.withLock {
-        when (val state = _state) {
-            Closed -> when (event) {
-                OPERATION_SUCCESS -> slidingWindow.recordSuccess()
-                OPERATION_FAILURE -> {
-                    slidingWindow.recordFailure()
-                    if (slidingWindow.currentFailureRate() >= config.failureRateThreshold) {
-                        transitionToOpenState(false)
+        val observedState = _state
+        val (newState, _) = reducer(observedState, event)
+        _state = newState
+        if (observedState != newState) {
+            events.emit(CircuitBreakerEvent.StateTransition(observedState, newState, event.isTransitionEvent))
+        }
+    }
+
+    override suspend fun reducer(
+        state: CircuitBreakerState,
+        event: CircuitBreakerReducerEvent,
+    ): Pair<CircuitBreakerState, List<CircuitBreakerReducerEffect>> {
+        // no effects are used in this implementation
+        val effects = emptyList<CircuitBreakerReducerEffect>()
+        val maintainStateWithNoEffects = state to emptyList<CircuitBreakerReducerEffect>()
+        when (state) {
+            Closed -> {
+                when (event) {
+                    FORCE_STATE_UPDATE, TRANSITION_TO_CLOSED_STATE -> {
+                        return maintainStateWithNoEffects
                     }
+                    TRANSITION_TO_OPEN_STATE -> return createOpenState(state) to effects
+                    TRANSITION_TO_HALF_OPEN_STATE -> return createHalfOpenState(state) to effects
+                    RESET -> return reset() to effects
+                    OPERATION_SUCCESS -> recordSuccess()
+                    OPERATION_FAILURE -> recordFailure()
+                }
+                return if (isAboveThreshold) {
+                    createOpenState(state) to effects
+                } else {
+                    maintainStateWithNoEffects
                 }
             }
 
-            is Open -> noOperation
+            is Open -> {
+                return when (event) {
+                    FORCE_STATE_UPDATE -> if (hasExceededDurationInOpenState(state)) {
+                        createHalfOpenState(state) to effects
+                    } else {
+                        maintainStateWithNoEffects
+                    }
+
+                    TRANSITION_TO_CLOSED_STATE -> Closed to effects
+                    TRANSITION_TO_HALF_OPEN_STATE -> createHalfOpenState(state) to effects
+                    RESET -> reset() to effects
+                    TRANSITION_TO_OPEN_STATE, OPERATION_SUCCESS, OPERATION_FAILURE -> {
+                        maintainStateWithNoEffects
+                    }
+                }
+            }
 
             is HalfOpen -> {
                 when (event) {
-                    OPERATION_SUCCESS -> noOperation
-                    // if one of the calls made in the HalfOpen state fails,
-                    // transition back to the Open state
-                    OPERATION_FAILURE -> {
-                        transitionToOpenState(true)
-                        return@withLock
+                    FORCE_STATE_UPDATE -> return if (hasExceededDurationInHalfOpenState(state)) {
+                        createOpenState(state) to effects
+                    } else {
+                        maintainStateWithNoEffects
                     }
+                    TRANSITION_TO_CLOSED_STATE -> return Closed to effects
+                    TRANSITION_TO_OPEN_STATE -> return createOpenState(state) to effects
+                    TRANSITION_TO_HALF_OPEN_STATE -> return maintainStateWithNoEffects
+                    RESET -> return reset() to effects
+                    OPERATION_SUCCESS -> recordSuccess()
+                    OPERATION_FAILURE -> recordFailure()
                 }
                 val nrOfCallsAttempted = state.nrOfCallsAttempted + 1
-                if (nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
-                    transitionToClosedState()
+                return if (nrOfCallsAttempted >= config.permittedNumberOfCallsInHalfOpenState) {
+                    if (isAboveThreshold) {
+                        createOpenState(state) to effects
+                    } else {
+                        Closed to effects
+                    }
                 } else {
-                    transitionToHalfOpenState(nrOfCallsAttempted)
+                    state.copy(nrOfCallsAttempted = nrOfCallsAttempted) to effects
                 }
             }
         }
     }
 
-    private suspend fun checkForInternalEvents() {
-        when (val state = _state) {
-            Closed -> noOperation
-            is Open -> if (hasExceededDurationInState(state.startTimerMark, state.delayDuration)) {
-                transitionToHalfOpenState(0)
-            }
+    // helper functions:
+    private suspend fun reset(): CircuitBreakerState {
+        slidingWindow.clear()
+        events.emit(CircuitBreakerEvent.Reset) // TODO: again.. emitting inside the reducer is a side effect
+        return Closed
+    }
 
-            is HalfOpen -> {
-                if (state.startTimerMark != null &&
+    private suspend fun createOpenState(state: CircuitBreakerState): CircuitBreakerState =
+        when (state) {
+            Closed -> 1
+            is HalfOpen -> state.nrOfTransitionsToOpenStateInACycle + 1
+            else -> error("Trying to create an ${Open::class.simpleName} state from an invalid state: $state")
+        }.let {
+            Open(
+                delayDuration = config.delayStrategyInOpenState(it, Unit),
+                startTimerMark = getCurrentTimeMark(),
+                nrOfTransitionsToOpenStateInACycle = it
+            )
+        }
+
+    private fun createHalfOpenState(state: CircuitBreakerState): CircuitBreakerState {
+        val delayDurationInHalfOpenState = if (isToWaitIndefinitelyInHalfOpenState) {
+            null
+        } else {
+            getCurrentTimeMark()
+        }
+        val nrOfTransitionsToOpenStateInACycle = when (state) {
+            is Open -> state.nrOfTransitionsToOpenStateInACycle
+            is Closed -> 1
+            else -> error("Trying to create a ${HalfOpen::class.simpleName} state from an invalid state: $state")
+        }
+        return HalfOpen(
+            nrOfCallsAttempted = 0,
+            startTimerMark = delayDurationInHalfOpenState,
+            nrOfTransitionsToOpenStateInACycle = nrOfTransitionsToOpenStateInACycle
+        )
+    }
+
+    private suspend fun recordSuccess() {
+        slidingWindow.recordSuccess()
+        val currentFailureRate = slidingWindow.currentFailureRate()
+        events.emit(CircuitBreakerEvent.RecordedSuccess(currentFailureRate))
+    }
+
+    private suspend fun recordFailure() {
+        slidingWindow.recordFailure()
+        val currentFailureRate = slidingWindow.currentFailureRate()
+        events.emit(CircuitBreakerEvent.RecordedFailure(currentFailureRate))
+    }
+
+    private fun getCurrentTimeMark(): ComparableTimeMark = TimeSource.Monotonic.markNow()
+
+    private fun hasExceededDurationInState(timeMark: ComparableTimeMark, duration: Duration): Boolean =
+        timeMark.elapsedNow() >= duration
+
+    private fun hasExceededDurationInHalfOpenState(state: CircuitBreakerState): Boolean =
+        when (state) {
+            is HalfOpen -> state.startTimerMark != null &&
                     hasExceededDurationInState(state.startTimerMark, config.maxWaitDurationInHalfOpenState)
-                ) {
-                    transitionToOpenState(true)
-                }
-            }
-        }
-    }
 
-    private suspend fun transitionToOpenState(fromHalfOpenState: Boolean) {
-        if (fromHalfOpenState) {
-            nrOfTransitionsToOpenState++
-        } else {
-            nrOfTransitionsToOpenState = 1
+            else -> error("Trying to check if the duration has exceeded in a state that is not ${HalfOpen::class.simpleName}: $state")
         }
-        val nextDelayDurationInOpenState = config.delayStrategyInOpenState(nrOfTransitionsToOpenState, Unit)
-        val openStateStartTimeMark = TimeSource.Monotonic.markNow()
-        _state = Open(nextDelayDurationInOpenState, openStateStartTimeMark)
-    }
 
-    private fun transitionToClosedState() {
-        // TODO: should sliding window be cleared when transitioning to closed state?
-        _state = Closed
-    }
-
-    private fun transitionToHalfOpenState(nrOfCallsAttempted: Int) {
-        _state = if (config.maxWaitDurationInHalfOpenState == Duration.ZERO) {
-            HalfOpen(nrOfCallsAttempted, null)
-        } else {
-            val halfStateStartTimeMark = TimeSource.Monotonic.markNow()
-            HalfOpen(nrOfCallsAttempted, halfStateStartTimeMark)
+    private fun hasExceededDurationInOpenState(state: CircuitBreakerState): Boolean =
+        when (state) {
+            is Open -> hasExceededDurationInState(state.startTimerMark, state.delayDuration)
+            else -> error("Trying to check if the duration has exceeded in a state that is not ${Open::class.simpleName}: $state")
         }
-    }
+
 }

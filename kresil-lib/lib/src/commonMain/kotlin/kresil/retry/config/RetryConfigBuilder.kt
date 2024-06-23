@@ -1,11 +1,12 @@
 package kresil.retry.config
 
 import kresil.core.builders.ConfigBuilder
-import kresil.core.callbacks.ResultMapper
+import kresil.core.callbacks.ExceptionHandler
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate
-import kresil.core.delay.DelayStrategyOptions
-import kresil.retry.delay.RetryDelayProvider
+import kresil.core.delay.strategy.DelayStrategy
+import kresil.core.delay.strategy.DelayStrategyOptions
+import kresil.retry.delay.RetryCtxDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -16,17 +17,18 @@ import kotlin.time.Duration.Companion.minutes
  * Use [retryConfig] to create one.
  */
 class RetryConfigBuilder(
-    override val baseConfig: RetryConfig = defaultRetryConfig
+    override val baseConfig: RetryConfig = defaultRetryConfig,
 ) : ConfigBuilder<RetryConfig> {
 
     // delay strategy options
     private val retryDelayStrategyOptions = DelayStrategyOptions
 
     // state
-    private var resultMapper: ResultMapper = baseConfig.resultMapper
+    private var exceptionHandler: ExceptionHandler = baseConfig.exceptionHandler
     private var delayStrategy: RetryDelayStrategy = baseConfig.delayStrategy
     private var retryPredicate: OnExceptionPredicate = baseConfig.retryPredicate
     private var retryOnResultPredicate: OnResultPredicate = baseConfig.retryOnResultPredicate
+
     /**
      * The maximum number of attempts **(including the initial call as the first attempt)**.
      */
@@ -62,91 +64,117 @@ class RetryConfigBuilder(
      * @see [customDelayProvider]
      */
     fun noDelay() {
-        delayStrategy = retryDelayStrategyOptions.noDelay()
+        delayStrategy = retryDelayStrategyOptions
+            .noDelay()
+            .toRetryDelayStrategy()
     }
 
     /**
-     * Configures the retry delay strategy to use a constant delay (i.e., the same delay between retries).
+     * Configures the retry delay strategy to use a constant delay.
+     * The delay between retries is calculated using the formula:
+     * - `delay + jitter`
+     *
+     * Example:
+     * ```
+     * constant(500.milliseconds)
+     * // Delay between attempts will be 500ms
+     * constant(500.milliseconds, 0.1)
+     * // Delay between attempts will be something like:
+     * // [495ms, 513ms, 502ms, 507ms, 499ms, ...]
+     * ```
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param duration the constant delay between retries.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [noDelay]
      * @see [linearDelay]
      * @see [exponentialDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
      */
-    @Throws(IllegalArgumentException::class)
-    fun constantDelay(duration: Duration) {
-        requirePositiveDuration(duration, "Delay")
-        delayStrategy = { _, _ -> duration }
+    fun constantDelay(
+        duration: Duration,
+        randomizationFactor: Double = 0.0,
+    ) {
+        delayStrategy = retryDelayStrategyOptions
+            .constant(duration, randomizationFactor)
+            .toRetryDelayStrategy()
     }
 
     /**
-     * Configures the retry delay strategy to use a linear delay.
+     * Configures the retry delay strategy to use the linear backoff algorithm.
      * The delay between retries is calculated using the formula:
-     *
-     * `initialDelay * attempt`, where `attempt` is the current retry attempt.
+     * - `initialDelay + (initialDelay * (attempt - 1) * multiplier) + jitter`,
+     * where `attempt` is the current delay attempt which starts at **1**.
      *
      * Example:
      * ```
-     * linearDelay(500.milliseconds, 4.seconds)
-     * // Delay between retries will be as follows:
+     * linearDelay(500.milliseconds, 1.0, 1.minutes)
+     * // Delay between transitions will be as follows:
      * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
+     * linearDelay(500.milliseconds, 1.0, 1.minutes, 0.1)
+     * // Delay between transitions will be something like:
+     * // [450ms, 1.1s, 1.4s, 2.2s, 2.3s, 3.1s, 3.4s, 4s, 4s, 4s, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param initialDelay the initial delay before the first retry.
+     * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [constantDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
      * @see [noDelay]
      */
-    @Throws(IllegalArgumentException::class)
     fun linearDelay(
         initialDelay: Duration = 500L.milliseconds,
-        maxDelay: Duration = 1.minutes
+        multiplier: Double = 1.0,
+        maxDelay: Duration = 1.minutes,
+        randomizationFactor: Double = 0.0,
     ) {
-        requirePositiveDuration(initialDelay, "Initial delay")
-        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategy = retryDelayStrategyOptions.linear(initialDelay, maxDelay)
+        delayStrategy = retryDelayStrategyOptions
+            .linear(initialDelay, multiplier, maxDelay, randomizationFactor)
+            .toRetryDelayStrategy()
     }
 
     /**
      * Configures the retry delay strategy to use the exponential backoff algorithm.
      * The delay between retries is calculated using the formula:
-     *
-     * `initialDelay * multiplier^attempt`, where `attempt` is the current retry attempt.
+     * The algorithm is based on the formula:
+     * - `(initialDelay * multiplier^(attempt - 1)) + jitter`,
+     * where `attempt` is the current delay attempt which starts at **1**.
      *
      * Example:
      * ```
-     * exponentialDelay(500.milliseconds, 2.0, 1.minutes)
-     * // Delay between retries will be as follows:
+     * exponential(500.milliseconds, 2.0, 1.minutes)
+     * // Delay between transitions will be as follows:
      * // [500ms, 1s, 2s, 4s, 8s, 16s, 32s, 1m, 1m, 1m, ...]
+     * exponential(500.milliseconds, 2.0, 1.minutes, 0.1)
+     * // Delay between transitions will be something like:
+     * // [450ms, 1.1s, 1.4s, 2.2s, 2.3s, 3.1s, 3.4s, 4s, 4s, 4s, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
+     * **Note**:
+     * - Because the jitter calculation is based on the newly calculated delay, the new delay could be less than the previous value.
      * @param initialDelay the initial delay before the first retry.
      * @param multiplier the multiplier to increase the delay between retries.
      * @param maxDelay the maximum delay between retries. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the multiplier is less than or equal to 1.0.
+     * @param randomizationFactor the randomization factor to add randomness to the calculated delay (e.g., 0.1 for +/-10%).
      * @see [noDelay]
      * @see [constantDelay]
      * @see [linearDelay]
      * @see [customDelay]
      * @see [customDelayProvider]
      */
-    @Throws(IllegalArgumentException::class)
     fun exponentialDelay(
         initialDelay: Duration = 500L.milliseconds,
-        multiplier: Double = 2.0, // not using constant to be readable for the user
+        multiplier: Double = 2.0,
         maxDelay: Duration = 1.minutes,
+        randomizationFactor: Double = 0.0,
     ) {
-        requirePositiveDuration(initialDelay, "Initial delay")
-        require(multiplier > 1.0) { "Multiplier must be greater than 1" }
-        require(initialDelay < maxDelay) { "Max delay must be greater than initial delay" }
-        delayStrategy = retryDelayStrategyOptions.exponential(initialDelay, multiplier, maxDelay)
+        delayStrategy = retryDelayStrategyOptions
+            .exponential(initialDelay, maxDelay, multiplier, randomizationFactor)
+            .toRetryDelayStrategy()
     }
 
     /**
@@ -155,13 +183,11 @@ class RetryConfigBuilder(
      * Example:
      * ```
      * customDelay { attempt, context ->
-     *      attempt % 2 == 0 -> 1.seconds
-     *      else -> 3.seconds
+     *      if (attempt % 2 == 0) 1.seconds
+     *      // additional state can be used from the context
+     *      else 3.seconds
      * }
      * ```
-     * Where:
-     * - `attempt` is the current retry attempt. Starts at **1**.
-     * - `lastThrowable` is the last throwable caught.
      * @param delayStrategy the custom delay strategy to use.
      * @see [noDelay]
      * @see [constantDelay]
@@ -177,7 +203,7 @@ class RetryConfigBuilder(
      * Configures the retry delay strategy to use a custom delay provider.
      * In contrast to [customDelay], this method enables caller control over the delay provider (which is the
      * [kotlinx.coroutines.delay] by default) and optional additional state between retries.
-     * See [RetryDelayProvider] for more information and examples of usage.
+     * See [RetryCtxDelayProvider] for more information and examples of usage.
      * @param delayProvider the custom delay provider to use.
      * @see [noDelay]
      * @see [constantDelay]
@@ -185,34 +211,28 @@ class RetryConfigBuilder(
      * @see [exponentialDelay]
      * @see [customDelay]
      */
-    fun customDelayProvider(delayProvider: RetryDelayProvider) {
+    fun customDelayProvider(delayProvider: RetryCtxDelayProvider) {
         delayStrategy = retryDelayStrategyOptions.customProvider(delayProvider)
     }
 
     /**
-     * Configures the mapper to use when retry is finished.
-     *
-     * The mapper can be used, for example, to:
-     * - map the result or the exception to a specific type;
-     * - throw the caught exception;
-     * - log the exception and not throw it;
-     * - return a default value when an exception occurs;
-     * - etc.
-     * @param mapper the mapper to use.
+     * Configures the exception handler to use when retries are exhausted.
+     * By default, the exception, if any, is thrown.
+     * For example, if maximum attempts are reached and the exception handler is not set, the exception will be thrown.
+     * Use this method to handle exceptions that occur during the retry operation in a custom way (e.g., logging specific exceptions).
+     * @param handler the exception handler to use.
      */
-    fun resultMapper(mapper: ResultMapper) {
-        resultMapper = mapper
+    fun exceptionHandler(handler: ExceptionHandler) {
+        exceptionHandler = handler
     }
 
     /**
-     * Disables the exception handler mechanism.
-     * The default behaviour is to throw the exception when it occurs.
-     * This is a subtype of the [resultMapper] method,
-     * used when no mapping is needed and the eventuality of an exception
-     * should not be thrown.
+     * Disables the exception handler.
+     * By default, the exception, if any, is thrown.
+     * @see [exceptionHandler]
      */
     fun disableExceptionHandler() {
-        resultMapper = { result, _ -> result }
+        exceptionHandler = { it }
     }
 
     /**
@@ -223,19 +243,8 @@ class RetryConfigBuilder(
         retryPredicate,
         retryOnResultPredicate,
         delayStrategy,
-        resultMapper
+        exceptionHandler
     )
-
-    /**
-     * Validates that the duration is in fact a positive duration.
-     * @param duration the duration to validate.
-     * @param qualifier the qualifier to use in the exception message.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0
-     */
-    @Throws(IllegalArgumentException::class)
-    private fun requirePositiveDuration(duration: Duration, qualifier: String) {
-        require(duration > Duration.ZERO) { "$qualifier duration must be greater than 0" }
-    }
 }
 
 /**
@@ -248,9 +257,15 @@ private val defaultRetryConfig = RetryConfig(
     delayStrategy = DelayStrategyOptions.exponential(
         initialDelay = 500.milliseconds,
         multiplier = 2.0,
-        maxDelay = 1.minutes
-    ),
-    resultMapper = { result: Any?, throwable: Throwable? ->
-        throwable?.let { throw it } ?: result
-    }
+        maxDelay = 1.minutes,
+        randomizationFactor = 0.0
+    ).toRetryDelayStrategy(),
+    exceptionHandler = { throw it }
 )
+
+/**
+ * Converts a [DelayStrategy] into a [RetryDelayStrategy] by ignoring the context.
+ */
+private fun DelayStrategy.toRetryDelayStrategy(): RetryDelayStrategy = { attempt, _ ->
+    this(attempt)
+}

@@ -1,4 +1,4 @@
-package core
+package kresil.core
 
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay

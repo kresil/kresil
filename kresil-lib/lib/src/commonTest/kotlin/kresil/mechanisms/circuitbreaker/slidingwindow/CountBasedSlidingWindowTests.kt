@@ -1,4 +1,4 @@
-package circuitbreaker.slidingwindow
+package kresil.mechanisms.circuitbreaker.slidingwindow
 
 import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
 import kotlin.test.Test

@@ -1,11 +1,11 @@
-package circuitbreaker
+package kresil.mechanisms.circuitbreaker
 
 import kotlinx.coroutines.test.runTest
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.state.CircuitBreakerState
-import kresil.core.delay.DelayStrategyOptions
+import kresil.core.delay.strategy.DelayStrategyOptions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -34,13 +34,14 @@ class CircuitBreakerConfigTests {
         assertEquals(100, minimumThroughput)
         assertEquals(SlidingWindowType.COUNT_BASED, type)
         assertEquals(10, config.permittedNumberOfCallsInHalfOpenState)
-        val constantDuration = DelayStrategyOptions.constant<Unit>(1.minutes).invoke(Int.MAX_VALUE, Unit)
+        val constantDuration = DelayStrategyOptions.constant(1.minutes).invoke(Int.MAX_VALUE)
         for (i in 1..100) {
             assertEquals(constantDuration, config.delayStrategyInOpenState(i, Unit))
         }
         assertEquals(Duration.ZERO, config.maxWaitDurationInHalfOpenState)
         assertFalse(config.recordResultPredicate(Any()))
         assertTrue(config.recordExceptionPredicate(Exception()))
+        assertTrue(config.recordExceptionPredicate(Error()))
     }
 
     @Test
@@ -125,7 +126,7 @@ class CircuitBreakerConfigTests {
         }
 
         // then: an exception should be thrown
-        assertEquals("HalfOpen state duration must be greater than or equal to 0", ex.message)
+        assertEquals("HalfOpen state duration must be greater than or equal to zero", ex.message)
     }
 
 }

@@ -1,20 +1,21 @@
-package kresil.core.delay
+package kresil.core.delay.provider
 
 import kotlin.time.Duration
+import kresil.core.delay.strategy.DelayStrategy
 
 /**
  * A delay provider executes the actual waiting period, in contrast to a [DelayStrategy],
  * which only determines the delay duration.
- * This provider can be used to implement custom delay logic with optional state.
+ * This provider can be used to implement custom delay logic with optional state between attempts.
+ * See [CtxDelayProvider] for a context-aware version.
  *
  * **Stateless Example**:
  * ```
- * val statelessDelayProvider = DelayProvider { attempt, context ->
+ * val statelessDelayProvider = DelayProvider { attempt ->
  *    val nextDuration = when {
  *       attempt % 2 == 0 -> 1.seconds
  *       else -> 2.seconds
  *    }
- *    // add additional logic with context
  *    externalDelay(nextDuration) // your custom delay provider
  *    Duration.ZERO // to skip the default delay provider
  * }
@@ -25,12 +26,11 @@ import kotlin.time.Duration
  * val statefulDelayProvider = object : DelayProvider<TContext> {
  *    var delayProviderRetryCounter = 0
  *       private set
- *    override suspend fun delay(attempt: Int, context: TContext): Duration {
+ *    override suspend fun delay(attempt: Int): Duration {
  *       val nextDuration = when {
  *          ++delayProviderRetryCounter % 2 == 0 -> 1.seconds
  *          else -> 2.seconds
  *       }
- *       // add additional logic with context
  *       externalDelay(nextDuration) // your custom delay provider
  *       return Duration.ZERO // to skip the default delay provider
  *    }
@@ -43,13 +43,12 @@ import kotlin.time.Duration
  *
  * By default, [kotlinx.coroutines.delay] is used as the delay provider.
  */
-fun interface DelayProvider<TContext> {
+fun interface DelayProvider {
 
     /**
      * Determines the delay between retries.
      * If the return value is `Duration.ZERO`, the delay is considered to be defined externally and the default delay provider is skipped.
      * @param attempt the current retry attempt. Starts at **1**.
-     * @param context additional context for the delay provider to determine the delay duration.
      */
-    suspend fun delay(attempt: Int, context: TContext): Duration
+    suspend fun delay(attempt: Int): Duration
 }

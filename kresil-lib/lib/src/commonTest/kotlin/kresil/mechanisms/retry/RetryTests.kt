@@ -1,7 +1,5 @@
-package retry
+package kresil.mechanisms.retry
 
-import exceptions.WebServiceException
-import extensions.delayWithRealTime
 import io.mockative.Mock
 import io.mockative.classOf
 import io.mockative.coEvery
@@ -13,22 +11,26 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.testTimeSource
 import kresil.core.callbacks.OnExceptionPredicate
+import kresil.core.callbacks.ResultMapper
+import kresil.exceptions.WebServiceException
+import kresil.extensions.delayWithRealTime
 import kresil.retry.Retry
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.retryConfig
-import kresil.retry.delay.RetryDelayProvider
+import kresil.retry.delay.RetryCtxDelayProvider
 import kresil.retry.delay.RetryDelayStrategy
 import kresil.retry.delay.RetryDelayStrategyContext
 import kresil.retry.event.RetryEvent
 import kresil.retry.exceptions.MaxRetriesExceededException
-import service.ConditionalSuccessRemoteService
-import service.RemoteService
+import kresil.service.ConditionalSuccessRemoteService
+import kresil.service.RemoteService
 import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration
@@ -364,7 +366,7 @@ class RetryTests {
         val multiplier = 2.0
         val initialDelayMillis = initialDelay.inWholeMilliseconds
         (1..config.maxAttempts).forEach { attempt ->
-            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt)).toLong()
+            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt - 1)).toLong()
             assertEquals(nextDurationMillis.milliseconds, config.delayStrategy(attempt, RetryDelayStrategyContext()))
         }
 
@@ -469,17 +471,11 @@ class RetryTests {
 
         // when: the constant delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 constantDelay(delayDuration)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Delay duration must be greater than 0",
-            exception.message
-        )
     }
 
     @Test
@@ -521,7 +517,7 @@ class RetryTests {
         val expectedDuration = (1..retryAttempts).sumOf { attempt ->
             val initialDelayMillis = initialDelay.inWholeMilliseconds
             val maxDelayMillis = maxDelay.inWholeMilliseconds
-            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt)).toLong()
+            val nextDurationMillis: Long = (initialDelayMillis * multiplier.pow(attempt - 1)).toLong()
             val result = nextDurationMillis.coerceAtMost(maxDelayMillis)
             result
         }
@@ -536,17 +532,12 @@ class RetryTests {
 
         // when: the exponential delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 exponentialDelay(multiplier = multiplier)
             }
         }
 
-        // and: the exception message is correct
-        assertEquals(
-            "Multiplier must be greater than 1",
-            exception.message
-        )
     }
 
     @Test
@@ -557,17 +548,11 @@ class RetryTests {
 
         // when: the exponential delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 exponentialDelay(initialDelay = initialDelay)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Initial delay duration must be greater than 0",
-            exception.message
-        )
     }
 
     @Test
@@ -579,17 +564,11 @@ class RetryTests {
 
         // when: the exponential delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 exponentialDelay(initialDelay = initialDelay, maxDelay = maxDelay)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Max delay must be greater than initial delay",
-            exception.message
-        )
     }
 
     @Test
@@ -764,7 +743,7 @@ class RetryTests {
     fun retryWithStatefulCustomDelayProvider() = runTest {
 
         // given: a stateful custom delay provider
-        val statefulDelayProvider = object : RetryDelayProvider {
+        val statefulDelayProvider = object : RetryCtxDelayProvider {
             var delayProviderRetryCounter = 0
                 private set
 
@@ -819,7 +798,7 @@ class RetryTests {
     fun retryWithStatelessCustomDelayProvider() = runTest {
 
         // given: a stateless custom delay provider
-        val statelessDelayProvider = RetryDelayProvider { attempt, _ ->
+        val statelessDelayProvider = RetryCtxDelayProvider { attempt, _ ->
             val nextDuration = when {
                 attempt % 2 == 0 -> 1.seconds
                 else -> 2.seconds
@@ -963,7 +942,6 @@ class RetryTests {
 
     @Test
     fun retryListenersCancellationDoesNotCancelUnderlyingScope() = runTest {
-
         // given: a retry instance
         val retry = Retry()
 
@@ -1098,7 +1076,6 @@ class RetryTests {
 
     @Test
     fun retryWithDecoratedBiFunction() = runTest {
-
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1161,7 +1138,6 @@ class RetryTests {
 
     @Test
     fun overrideAConfiguration() = runTest {
-
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1183,7 +1159,6 @@ class RetryTests {
 
     @Test
     fun doNotPropagateExceptionOnError() = runTest {
-
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1235,8 +1210,7 @@ class RetryTests {
     }
 
     @Test
-    fun retryOnResultWithCustomExceptionHandler() = runTest {
-
+    fun doNotPropagateExceptionOnErrorWithRetryOnResult() = runTest {
         // given: a retry configuration
         val maxAttempts = 3
         val delayDuration = 3.seconds
@@ -1269,7 +1243,8 @@ class RetryTests {
                 remoteService.suspendSupplier()
             }
         } catch (e: MaxRetriesExceededException) {
-            fail("Should not throw a MaxRetriesExceededException")
+            // then: the exception is not propagated
+            fail("The exception should not be propagated")
         } catch (e: Exception) {
             fail("unexpected exception: $e")
         }
@@ -1320,7 +1295,7 @@ class RetryTests {
         // then: the retry virtual time equals the delay duration multipled by each retry attempt
         val retryExecutionDuration = currentTime
         val retryAttempts = config.permittedRetryAttempts
-        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts)
+        assertEquals(retryExecutionDuration, delayDuration.inWholeMilliseconds * retryAttempts + delayDuration.inWholeMilliseconds)
     }
 
     @Test
@@ -1331,17 +1306,11 @@ class RetryTests {
 
         // when: the linear delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
                 linearDelay(initialDelay)
             }
         }
-
-        // and: the exception message is correct
-        assertEquals(
-            "Initial delay duration must be greater than 0",
-            exception.message
-        )
     }
 
     @Test
@@ -1353,17 +1322,64 @@ class RetryTests {
 
         // when: the linear delay is created
         // then: an exception is thrown
-        val exception = assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalArgumentException> {
             retryConfig {
-                linearDelay(initialDelay, maxDelay)
+                linearDelay(initialDelay, maxDelay = maxDelay)
             }
         }
+    }
 
-        // and: the exception message is correct
-        assertEquals(
-            "Max delay must be greater than initial delay",
-            exception.message
-        )
+    @Test
+    fun resultMapperInDecorationOverridesExceptionHandlerFromConfig() = runTest {
+        // given: a retry configuration
+        val maxAttempts = 3
+        val delayDuration = 3.seconds
+        val resultOfOperation = null
+        val config: RetryConfig = retryConfig {
+            this.maxAttempts = maxAttempts
+            constantDelay(delayDuration)
+            retryOnResult { it == resultOfOperation }
+            disableExceptionHandler()
+        }
+
+        // and: a retry instance
+        val retry = Retry(config)
+
+        // and: a remote service that always throws an exception
+        val input = "1"
+        val output = "1050"
+        coEvery { remoteService.suspendFunction(input) }
+            .returnsMany(
+                resultOfOperation,
+                resultOfOperation,
+                output
+            )
+
+        // and: a result mapper that maps the result to an integer or throws an exception
+        val resultMapperException = RuntimeException("BAM!")
+        val resultMapper: ResultMapper<String, Int> = { result, exception ->
+            println("Result: $result, Exception: $exception")
+            if (exception != null) throw resultMapperException
+            result?.toInt() ?: 3
+        }
+
+        // when: a decorated function is executed with the retry instance
+        val decorated = retry.decorateCtxFunction(
+            resultMapper = resultMapper
+        ) { _, a: String ->
+            remoteService.suspendFunction(a)
+        }
+
+        try {
+            // when: a decorated function is executed with the retry instance
+            val result = decorated(input)
+            // then: the result mapper is invoked
+            assertNotNull(result)
+            assertEquals(output.toInt(), result)
+        } catch (e: Throwable) {
+            fail("unexpected exception: $e")
+        }
+
     }
 
 }

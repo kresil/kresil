@@ -1,22 +1,25 @@
 package kresil.retry
 
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kresil.core.callbacks.ResultMapper
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.BiFunction
+import kresil.core.oper.CtxBiFunction
+import kresil.core.oper.CtxFunction
+import kresil.core.oper.CtxSupplier
 import kresil.core.oper.Function
 import kresil.core.oper.Supplier
 import kresil.retry.config.RetryConfig
 import kresil.retry.config.RetryConfigBuilder
 import kresil.retry.config.defaultRetryConfig
 import kresil.retry.context.RetryAsyncContextImpl
-import kresil.retry.event.RetryEvent
-import kresil.core.oper.CtxBiFunction
-import kresil.core.oper.CtxFunction
-import kresil.core.oper.CtxSupplier
 import kresil.retry.context.RetryContext
+import kresil.retry.event.RetryEvent
+import kresil.retry.event.RetryEvent.RetryOnError
+import kresil.retry.event.RetryEvent.RetryOnIgnoredError
+import kresil.retry.event.RetryEvent.RetryOnRetry
+import kresil.retry.event.RetryEvent.RetryOnSuccess
 
 /**
  * A [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
@@ -66,12 +69,17 @@ import kresil.retry.context.RetryContext
  *       retryOnResultIf { it is "success" }
  *       constantDelay(500.milliseconds)
  *       // customDelay { attempt, context -> ... }
- *       // resultMapper { throwable -> ... }
+ *       // exceptionHandler { throwable -> ... }
  *    }
  * )
  *
  * // execute a supplier
- * retry.executeSupplier { ctx ->
+ * retry.executeSupplier {
+ *    // operation
+ * }
+ *
+ * // execute a supplier with a context
+ * retry.executeCtxSupplier { ctx ->
  *    // operation
  * }
  *
@@ -83,15 +91,12 @@ import kresil.retry.context.RetryContext
  * val result = decoratedSupplier()
  *
  * // listen to specific events
- * retry.onRetry { attempt -> println("Attempt: $attempt") }
- * retry.onError { throwable -> println("Error: $throwable") }
- * retry.onIgnoredError { throwable -> println("Ignored error: $throwable") }
- * retry.onSuccess { println("Success") }
+ * retry.onRetry { event -> println(event) }
  *
  * // listen to all events
  * retry.onEvent { event -> println(event) }
  *
- * // cancel all listeners
+ * // cancel all registered listeners
  * retry.cancelListeners()
  * ```
  * @param config The configuration for the retry mechanism.
@@ -102,6 +107,21 @@ class Retry(
 ) : FlowEventListenerImpl<RetryEvent>() {
 
     /**
+     * Provides a default result mapper for decorating functions which returns the result unmodified or applies
+     * the exception handler from the configuration.
+     */
+    private fun <R, T> defaultResultMapper(): ResultMapper<R, T> = { result: R?, throwable: Throwable? ->
+        // throwable must be checked first because result being nullable is a viable option
+        if (throwable != null) {
+            config.exceptionHandler(throwable)
+            null
+        } else {
+            @Suppress("UNCHECKED_CAST")
+            result as T?
+        }
+    }
+
+    /**
      * Executes an operation with this retry mechanism.
      * @param inputA The first input argument.
      * @param inputB The second input argument.
@@ -109,12 +129,12 @@ class Retry(
      * @param block The operation to execute.
      * @see [decorateFunction]
      */
-    private suspend fun <A, B, R> executeOperation(
+    private suspend fun <A, B, R, T> executeOperation(
         inputA: A,
         inputB: B,
-        resultMapper: (Any?, Throwable?) -> Any? = config.resultMapper, // TODO: missing tests for resultMapper
+        resultMapper: ResultMapper<R, T>,
         block: CtxBiFunction<RetryContext, A, B, R>
-    ): R? { // TODO: also decoration principle is lost if function which didn't return null is forced to return null
+    ): T? { // TODO: decoration principle is lost if function which didn't return null is forced to return null
         val context = RetryAsyncContextImpl(config, events)
         while (true) {
             try {
@@ -126,15 +146,13 @@ class Retry(
                     continue
                 }
                 context.onSuccess()
-                @Suppress("UNCHECKED_CAST")
-                return resultMapper(result, null) as R? // TODO: remove this cast
+                return resultMapper(result, null)
             } catch (throwable: Throwable) {
                 val shouldRetryOnError = context.onError(throwable)
                 if (shouldRetryOnError) {
                     context.onRetry()
                 } else {
-                    @Suppress("UNCHECKED_CAST")
-                    return resultMapper(null, throwable) as R?
+                    return resultMapper(null, throwable)
                 }
             }
         }
@@ -142,29 +160,26 @@ class Retry(
 
     /**
      * Executes a [Supplier] with this retry mechanism.
-     * @param resultMapper The mapper to transform the result or the exception. By default, the [ResultMapper] from the configuration is used.
      * @param block The operation to execute.
      * @see [decorateSupplier]
      */
     suspend fun <R> executeSupplier(
-        resultMapper: ResultMapper = config.resultMapper,
-        block: CtxSupplier<RetryContext, R>,
-    ): R? { // TODO: decoration principle is lost if function which didn't return null is forced to return null
-        return executeOperation(Unit, Unit, resultMapper) { ctx, _, _ -> block(ctx) }
+        block: Supplier<R>,
+    ): R? {
+        return executeOperation(Unit, Unit, defaultResultMapper<R, R>()) { _, _, _ -> block() }
     }
 
     /**
-     * Decorates a [Supplier] with this retry mechanism by providing an additional [RetryContext].
-     * @param resultMapper The mapper to transform the result or the exception. By default, the [ResultMapper] from the configuration is used.
-     * @param block The operation to decorate and execute later.
-     * @see [decorateCtxFunction]
-     * @see [decorateCtxBiFunction]
+     * Executes a [Supplier] with this retry mechanism.
+     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
+     * @param block The operation to execute.
+     * @see [decorateSupplier]
      */
-    fun <R> decorateCtxSupplier(
-        resultMapper: ResultMapper = config.resultMapper,
+    suspend fun <R, T> executeCtxSupplier(
+        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
         block: CtxSupplier<RetryContext, R>,
-    ): Supplier<R?> {
-        return { executeSupplier(resultMapper) { block(it) } }
+    ): T? {
+        return executeOperation(Unit, Unit, resultMapper) { ctx, _, _ -> block(ctx) }
     }
 
     /**
@@ -180,59 +195,69 @@ class Retry(
     }
 
     /**
-     * Decorates a [Function] with this retry mechanism by providing an additional [RetryContext].
-     * @param resultMapper The mapper to transform the result or the exception. By default, the [ResultMapper] from the configuration is used.
+     * Decorates a [Supplier] with this retry mechanism by providing an additional [RetryContext].
+     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
      * @param block The operation to decorate and execute later.
-     * @see [decorateCtxSupplier]
+     * @see [decorateCtxFunction]
      * @see [decorateCtxBiFunction]
      */
-    fun <A, R> decorateCtxFunction(
-        resultMapper: ResultMapper = config.resultMapper,
-        block: CtxFunction<RetryContext, A, R>,
-    ): Function<A, R?> {
-        return { executeOperation(it, Unit, resultMapper) { ctx, a, _ -> block(ctx, a) } }
+    fun <R, T> decorateCtxSupplier(
+        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
+        block: CtxSupplier<RetryContext, R>,
+    ): Supplier<T?> {
+        return { executeCtxSupplier(resultMapper) { block(it) } }
     }
 
     /**
      * Decorates a [Function] with this retry mechanism.
-     * @param resultMapper The mapper to transform the result or the exception. By default, the [ResultMapper] from the configuration is used.
      * @param block The operation to decorate and execute later.
      * @see [decorateSupplier]
      * @see [decorateBiFunction]
      */
     fun <A, R> decorateFunction(
-        resultMapper: ResultMapper = config.resultMapper,
         block: Function<A, R>,
     ): Function<A, R?> {
-        return { executeOperation(it, Unit, resultMapper) { _, a, _ -> block(a) } }
+        return { executeOperation(it, Unit, defaultResultMapper()) { _, a, _ -> block(a) } }
     }
 
     /**
-     * Decorates a [BiFunction] with this retry mechanism by providing an additional [RetryContext].
-     * @param resultMapper The mapper to transform the result or the exception. By default, the [ResultMapper] from the configuration is used.
+     * Decorates a [Function] with this retry mechanism by providing an additional [RetryContext].
+     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
      * @param block The operation to decorate and execute later.
      * @see [decorateCtxSupplier]
-     * @see [decorateCtxFunction]
+     * @see [decorateCtxBiFunction]
      */
-    fun <A, B, R> decorateCtxBiFunction(
-        resultMapper: ResultMapper = config.resultMapper,
-        block: CtxBiFunction<RetryContext, A, B, R>,
-    ): BiFunction<A, B, R?> {
-        return { a, b -> executeOperation(a, b, resultMapper) { ctx, a2, b2 -> block(ctx, a2, b2) } }
+    fun <A, R, T> decorateCtxFunction(
+        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
+        block: CtxFunction<RetryContext, A, R>,
+    ): Function<A, T?> {
+        return { executeOperation(it, Unit, resultMapper) { ctx, a, _ -> block(ctx, a) } }
     }
 
     /**
      * Decorates a [BiFunction] with this retry mechanism.
-     * @param resultMapper The mapper to transform the result or the exception. By default, the [ResultMapper] from the configuration is used.
      * @param block The operation to decorate and execute later.
      * @see [decorateSupplier]
      * @see [decorateFunction]
      */
     fun <A, B, R> decorateBiFunction(
-        resultMapper: ResultMapper = config.resultMapper,
         block: BiFunction<A, B, R>,
     ): BiFunction<A, B, R?> {
-        return { a, b -> executeOperation(a, b, resultMapper) { _, a2, b2 -> block(a2, b2) } }
+        return { a, b -> executeOperation(a, b, defaultResultMapper()) { _, a2, b2 -> block(a2, b2) } }
+    }
+
+    /**
+     * Decorates a [BiFunction] with this retry mechanism by providing an additional [RetryContext].
+     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
+     * @param block The operation to decorate and execute later.
+     * @see [decorateCtxSupplier]
+     * @see [decorateCtxFunction]
+     */
+    fun <A, B, R, T> decorateCtxBiFunction(
+        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
+        block: CtxBiFunction<RetryContext, A, B, R>,
+    ): BiFunction<A, B, T?> {
+        return { a, b -> executeOperation(a, b, resultMapper) { ctx, a2, b2 -> block(ctx, a2, b2) } }
     }
 
     /**
@@ -241,11 +266,10 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onRetry(action: suspend (Int) -> Unit) =
+    suspend fun onRetry(action: suspend (RetryOnRetry) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnRetry>()
-                .map { it.attempt }
+                .filterIsInstance<RetryOnRetry>()
                 .collect { action(it) }
         }
 
@@ -255,11 +279,10 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onError(action: suspend (Throwable) -> Unit) =
+    suspend fun onError(action: suspend (RetryOnError) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnError>()
-                .map { it.throwable }
+                .filterIsInstance<RetryOnError>()
                 .collect { action(it) }
         }
 
@@ -270,11 +293,10 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onIgnoredError(action: suspend (Throwable) -> Unit) =
+    suspend fun onIgnoredError(action: suspend (RetryOnIgnoredError) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnIgnoredError>()
-                .map { it.throwable }
+                .filterIsInstance<RetryOnIgnoredError>()
                 .collect { action(it) }
         }
 
@@ -283,11 +305,11 @@ class Retry(
      * The underlying event is emitted when the operation is completed successfully after a retry.
      * @see [onEvent]
      */
-    suspend fun onSuccess(action: suspend () -> Unit) =
+    suspend fun onSuccess(action: suspend (RetryOnSuccess) -> Unit) =
         scope.launch {
             events
-                .filterIsInstance<RetryEvent.RetryOnSuccess>()
-                .collect { action() }
+                .filterIsInstance<RetryOnSuccess>()
+                .collect { action(it) }
         }
 
     /**

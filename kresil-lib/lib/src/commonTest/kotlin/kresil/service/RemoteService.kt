@@ -1,4 +1,4 @@
-package service
+package kresil.service
 
 /**
  * Represents a service that can be called remotely.

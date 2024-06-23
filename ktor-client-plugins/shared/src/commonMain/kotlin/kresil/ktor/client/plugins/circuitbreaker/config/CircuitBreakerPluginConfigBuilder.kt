@@ -2,13 +2,13 @@ package kresil.ktor.client.plugins.circuitbreaker.config
 
 import io.ktor.client.statement.*
 import kresil.circuitbreaker.config.CircuitBreakerConfigBuilder
-import kresil.circuitbreaker.delay.CircuitBreakerDelayProvider
-import kresil.circuitbreaker.delay.CircuitBreakerDelayStrategy
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.core.builders.ConfigBuilder
+import kresil.core.delay.provider.DelayProvider
+import kresil.core.delay.strategy.DelayStrategy
 import kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -92,77 +92,71 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
 
     /**
      * Configures the circuit breaker delay strategy to use a constant delay between transitions from [Open] to [HalfOpen].
-     * @param duration the constant delay between transitions.
-     * @throws IllegalArgumentException if the duration is less than or equal to 0.
+     * @param delay the constant delay between transitions.
      * @see [noDelayInOpenState]
      * @see [linearDelayInOpenState]
      * @see [exponentialDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
-    fun constantDelayInOpenState(duration: Duration) {
-        cbreakerConfigBuilder.constantDelayInOpenState(duration)
+    fun constantDelayInOpenState(delay: Duration) {
+        cbreakerConfigBuilder.constantDelayInOpenState(delay)
     }
 
     /**
-     * Configures the circuit breaker delay strategy to use a linear delay between transitions from [Open] to [HalfOpen].
-     * The delay between transitions is calculated using the formula:
-     *
-     * `initialDelay * attempt`, where `attempt` is the current transition attempt.
+     * Configures the circuit breaker delay strategy
+     * to use a linear backoff algorithm to calculate the next delay duration between transitions from [Open] to [HalfOpen].
+     * - `initialDelay + (initialDelay * (attempt - 1) * multiplier)`,
+     * where `attempt` is the number of times the circuit breaker is in the [Open] state in one cycle.
      *
      * Example:
      * ```
-     * linearDelayInOpenState(500.milliseconds, 4.seconds)
+     * linear(500.milliseconds, 1.0, 4.seconds)
      * // Delay between transitions will be as follows:
      * // [500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s, 4s, 4s, 4s, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
      * @param initialDelay the initial delay before the first transition.
+     * @param multiplier the multiplier to increase the delay between transitions.
      * @param maxDelay the maximum delay between transitions. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
+     * @see [exponentialDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
     fun linearDelayInOpenState(
         initialDelay: Duration = 500L.milliseconds,
+        multiplier: Double = 1.0,
         maxDelay: Duration = 1.minutes,
     ) {
-        cbreakerConfigBuilder.linearDelayInOpenState(initialDelay, maxDelay)
+        cbreakerConfigBuilder.linearDelayInOpenState(initialDelay, multiplier, maxDelay)
     }
 
     /**
-     * Configures the circuit breaker delay strategy to use an exponential delay between transitions from [Open] to [HalfOpen].
-     * The delay between transitions is calculated using the formula:
-     *
-     * `initialDelay * multiplier^attempt`, where `attempt` is the current transition attempt.
+     * Configures the circuit breaker delay strategy
+     * to use an exponential backoff algorithm to calculate the next delay duration between transitions from [Open] to [HalfOpen].
+     * The algorithm is based on the formula:
+     * - `(initialDelay * multiplier^(attempt - 1))`,
+     * where `attempt` is the number of times the circuit breaker is in the [Open] state in one cycle.
      *
      * Example:
      * ```
-     * exponentialDelayInOpenState(500.milliseconds, 2.0, 1.minutes)
+     * exponential(500.milliseconds, 2.0, 1.minutes)
      * // Delay between transitions will be as follows:
      * // [500ms, 1s, 2s, 4s, 8s, 16s, 32s, 1m, 1m, 1m, ...]
      * ```
-     *
-     * **Note:** The delay is capped at the `maxDelay` value.
-     * @param initialDelay the initial delay before the first retry.
+     * @param initialDelay the initial delay before the first transition.
      * @param multiplier the multiplier to increase the delay between transitions.
      * @param maxDelay the maximum delay between transitions. Used as a safety net to prevent infinite delays.
-     * @throws IllegalArgumentException if the initial delay is less than or equal to 0 or the multiplier is less than or equal to 1.0.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
      * @see [linearDelayInOpenState]
      * @see [customDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      */
-    @Throws(IllegalArgumentException::class)
     fun exponentialDelayInOpenState(
         initialDelay: Duration = 500L.milliseconds,
-        multiplier: Double = 2.0, // not using constant to be readable for the user
+        multiplier: Double = 2.0,
         maxDelay: Duration = 1.minutes,
     ) {
         cbreakerConfigBuilder.exponentialDelayInOpenState(initialDelay, multiplier, maxDelay)
@@ -176,7 +170,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      *
      * Example:
      * ```
-     * customDelayInOpenState { attempt, _ ->
+     * customDelayInOpenState { attempt ->
      *      attempt % 2 == 0 -> 1.seconds
      *      else -> 3.seconds
      * }
@@ -190,7 +184,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * @see [exponentialDelayInOpenState]
      * @see [customDelayProviderInOpenState]
      **/
-    fun customDelayInOpenState(delayStrategyInOpenState: CircuitBreakerDelayStrategy) {
+    fun customDelayInOpenState(delayStrategyInOpenState: DelayStrategy) {
         cbreakerConfigBuilder.customDelayInOpenState(delayStrategyInOpenState)
     }
 
@@ -198,7 +192,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * Configures the circuit breaker delay strategy to use a custom delay provider between transitions from [Open] to [HalfOpen].
      * In contrast to [customDelayInOpenState], this method enables caller control over the delay provider (which is the
      * [kotlinx.coroutines.delay] by default) and optional additional state between transitions.
-     * See [CircuitBreakerDelayProvider] for more information.
+     * See [DelayProvider] for more information.
      * @param delayProvider the custom delay provider to use.
      * @see [noDelayInOpenState]
      * @see [constantDelayInOpenState]
@@ -206,7 +200,7 @@ class CircuitBreakerPluginConfigBuilder(override val baseConfig: CircuitBreakerP
      * @see [exponentialDelayInOpenState]
      * @see [customDelayInOpenState]
      */
-    fun customDelayProviderInOpenState(delayProvider: CircuitBreakerDelayProvider) {
+    fun customDelayProviderInOpenState(delayProvider: DelayProvider) {
         cbreakerConfigBuilder.customDelayProviderInOpenState(delayProvider)
     }
 
