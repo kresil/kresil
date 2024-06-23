@@ -30,6 +30,14 @@ sealed class CircuitBreakerState {
         override fun toString(): String {
             return "${Open::class.simpleName}(delayDuration=$delayDuration, nrOfTransitionsToOpenStateInACycle=$nrOfTransitionsToOpenStateInACycle)"
         }
+
+        override fun equals(other: Any?): Boolean {
+            return other is Open
+        }
+
+        override fun hashCode(): Int {
+            return this::class.hashCode()
+        }
     }
 
     /**
@@ -52,6 +60,14 @@ sealed class CircuitBreakerState {
     ) : CircuitBreakerState() {
         override fun toString(): String {
             return "${HalfOpen::class.simpleName}(nrOfCallsAttempted=$nrOfCallsAttempted)"
+        }
+
+        override fun equals(other: Any?): Boolean {
+            return other is HalfOpen
+        }
+
+        override fun hashCode(): Int {
+            return this::class.hashCode()
         }
     }
 }

@@ -74,7 +74,12 @@ import kresil.retry.event.RetryEvent.RetryOnSuccess
  * )
  *
  * // execute a supplier
- * retry.executeSupplier { ctx ->
+ * retry.executeSupplier {
+ *    // operation
+ * }
+ *
+ * // execute a supplier with a context
+ * retry.executeCtxSupplier { ctx ->
  *    // operation
  * }
  *
@@ -86,8 +91,7 @@ import kresil.retry.event.RetryEvent.RetryOnSuccess
  * val result = decoratedSupplier()
  *
  * // listen to specific events
- * retry.onRetry { attempt -> println("Attempt: $attempt") }
- * retry.onError { throwable -> println("Error: $throwable") }
+ * retry.onRetry { event -> println(event) }
  *
  * // listen to all events
  * retry.onEvent { event -> println(event) }

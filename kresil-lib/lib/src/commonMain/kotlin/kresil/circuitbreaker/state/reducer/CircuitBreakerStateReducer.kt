@@ -56,7 +56,7 @@ class CircuitBreakerStateReducer<T> internal constructor(
         val observedState = _state
         val (newState, _) = reducer(observedState, event)
         _state = newState
-        if (observedState::class !== newState::class) {
+        if (observedState != newState) {
             events.emit(CircuitBreakerEvent.StateTransition(observedState, newState, event.isTransitionEvent))
         }
     }
