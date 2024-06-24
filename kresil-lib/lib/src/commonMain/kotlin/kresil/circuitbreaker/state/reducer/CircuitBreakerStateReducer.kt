@@ -19,9 +19,9 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION
 import kresil.circuitbreaker.state.reducer.CircuitBreakerReducerEvent.TRANSITION_TO_OPEN_STATE
 import kresil.core.reducer.Reducer
 import kresil.core.slidingwindow.FailureRateSlidingWindow
-import kotlin.time.ComparableTimeMark
+import kresil.core.timemark.getCurrentTimeMark
+import kresil.core.timemark.hasExceededDuration
 import kotlin.time.Duration
-import kotlin.time.TimeSource
 
 /**
  * A thread-safe state machine that acts as a reducer for a [CircuitBreaker].
@@ -49,6 +49,7 @@ class CircuitBreakerStateReducer<T> internal constructor(
     // internal state
     private var _state: CircuitBreakerState = Closed
     // reminder: sliding window is also part of the state
+    // TODO: should a reference to the sliding window be part of the state object?
 
     override suspend fun currentState(): CircuitBreakerState = lock.withLock { _state }
 
@@ -182,22 +183,17 @@ class CircuitBreakerStateReducer<T> internal constructor(
         events.emit(CircuitBreakerEvent.RecordedFailure(currentFailureRate))
     }
 
-    private fun getCurrentTimeMark(): ComparableTimeMark = TimeSource.Monotonic.markNow()
-
-    private fun hasExceededDurationInState(timeMark: ComparableTimeMark, duration: Duration): Boolean =
-        timeMark.elapsedNow() >= duration
-
     private fun hasExceededDurationInHalfOpenState(state: CircuitBreakerState): Boolean =
         when (state) {
             is HalfOpen -> state.startTimerMark != null &&
-                    hasExceededDurationInState(state.startTimerMark, config.maxWaitDurationInHalfOpenState)
+                    hasExceededDuration(state.startTimerMark, config.maxWaitDurationInHalfOpenState)
 
             else -> error("Trying to check if the duration has exceeded in a state that is not ${HalfOpen::class.simpleName}: $state")
         }
 
     private fun hasExceededDurationInOpenState(state: CircuitBreakerState): Boolean =
         when (state) {
-            is Open -> hasExceededDurationInState(state.startTimerMark, state.delayDuration)
+            is Open -> hasExceededDuration(state.startTimerMark, state.delayDuration)
             else -> error("Trying to check if the duration has exceeded in a state that is not ${Open::class.simpleName}: $state")
         }
 
