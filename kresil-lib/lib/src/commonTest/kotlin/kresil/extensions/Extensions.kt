@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -16,6 +17,14 @@ suspend fun delayWithRealTime(duration: Duration = 1.seconds) {
     withContext(Dispatchers.Default) {
         delay(duration) // delay with real time
     }
+}
+
+/**
+ * Retrieves an element from the list at the specified [index] with a short delay.
+ */
+suspend fun <T> MutableList<T>.getWithDelay(index: Int): T {
+    delayWithRealTime(100.milliseconds)
+    return get(index)
 }
 
 /**

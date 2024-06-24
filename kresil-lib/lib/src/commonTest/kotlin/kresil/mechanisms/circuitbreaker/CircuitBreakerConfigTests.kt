@@ -3,7 +3,7 @@ package kresil.mechanisms.circuitbreaker
 import kotlinx.coroutines.test.runTest
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
-import kresil.circuitbreaker.slidingwindow.SlidingWindowType
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.core.delay.strategy.DelayStrategyOptions
 import kotlin.test.Test

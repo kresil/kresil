@@ -13,6 +13,7 @@ import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.exceptions.NetworkException
 import kresil.exceptions.WebServiceException
 import kresil.extensions.delayWithRealTime
+import kresil.extensions.getWithDelay
 import kresil.service.RemoteService
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -658,22 +659,22 @@ class CircuitBreakerTests {
         assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
 
         // and: the events should be recorded correctly
-        var eventIndex = windowSize - 1
-        repeat(eventIndex) { index ->
+        var eventIndex = -1
+        repeat(windowSize - 1) { index ->
             if (index % 2 == 0) {
-                assertIs<CircuitBreakerEvent.RecordedFailure>(events[index]).apply {
+                assertIs<CircuitBreakerEvent.RecordedFailure>(events.getWithDelay(++eventIndex)).apply {
                     assertEquals(0.0, failureRate)
                 }
             } else {
-                assertIs<CircuitBreakerEvent.RecordedSuccess>(events[index]).apply {
+                assertIs<CircuitBreakerEvent.RecordedSuccess>(events.getWithDelay(++eventIndex)).apply {
                     assertEquals(0.0, failureRate)
                 }
             }
         }
-        assertIs<CircuitBreakerEvent.RecordedSuccess>(events[eventIndex]).apply {
+        assertIs<CircuitBreakerEvent.RecordedSuccess>(events.getWithDelay(++eventIndex)).apply {
             assertEquals(0.5, failureRate)
         }
-        val transitionToOpen = events[++eventIndex]
+        val transitionToOpen = events.getWithDelay(++eventIndex)
         assertIs<CircuitBreakerEvent.StateTransition>(transitionToOpen).apply {
             assertSame(CircuitBreakerState.Closed, fromState)
             assertIs<CircuitBreakerState.Open>(toState)
@@ -688,7 +689,7 @@ class CircuitBreakerTests {
             }
         }
         // and: the event should be recorded
-        assertIs<CircuitBreakerEvent.CallNotPermitted>(events[++eventIndex])
+        assertIs<CircuitBreakerEvent.CallNotPermitted>(events.getWithDelay(++eventIndex))
 
         // when: the delay duration has been exceeded
         delayWithRealTime(initialDelay)
@@ -697,7 +698,7 @@ class CircuitBreakerTests {
         assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
 
         // and: the events should be recorded correctly
-        val transitionToHalfOpen = events[++eventIndex]
+        val transitionToHalfOpen = events.getWithDelay(++eventIndex)
         assertIs<CircuitBreakerEvent.StateTransition>(transitionToHalfOpen).apply {
             assertIs<CircuitBreakerState.Open>(fromState)
             assertIs<CircuitBreakerState.HalfOpen>(toState)
@@ -709,12 +710,12 @@ class CircuitBreakerTests {
         repeat(config.permittedNumberOfCallsInHalfOpenState) {
             if (it == 0) {
                 registerSuccess()
-                assertIs<CircuitBreakerEvent.RecordedSuccess>(events[++eventIndex]).apply {
+                assertIs<CircuitBreakerEvent.RecordedSuccess>(events.getWithDelay(++eventIndex)).apply {
                     assertEquals(0.4, failureRate)
                 }
             } else {
                 registerFailure()
-                assertIs<CircuitBreakerEvent.RecordedFailure>(events[++eventIndex]).apply {
+                assertIs<CircuitBreakerEvent.RecordedFailure>(events.getWithDelay(++eventIndex)).apply {
                     assertEquals(0.5, failureRate)
                 }
             }
@@ -727,7 +728,7 @@ class CircuitBreakerTests {
             assertEquals(linearDelayInSecondAttempt, delayDuration)
         }
         // and: the events should be recorded correctly
-        val transitionToOpenSecond = events[++eventIndex]
+        val transitionToOpenSecond = events.getWithDelay(++eventIndex)
         assertIs<CircuitBreakerEvent.StateTransition>(transitionToOpenSecond).apply {
             assertIs<CircuitBreakerState.HalfOpen>(fromState)
             assertIs<CircuitBreakerState.Open>(toState)
@@ -742,7 +743,7 @@ class CircuitBreakerTests {
             }
         }
         // and: the event should be recorded
-        assertIs<CircuitBreakerEvent.CallNotPermitted>(events[++eventIndex])
+        assertIs<CircuitBreakerEvent.CallNotPermitted>(events.getWithDelay(++eventIndex))
 
         // when: the delay duration has been exceeded
         delayWithRealTime(linearDelayInSecondAttempt)
@@ -751,7 +752,7 @@ class CircuitBreakerTests {
         assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
 
         // and: the events should be recorded correctly
-        val transitionToHalfOpenSecond = events[++eventIndex]
+        val transitionToHalfOpenSecond = events.getWithDelay(++eventIndex)
         assertIs<CircuitBreakerEvent.StateTransition>(transitionToHalfOpenSecond).apply {
             assertIs<CircuitBreakerState.Open>(fromState)
             assertIs<CircuitBreakerState.HalfOpen>(toState)
@@ -762,7 +763,7 @@ class CircuitBreakerTests {
         //  calls in the HalfOpen state
         repeat(config.permittedNumberOfCallsInHalfOpenState) {
             registerSuccess()
-            assertIs<CircuitBreakerEvent.RecordedSuccess>(events[++eventIndex]).apply {
+            assertIs<CircuitBreakerEvent.RecordedSuccess>(events.getWithDelay(++eventIndex)).apply {
                 val failurerate = if (it == 0) 0.5 else 0.4
                 assertEquals(failurerate, failureRate)
             }
@@ -770,9 +771,8 @@ class CircuitBreakerTests {
 
         // then: the circuit breaker should be in the Closed state because the failure rate is below the threshold
         assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
-        // and: the events should be recorded correctly after some time has passed
-        delayWithRealTime(10.milliseconds)
-        val transitionToClosed = events[++eventIndex]
+        // and: the events should be recorded correctly
+        val transitionToClosed = events.getWithDelay(++eventIndex)
         assertIs<CircuitBreakerEvent.StateTransition>(transitionToClosed).apply {
             assertIs<CircuitBreakerState.HalfOpen>(fromState)
             assertIs<CircuitBreakerState.Closed>(toState)
@@ -802,9 +802,8 @@ class CircuitBreakerTests {
 
         // then: the circuit breaker should be in the Open state
         assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
-        // and: an event should be recorded after some time has passed
-        delayWithRealTime(10.milliseconds)
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+        // and: an event should be recorded correctly
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertSame(CircuitBreakerState.Closed, fromState)
             assertIs<CircuitBreakerState.Open>(toState)
             assertTrue(manual)
@@ -817,7 +816,7 @@ class CircuitBreakerTests {
         assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
         // and: an event should be recorded after some time has passed
         delayWithRealTime(10.milliseconds)
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertIs<CircuitBreakerState.Open>(fromState)
             assertIs<CircuitBreakerState.HalfOpen>(toState)
             assertTrue(manual)
@@ -829,7 +828,7 @@ class CircuitBreakerTests {
         // then: the circuit breaker should be in the Closed state
         assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
         // and: an event should be recorded
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertIs<CircuitBreakerState.HalfOpen>(fromState)
             assertSame(CircuitBreakerState.Closed, toState)
             assertTrue(manual)
@@ -848,7 +847,7 @@ class CircuitBreakerTests {
         // then: the circuit breaker should be in the HalfOpen state
         assertIs<CircuitBreakerState.HalfOpen>(circuitBreaker.currentState())
         // and: an event should be recorded
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertSame(CircuitBreakerState.Closed, fromState)
             assertIs<CircuitBreakerState.HalfOpen>(toState)
             assertTrue(manual)
@@ -866,7 +865,7 @@ class CircuitBreakerTests {
         // then: the circuit breaker should be in the Open state
         assertIs<CircuitBreakerState.Open>(circuitBreaker.currentState())
         // and: an event should be recorded
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertIs<CircuitBreakerState.HalfOpen>(fromState)
             assertIs<CircuitBreakerState.Open>(toState)
             assertTrue(manual)
@@ -885,7 +884,7 @@ class CircuitBreakerTests {
         assertSame(CircuitBreakerState.Closed, circuitBreaker.currentState())
         // and: an event should be recorded
         @Suppress("UNUSED_CHANGED_VALUE")
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[index++]).apply {
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertIs<CircuitBreakerState.Open>(fromState)
             assertSame(CircuitBreakerState.Closed, toState)
             assertTrue(manual)
@@ -1041,22 +1040,23 @@ class CircuitBreakerTests {
 
         // and: the relevant events should be recorded correctly
         assertEquals(3, stateTransitionEvents.size)
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[0]).apply {
+        var index = 0
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertSame(CircuitBreakerState.Closed, fromState)
             assertIs<CircuitBreakerState.Open>(toState)
             assertFalse(manual)
         }
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[1]).apply {
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertIs<CircuitBreakerState.Open>(fromState)
             assertSame(CircuitBreakerState.Closed, toState)
             assertTrue(manual)
         }
-        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents[2]).apply {
+        @Suppress("UNUSED_CHANGED_VALUE")
+        assertIs<CircuitBreakerEvent.StateTransition>(stateTransitionEvents.getWithDelay(index++)).apply {
             assertSame(CircuitBreakerState.Closed, fromState)
             assertIs<CircuitBreakerState.Open>(toState)
             assertFalse(manual)
         }
         assertEquals(1, resetEvents.size)
     }
-
 }
