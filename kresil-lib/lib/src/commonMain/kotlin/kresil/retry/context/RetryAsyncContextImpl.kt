@@ -32,8 +32,7 @@ internal class RetryAsyncContextImpl(
     // state
     var currentRetryAttempt = INITIAL_NON_RETRY_ATTEMPT
         private set
-    var lastThrowable: Throwable? = null
-        private set
+    private var lastThrowable: Throwable? = null
     private val isRetryAttempt: Boolean
         get() = currentRetryAttempt > INITIAL_NON_RETRY_ATTEMPT
     private val isWithinPermittedRetryAttempts: Boolean

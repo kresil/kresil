@@ -11,7 +11,7 @@ import kresil.core.oper.CtxSupplier
 import kresil.core.oper.Function
 import kresil.core.oper.Supplier
 import kresil.retry.config.RetryConfig
-import kresil.retry.config.RetryConfigBuilder
+import kresil.retry.config.retryConfig
 import kresil.retry.config.defaultRetryConfig
 import kresil.retry.context.RetryAsyncContextImpl
 import kresil.retry.context.RetryContext
@@ -23,8 +23,8 @@ import kresil.retry.event.RetryEvent.RetryOnSuccess
 
 /**
  * A [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
- * resilience mechanism implementation
- * that can be used to retry an operation when it fails and the failure is a transient error.
+ * is a reactive resilience mechanism
+ * that can be used to retry an operation when it fails and the failure is a transient (temporary) fault.
  * Operations can be decorated and executed on demand.
  * A retry mechanism is initialized with a [RetryConfig] that,
  * through pre-configured policies, define its behaviour.
@@ -54,22 +54,17 @@ import kresil.retry.event.RetryEvent.RetryOnSuccess
  * Examples of usage:
  * ```
  * // use predefined retry policies
- * val retry = Retry(
- *    retryConfig {
- *         maxAttempts = 3 // initial call + 2 retries
- *         exponentialDelay()
- *    }
- * )
+ * val retry = Retry()
  *
  * // use custom policies
  * val retry = Retry(
  *    retryConfig {
- *       maxAttempts = 5
- *       addRetryPredicate { it is NetworkError }
- *       retryOnResultIf { it is "success" }
+ *       maxAttempts = 5 // initial call + 4 retries
+ *       retryIf { it is NetworkError }
+ *       retryOnResult { it is "success" }
  *       constantDelay(500.milliseconds)
  *       // customDelay { attempt, context -> ... }
- *       // exceptionHandler { throwable -> ... }
+ *       // exceptionHandler { exception -> ... }
  *    }
  * )
  *
@@ -100,7 +95,7 @@ import kresil.retry.event.RetryEvent.RetryOnSuccess
  * retry.cancelListeners()
  * ```
  * @param config The configuration for the retry mechanism.
- * @see [RetryConfigBuilder]
+ * @see [retryConfig]
  */
 class Retry(
     val config: RetryConfig = defaultRetryConfig(),
