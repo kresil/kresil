@@ -1,4 +1,4 @@
-package kresil.circuitbreaker.slidingwindow
+package kresil.circuitbreaker.state.slidingwindow
 
 import kresil.core.slidingwindow.FailureRateSlidingWindow
 import kresil.core.utils.RingBuffer

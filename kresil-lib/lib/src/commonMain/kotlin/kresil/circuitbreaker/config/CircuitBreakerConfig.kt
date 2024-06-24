@@ -1,7 +1,7 @@
 package kresil.circuitbreaker.config
 
 import kresil.circuitbreaker.CircuitBreaker
-import kresil.circuitbreaker.slidingwindow.SlidingWindow
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindow
 import kresil.circuitbreaker.state.CircuitBreakerState.*
 import kresil.core.callbacks.OnExceptionPredicate
 import kresil.core.callbacks.OnResultPredicate

@@ -1,8 +1,8 @@
 package kresil.circuitbreaker.config
 
-import kresil.circuitbreaker.slidingwindow.SlidingWindow
-import kresil.circuitbreaker.slidingwindow.SlidingWindowType
-import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindow
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.core.builders.ConfigBuilder

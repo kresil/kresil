@@ -11,8 +11,8 @@ import kresil.circuitbreaker.event.CircuitBreakerEvent.RecordedSuccess
 import kresil.circuitbreaker.event.CircuitBreakerEvent.Reset
 import kresil.circuitbreaker.event.CircuitBreakerEvent.StateTransition
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
-import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
-import kresil.circuitbreaker.slidingwindow.SlidingWindowType
+import kresil.circuitbreaker.state.slidingwindow.CountBasedSlidingWindow
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType
 import kresil.circuitbreaker.state.CircuitBreakerState
 import kresil.circuitbreaker.state.CircuitBreakerState.Closed
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
@@ -28,14 +28,15 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
 import kresil.core.events.FlowEventListenerImpl
 
 /**
- * A [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
- * resilience mechanism implementation that can be used to protect a system component from overloading or failing.
- * State management is done via a finite state machine implemented using the reducer pattern,
- * where events are dispatched to the reducer to change the state of the circuit breaker based
- * on the current state and the event.
- * This way, two or more circuit breakers can use the same reducer to manage their state
- * (i.e., when one of two or more related components fail, the others are likely to fail too).
- * A circuit breaker is initialized with a [CircuitBreakerConfig] that,
+ * The [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
+ * is a **reactive** resilience mechanism
+ * that can be used to protect a system component from overloading or failing.
+ * By monitoring the health of the system, the circuit breaker can short-circuit
+ * execution requests when it detects that the system component is not behaving as expected.
+ * After a configurable timeout,
+ * the circuit breaker allows a limited number of test requests to pass through to see if the system has recovered.
+ * Depending on the test results, the circuit breaker can resume normal operation or continue to short-circuit requests.
+ * A circuit breaker is initialized with a configuration that,
  * through pre-configured policies, define its behaviour.
  * The circuit breaker implements the following state machine:
  * ```
@@ -83,23 +84,36 @@ import kresil.core.events.FlowEventListenerImpl
  * // get the current state of the circuit breaker
  * val observedState = circuitBreaker.currentState()
  *
+ * // wire the circuit breaker
+ * circuitBreaker.wire()
+ *
  * // execute an operation under the circuit breaker
  * val result = circuitBreaker.executeOperation {
- *   // operation
+ *     // operation
  * }
  *
  * // listen to specific events
  * circuitBreaker.onCallNotPermitted {
- *   // action
+ *     // action
  * }
  *
  * // listen to all events
  * circuitBreaker.onEvent {
- *   // action
+ *     // action
  * }
  *
  * // cancel all registered listeners
  * circuitBreaker.cancelListeners()
+ *
+ * // manually:
+ * // - override the circuit breaker state
+ * circuitBreaker.transitionToOpen()
+ * // - reset the circuit breaker
+ * circuitBreaker.reset()
+ * // - record an operation success
+ * circuitBreaker.recordSuccess()
+ * // - record an operation failure
+ * circuitBreaker.recordFailure()
  */
 class CircuitBreaker(
     val config: CircuitBreakerConfig = defaultCircuitBreakerConfig(),

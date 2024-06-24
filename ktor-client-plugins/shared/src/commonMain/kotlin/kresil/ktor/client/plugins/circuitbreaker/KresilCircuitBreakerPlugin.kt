@@ -4,7 +4,7 @@ import io.ktor.client.plugins.api.*
 import io.ktor.util.logging.*
 import kresil.circuitbreaker.CircuitBreaker
 import kresil.circuitbreaker.config.circuitBreakerConfig
-import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.ktor.client.plugins.circuitbreaker.config.CircuitBreakerPluginConfig
 import kresil.ktor.client.plugins.circuitbreaker.config.CircuitBreakerPluginConfigBuilder
 import kotlin.time.Duration.Companion.ZERO
