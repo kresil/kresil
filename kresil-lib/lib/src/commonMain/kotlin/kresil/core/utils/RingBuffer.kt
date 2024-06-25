@@ -1,6 +1,6 @@
 package kresil.core.utils
 
-class RingBuffer<T>(val capacity: Int) : Iterable<T> {
+internal class RingBuffer<T>(val capacity: Int) : Iterable<T> {
 
     @Suppress("UNCHECKED_CAST")
     private val buffer: Array<T?> = arrayOfNulls<Any>(capacity) as Array<T?>

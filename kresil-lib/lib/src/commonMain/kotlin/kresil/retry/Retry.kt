@@ -106,7 +106,7 @@ class Retry(
      * the exception handler from the configuration.
      */
     private fun <R, T> defaultResultMapper(): ResultMapper<R, T> = { result: R?, throwable: Throwable? ->
-        // throwable must be checked first because result being nullable is a viable option
+        // throwable must be checked first because a result being nullable is a viable option
         if (throwable != null) {
             config.exceptionHandler(throwable)
             null
@@ -166,7 +166,9 @@ class Retry(
 
     /**
      * Executes a [Supplier] with this retry mechanism.
-     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
+     * @param resultMapper The mapper to transform the result or the exception.
+     * By default, no result mapping is performed, and exception handling defaults to the handler
+     * configured in the configuration.
      * @param block The operation to execute.
      * @see [decorateSupplier]
      */
@@ -191,7 +193,9 @@ class Retry(
 
     /**
      * Decorates a [Supplier] with this retry mechanism by providing an additional [RetryContext].
-     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
+     * @param resultMapper The mapper to transform the result or the exception.
+     * By default, no result mapping is performed, and exception handling defaults to the handler
+     * configured in the configuration.
      * @param block The operation to decorate and execute later.
      * @see [decorateCtxFunction]
      * @see [decorateCtxBiFunction]
@@ -212,12 +216,14 @@ class Retry(
     fun <A, R> decorateFunction(
         block: Function<A, R>,
     ): Function<A, R?> {
-        return { executeOperation(it, Unit, defaultResultMapper()) { _, a, _ -> block(a) } }
+        return { executeOperation(it, Unit, defaultResultMapper<R, R>()) { _, a, _ -> block(a) } }
     }
 
     /**
      * Decorates a [Function] with this retry mechanism by providing an additional [RetryContext].
-     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
+     * @param resultMapper The mapper to transform the result or the exception.
+     * By default, no result mapping is performed, and exception handling defaults to the handler
+     * configured in the configuration.
      * @param block The operation to decorate and execute later.
      * @see [decorateCtxSupplier]
      * @see [decorateCtxBiFunction]
@@ -238,12 +244,14 @@ class Retry(
     fun <A, B, R> decorateBiFunction(
         block: BiFunction<A, B, R>,
     ): BiFunction<A, B, R?> {
-        return { a, b -> executeOperation(a, b, defaultResultMapper()) { _, a2, b2 -> block(a2, b2) } }
+        return { a, b -> executeOperation(a, b, defaultResultMapper<R, R>()) { _, a2, b2 -> block(a2, b2) } }
     }
 
     /**
      * Decorates a [BiFunction] with this retry mechanism by providing an additional [RetryContext].
-     * @param resultMapper The mapper to transform the result or the exception. By default, no result mapping is performed, and exception handling defaults to the handler configured in the configuration.
+     * @param resultMapper The mapper to transform the result or the exception.
+     * By default, no result mapping is performed, and exception handling defaults to the handler
+     * configured in the configuration.
      * @param block The operation to decorate and execute later.
      * @see [decorateCtxSupplier]
      * @see [decorateCtxFunction]

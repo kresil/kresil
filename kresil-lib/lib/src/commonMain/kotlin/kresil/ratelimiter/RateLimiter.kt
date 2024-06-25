@@ -2,12 +2,13 @@ package kresil.ratelimiter
 
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.Supplier
+import kresil.core.utils.NodeLinkedList
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.config.defaultRateLimiterConfig
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.event.RateLimiterEvent
-import kresil.ratelimiter.semaphore.InMemoryKeyBasedSemaphore
-import kresil.ratelimiter.semaphore.KeyBasedSemaphore
+import kresil.ratelimiter.semaphore.InMemorySemaphore
+import kresil.ratelimiter.semaphore.Semaphore
 import kotlin.time.Duration
 
 /**
@@ -17,30 +18,28 @@ A rate limiter is initialized with a configuration that, through pre-configured 
  * @param config The configuration for the rate limiter mechanism.
  * @see [rateLimiterConfig]
  */
-class RateLimiter<Key>(
+class RateLimiter(
     val config: RateLimiterConfig = defaultRateLimiterConfig(),
-    private val semaphore: KeyBasedSemaphore<Key> = InMemoryKeyBasedSemaphore(config)
-) : FlowEventListenerImpl<RateLimiterEvent>(), KeyBasedSemaphore<Key> by semaphore {
+    semaphore: Semaphore = InMemorySemaphore(config, NodeLinkedList())
+) : FlowEventListenerImpl<RateLimiterEvent>(), Semaphore by semaphore {
 
     /**
-     * Decorates a suspending function with rate limiting.
-     * @param key The key to use for rate limiting.
+     * Decorates a [Supplier] with this rate limiter.
      * @param permits The number of permits required to execute the function.
      * @param timeout The duration to wait for permits to be available.
      * @param block The suspending function to decorate.
      * @return The result of the suspending function.
      */
     suspend fun <R> call(
-        key: Key,
-        permits: Int,
-        timeout: Duration,
+        permits: Int = 1,
+        timeout: Duration = config.baseTimeoutDuration,
         block: Supplier<R>
     ): R {
-        acquire(key, permits, timeout)
-        try {
-            return block()
+        acquire(permits, timeout)
+        return try {
+            block()
         } finally {
-            release(key, permits)
+            release(permits)
         }
     }
 }

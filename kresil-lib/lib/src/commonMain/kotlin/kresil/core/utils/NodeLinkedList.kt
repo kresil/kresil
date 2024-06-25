@@ -5,7 +5,7 @@ package kresil.core.utils
  * for adding, accessing, and removing elements.
  * Most notably the [remove] operation is **O(1)**.
  */
-class NodeLinkedList<T> {
+internal class NodeLinkedList<T> {
 
     interface Node<T> {
         val value: T
