@@ -1,15 +1,14 @@
 package kresil.core.utils
 
-/**
- * Provides a basic implementation of an intrusive doubly linked non-thread safe list with essential operations
- * for adding, accessing, and removing elements.
- * Most notably the [remove] operation is **O(1)**.
- */
-internal class NodeLinkedList<T> {
+import kresil.core.queue.Node
+import kresil.core.queue.Queue
 
-    interface Node<T> {
-        val value: T
-    }
+/**
+ * Provides a basic implementation of an intrusive circular doubly linked non-thread safe list.
+ * Allows for efficient insertion or removal of elements from any position in the list,
+ * as the nodes are not stored contiguously in memory (unlike an array).
+ */
+internal class CircularDoublyLinkedList<T> : Queue<T> {
 
     private class NodeImpl<T>(val maybeValue: T?) : Node<T> {
 
@@ -38,7 +37,7 @@ internal class NodeLinkedList<T> {
     /**
      * The number of elements in the list.
      */
-    var size = 0
+    override var size = 0
         private set
 
     /**
@@ -46,7 +45,7 @@ internal class NodeLinkedList<T> {
      * @param value the value to add.
      * @return the node that was added.
      */
-    fun enqueue(value: T): Node<T> {
+    override fun enqueue(value: T): Node<T> {
         val tail: NodeImpl<T> = head.prev
         val node: NodeImpl<T> = NodeImpl(value, head, tail)
         head.prev = node
@@ -103,14 +102,13 @@ internal class NodeLinkedList<T> {
      * @param cond the condition to be applied to the head node value.
      * @return true if the head node satisfies the condition, false otherwise.
      */
-    inline fun headCondition(cond: (T) -> Boolean): Boolean = headValue?.let { cond(it) } == true
+    override inline fun headCondition(cond: (T) -> Boolean): Boolean = headValue?.let { cond(it) } == true
 
     /**
-     * Removes the head node from the list and returns it.
-     * @return the removed node.
+     * Removes the head node from the list and returns it if the list is not empty.
      * @throws IllegalStateException if the list is empty.
      */
-    fun pull(): Node<T> {
+    override fun dequeue(): Node<T> {
         require(!empty) { "cannot pull from an empty list" }
         val node = head.next
         head.next = node.next
@@ -124,7 +122,8 @@ internal class NodeLinkedList<T> {
      * @param node the node to remove.
      * @throws IllegalArgumentException if the node is not part of the list.
      */
-    fun remove(node: Node<T>) {
+    override fun remove(node: Node<T>) {
+        require(!empty) { "cannot remove from an empty list" }
         require(node is NodeImpl<T>) { "node must be an internal node" }
         node.prev.next = node.next
         node.next.prev = node.prev

@@ -5,7 +5,7 @@ internal class RingBuffer<T>(val capacity: Int) : Iterable<T> {
     @Suppress("UNCHECKED_CAST")
     private val buffer: Array<T?> = arrayOfNulls<Any>(capacity) as Array<T?>
 
-    // positional index - the index of the next element to be added
+    // positional index (pix) - the index of the next element to be added
     private var pix: Int = 0
     private var hasReachedFullCapacity: Boolean = false
 
