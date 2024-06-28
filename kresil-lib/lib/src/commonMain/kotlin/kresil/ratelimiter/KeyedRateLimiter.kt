@@ -7,6 +7,7 @@ import kresil.core.queue.Queue
 import kresil.core.utils.CircularDoublyLinkedList
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.config.defaultRateLimiterConfig
+import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kresil.ratelimiter.semaphore.queue.RateLimitedRequest
 import kresil.ratelimiter.semaphore.state.InMemorySemaphoreState
@@ -17,43 +18,38 @@ import kotlin.time.Duration
 /**
  * Manages multiple [RateLimiter] instances based on a [Key], allowing
  * rate limiting based on different keys.
- *
- * In this implementation, each rate limiter has its **own semaphore state** but the queue,
- * used to store excess requests, is **shared** across all rate limiters.
- * The queue (to use when each rate limiter is exceeded) should be shared among all rate limiters to ensure that,
- * in a node-balanced environment, nodes do not develop an affinity for processing specific requests.
- * This queue should be thread-safe as it is not protected by a rate limiter's semaphore.
+ * This is useful when you want to rate limit different resources or operations separately.
  *```
- *              +------------------------------------+
- *              |       +------+      +------+       |
- *              |   |-> |  K1  | ---> |  RL  |---+   |
- *              |   |   +------+      +------+   |   |
- *              |   | > |  K2  |                 |   |
- *    Request   |   |   +------+      +------+   |   |
- *  ----------> + --|-> |  K3  | ---> |  RL  |---|   |
- *              |   |   +------+      +------+   |   |
- *              |   |-> |  K4  | ---> |  RL  |---|   |
- *              |   |   +------+      +------+   |   |
- *              |   |-> |  K5  |                 |   |
- *              |       +------+    +--------+   |   |
- *              |                   | Shared |<--+   |
- *              |                   | Queue  |-->+   |
- *              |                   +--------+       |
- *              +------------------------------------+
+ *              +--------------------------------+
+ *              |       +------+      +------+   |
+ *              |   |-> |  K1  | ---> |  RL  |   |
+ *              |   |   +------+      +------+   |
+ *              |   | > |  K2  |                 |
+ *    Request   |   |   +------+      +------+   |
+ *  ----------> + --|-> |  K3  | ---> |  RL  |   |
+ *              |   |   +------+      +------+   |
+ *              |   |-> |  K4  | ---> |  RL  |   |
+ *              |   |   +------+      +------+   |
+ *              |   |-> |  K5  |                 |
+ *              |       +------+                 |
+ *              +--------------------------------+
  *```
+ * Since each rate limiter can be used in distributed architectures, the semaphore and the queue state
+ * can be stored in a shared data store, such as a database,
+ * by implementing the [SemaphoreState] and [Queue] interfaces, respectively.
  * @param Key The type of key used to identify different rate limiters.
  * @param config The configuration defining the behavior of each rate limiter.
  * @param semaphoreStateFactory A factory function to create semaphore states for rate limiters.
  * Defaults to creating an **in-memory** semaphore state for each rate limiter.
- * @param sharedQueue The queue used to store excess requests across all rate limiters.
- * Must be thread-safe as it is not protected by a rate limiter's semaphore.
- * Defaults to an **in-memory** [CircularDoublyLinkedList].
- * // TODO introduce a concurrent queue implementation
+ * @param queueFactory A factory function to create queues for rate limiters.
+ * Defaults to creating an **in-memory** queue for each rate limiter.
+ * @see rateLimiterConfig
+ * @see RateLimiter
  */
 class KeyedRateLimiter<Key>(
     private val config: RateLimiterConfig = defaultRateLimiterConfig(),
     private val semaphoreStateFactory: () -> SemaphoreState = { InMemorySemaphoreState() },
-    private val sharedQueue: Queue<RateLimitedRequest> = CircularDoublyLinkedList(),
+    private val queueFactory: () -> Queue<RateLimitedRequest> = { CircularDoublyLinkedList() },
 ) { // TODO: what events could be emitted here?
 
     private val limiters = mutableMapOf<Key, RateLimiter>()
@@ -61,7 +57,7 @@ class KeyedRateLimiter<Key>(
 
     private suspend fun getOrCreateRateLimiter(key: Key): RateLimiter = lock.withLock {
         limiters.getOrPut(key) {
-            RateLimiter(config, semaphoreStateFactory(), sharedQueue)
+            RateLimiter(config, semaphoreStateFactory(), queueFactory())
         }
     }
 
