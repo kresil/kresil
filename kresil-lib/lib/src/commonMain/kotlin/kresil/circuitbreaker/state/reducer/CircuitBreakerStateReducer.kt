@@ -32,7 +32,7 @@ import kotlin.time.Duration
  * @param config the configuration of the circuit breaker.
  * @param events the shared flow to emit circuit breaker events to.
  */
-class CircuitBreakerStateReducer<T> internal constructor(
+internal class CircuitBreakerStateReducer<T>(
     val slidingWindow: FailureRateSlidingWindow<T>,
     val config: CircuitBreakerConfig,
     val events: MutableSharedFlow<CircuitBreakerEvent>,

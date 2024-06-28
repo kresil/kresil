@@ -1,6 +1,7 @@
 package kresil.core.events
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
@@ -30,8 +31,9 @@ internal interface FlowEventListener<Event> {
     /**
      * Registers a listener that will be called when an event of type [Event] is emitted.
      * @param action the action to be executed when an unspecific event is emitted.
+     * @return a [Job] representing the listener, which can be used to cancel it.
      */
-    suspend fun onEvent(action: suspend (Event) -> Unit)
+    suspend fun onEvent(action: suspend (Event) -> Unit): Job
 
     /**
      * Cancels all listeners registered.

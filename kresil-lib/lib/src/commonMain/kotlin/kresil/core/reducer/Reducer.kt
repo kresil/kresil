@@ -15,7 +15,7 @@ package kresil.core.reducer
  * @param Event the type of the event that triggers a state transition.
  * @param Effect the type of the effect emitted by the reducer.
  */
-internal abstract class Reducer<State, Event, Effect> {
+abstract class Reducer<State, Event, Effect> {
 
     /**
      * Dispatches an event to the reducer to trigger a state transition.

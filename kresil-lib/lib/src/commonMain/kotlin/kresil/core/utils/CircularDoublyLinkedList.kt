@@ -34,18 +34,10 @@ internal class CircularDoublyLinkedList<T> : Queue<T> {
         head.prev = head
     }
 
-    /**
-     * The number of elements in the list.
-     */
     override var size = 0
         private set
 
-    /**
-     * Adds a new element to the end of the list.
-     * @param value the value to add.
-     * @return the node that was added.
-     */
-    override fun enqueue(value: T): Node<T> {
+    override suspend fun enqueue(value: T): Node<T> {
         val tail: NodeImpl<T> = head.prev
         val node: NodeImpl<T> = NodeImpl(value, head, tail)
         head.prev = node
@@ -97,18 +89,9 @@ internal class CircularDoublyLinkedList<T> : Queue<T> {
      */
     fun isHeadNode(node: Node<T>) = head.next === node
 
-    /**
-     * Checks if the head node satisfies the given condition.
-     * @param cond the condition to be applied to the head node value.
-     * @return true if the head node satisfies the condition, false otherwise.
-     */
-    override inline fun headCondition(cond: (T) -> Boolean): Boolean = headValue?.let { cond(it) } == true
+    override suspend fun headCondition(cond: (T) -> Boolean): Boolean = headValue?.let { cond(it) } == true
 
-    /**
-     * Removes the head node from the list and returns it if the list is not empty.
-     * @throws IllegalStateException if the list is empty.
-     */
-    override fun dequeue(): Node<T> {
+    override suspend fun dequeue(): Node<T> {
         require(!empty) { "cannot pull from an empty list" }
         val node = head.next
         head.next = node.next
@@ -117,12 +100,7 @@ internal class CircularDoublyLinkedList<T> : Queue<T> {
         return node
     }
 
-    /**
-     * Removes the given node from the list.
-     * @param node the node to remove.
-     * @throws IllegalArgumentException if the node is not part of the list.
-     */
-    override fun remove(node: Node<T>) {
+    override suspend fun remove(node: Node<T>) {
         require(!empty) { "cannot remove from an empty list" }
         require(node is NodeImpl<T>) { "node must be an internal node" }
         node.prev.next = node.next

@@ -1,6 +1,6 @@
 package kresil.ratelimiter.semaphore.queue
 
-import kotlinx.coroutines.CancellableContinuation
+import kotlin.coroutines.Continuation
 
 /**
  * Represents a request that was rate-limited and enqueued in a queue.
@@ -11,6 +11,6 @@ import kotlinx.coroutines.CancellableContinuation
  */
 class RateLimitedRequest internal constructor(
     val permits: Int,
-    val continuation: CancellableContinuation<Unit>,
+    val continuation: Continuation<Unit>,
     var canResume: Boolean = false,
 )

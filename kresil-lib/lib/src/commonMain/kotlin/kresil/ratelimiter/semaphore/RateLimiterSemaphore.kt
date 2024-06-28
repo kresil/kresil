@@ -1,7 +1,8 @@
 package kresil.ratelimiter.semaphore
 
-import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.completeWith
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -14,11 +15,13 @@ import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kresil.ratelimiter.semaphore.queue.RateLimitedRequest
 import kresil.ratelimiter.semaphore.state.SemaphoreState
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlin.time.Duration
 
 /**
- * A counting [Semaphore](https://docs.oracle.com/javase%2F8%2Fdocs%2Fapi%2F%2F/java/util/concurrent/Semaphore.html)
+ * A counting suspendable [Semaphore](https://docs.oracle.com/javase%2F8%2Fdocs%2Fapi%2F%2F/java/util/concurrent/Semaphore.html)
  * implementation of a rate limiter that uses a queue to store the excess requests that are waiting for permits
  * to be available.
  * This implementation behaviour is dependent on the configuration provided (e.g., total permits, queue length, etc.).
@@ -52,24 +55,17 @@ internal class RateLimiterSemaphore(
         if (isRateLimited(permits)) {
             var localRequestNode: Node<RateLimitedRequest>? = null
             // 1. enqueue request
-            var wasUnlocked = false
             if (queue.size < config.queueLength) {
+                lock.unlock()
                 try {
                     withTimeoutOrNull(timeout) {
-                        suspendCancellableCoroutine { continuation ->
+                        CompletableDeferred<Unit>().apply {
+                            val continuation = Continuation(currentCoroutineContext()) { completeWith(it) }
                             val request = RateLimitedRequest(permits, continuation)
-                            localRequestNode = queue.enqueue(request)
-                            lock.unlock() // suspend with lock released
-                            wasUnlocked = true
-                        }
+                            lock.withLock { localRequestNode = queue.enqueue(request) }
+                        }.await()
                     } ?: handleExceptionAndCleanup(localRequestNode, RateLimiterRejectedException())
                 } catch (ex: CancellationException) {
-                    // TODO: confirm that coroutine could be cancelled before suspending inside
-                    //  suspendCancellableCoroutine as mutex is not reentrant and it will try
-                    //  to acquire the lock again
-                    if (!wasUnlocked) {
-                        lock.unlock()
-                    }
                     handleExceptionAndCleanup(localRequestNode, ex)
                 }
             } else {

@@ -4,7 +4,7 @@ package kresil.core.slidingwindow
  * Represents a sliding window that can be used to monitor the failure rate of a system.
  * Records results of operations (successes and failures) in a fixed-size window and calculates the failure rate.
  */
-internal interface FailureRateSlidingWindow<T> {
+interface FailureRateSlidingWindow<T> {
 
     /**
      * The fixed size of the window.

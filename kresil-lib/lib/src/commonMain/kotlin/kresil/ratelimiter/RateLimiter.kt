@@ -29,7 +29,7 @@ import kotlin.time.Duration
  *
  * In this implementation, the rate limiter uses a **counting semaphore** synchronization primitive to control the number
  * of permits available for requests and **queue** to store the excess requests that are waiting for permits to be available.
- * Since a rate limiter can be used in distributed architectures, the semaphore state and the queue
+ * Since a rate limiter can be used in distributed architectures, the semaphore and the queue state
  * can be stored in a shared data store, such as a database,
  * by implementing the [SemaphoreState] and [Queue] interfaces, respectively.
  *

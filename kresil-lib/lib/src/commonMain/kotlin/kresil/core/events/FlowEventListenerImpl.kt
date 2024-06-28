@@ -26,11 +26,10 @@ open class FlowEventListenerImpl<Event> internal constructor() : FlowEventListen
         Job() + Dispatchers.Default
     )
 
-    override suspend fun onEvent(action: suspend (Event) -> Unit) {
+    override suspend fun onEvent(action: suspend (Event) -> Unit): Job =
         scope.launch {
             events.collect { action(it) }
         }
-    }
 
     override fun cancelListeners() {
         // does not cancel the underlying job (it would with scope.cancel())
