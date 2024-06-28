@@ -40,4 +40,5 @@ internal interface FlowEventListener<Event> {
      * Subsequent registrations should not be affected.
      */
     fun cancelListeners()
+
 }

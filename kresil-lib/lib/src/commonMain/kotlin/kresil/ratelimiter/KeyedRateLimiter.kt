@@ -47,7 +47,7 @@ import kotlin.time.Duration
  * @see RateLimiter
  */
 class KeyedRateLimiter<Key>(
-    private val config: RateLimiterConfig = defaultRateLimiterConfig(),
+    val config: RateLimiterConfig = defaultRateLimiterConfig(),
     private val semaphoreStateFactory: () -> SemaphoreState = { InMemorySemaphoreState() },
     private val queueFactory: () -> Queue<RateLimitedRequest> = { CircularDoublyLinkedList() },
 ) { // TODO: what events could be emitted here?
@@ -55,7 +55,8 @@ class KeyedRateLimiter<Key>(
     private val limiters = mutableMapOf<Key, RateLimiter>()
     private val lock = Mutex()
 
-    private suspend fun getOrCreateRateLimiter(key: Key): RateLimiter = lock.withLock {
+    @PublishedApi
+    internal suspend fun getOrCreateRateLimiter(key: Key): RateLimiter = lock.withLock {
         limiters.getOrPut(key) {
             RateLimiter(config, semaphoreStateFactory(), queueFactory())
         }
@@ -71,7 +72,7 @@ class KeyedRateLimiter<Key>(
      * @throws RateLimiterRejectedException if the request is rejected due to the queue being full or the timeout for acquiring permits has expired.
      */
     @Throws(RateLimiterRejectedException::class, CancellationException::class)
-    suspend fun <R> call(
+    suspend inline fun <R> call(
         key: Key,
         permits: Int = 1,
         timeout: Duration = config.baseTimeoutDuration,

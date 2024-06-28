@@ -62,7 +62,7 @@ class RateLimiter(
      * @throws RateLimiterRejectedException if the request is rejected due to the queue being full or the timeout for acquiring permits has expired.
      */
     @Throws(RateLimiterRejectedException::class, CancellationException::class)
-    suspend fun <R> call(
+    suspend inline fun <R> call(
         permits: Int = 1,
         timeout: Duration = config.baseTimeoutDuration,
         block: Supplier<R>,

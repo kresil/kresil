@@ -1,7 +1,6 @@
 package kresil.retry
 
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import kresil.core.callbacks.ResultMapper
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.BiFunction
@@ -11,8 +10,8 @@ import kresil.core.oper.CtxSupplier
 import kresil.core.oper.Function
 import kresil.core.oper.Supplier
 import kresil.retry.config.RetryConfig
-import kresil.retry.config.retryConfig
 import kresil.retry.config.defaultRetryConfig
+import kresil.retry.config.retryConfig
 import kresil.retry.context.RetryAsyncContextImpl
 import kresil.retry.context.RetryContext
 import kresil.retry.event.RetryEvent
@@ -105,7 +104,8 @@ class Retry(
      * Provides a default result mapper for decorating functions which returns the result unmodified or applies
      * the exception handler from the configuration.
      */
-    private fun <R, T> defaultResultMapper(): ResultMapper<R, T> = { result: R?, throwable: Throwable? ->
+    @PublishedApi
+    internal fun <R, T> defaultResultMapper(): ResultMapper<R, T> = { result: R?, throwable: Throwable? ->
         // throwable must be checked first because a result being nullable is a viable option
         if (throwable != null) {
             config.exceptionHandler(throwable)
@@ -124,7 +124,8 @@ class Retry(
      * @param block The operation to execute.
      * @see [decorateFunction]
      */
-    private suspend fun <A, B, R, T> executeOperation(
+    @PublishedApi
+    internal suspend fun <A, B, R, T> executeOperation(
         inputA: A,
         inputB: B,
         resultMapper: ResultMapper<R, T>,
@@ -158,8 +159,8 @@ class Retry(
      * @param block The operation to execute.
      * @see [decorateSupplier]
      */
-    suspend fun <R> executeSupplier(
-        block: Supplier<R>,
+    suspend inline fun <R> executeSupplier(
+        crossinline block: Supplier<R>,
     ): R? {
         return executeOperation(Unit, Unit, defaultResultMapper<R, R>()) { _, _, _ -> block() }
     }
@@ -172,9 +173,9 @@ class Retry(
      * @param block The operation to execute.
      * @see [decorateSupplier]
      */
-    suspend fun <R, T> executeCtxSupplier(
-        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
-        block: CtxSupplier<RetryContext, R>,
+    suspend inline fun <R, T> executeCtxSupplier(
+        noinline resultMapper: ResultMapper<R, T> = defaultResultMapper(),
+        crossinline block: CtxSupplier<RetryContext, R>,
     ): T? {
         return executeOperation(Unit, Unit, resultMapper) { ctx, _, _ -> block(ctx) }
     }
@@ -185,8 +186,8 @@ class Retry(
      * @see [decorateFunction]
      * @see [decorateBiFunction]
      */
-    fun <R> decorateSupplier(
-        block: Supplier<R>,
+    inline fun <R> decorateSupplier(
+        crossinline block: Supplier<R>,
     ): Supplier<R?> {
         return { executeSupplier { block() } }
     }
@@ -200,9 +201,9 @@ class Retry(
      * @see [decorateCtxFunction]
      * @see [decorateCtxBiFunction]
      */
-    fun <R, T> decorateCtxSupplier(
-        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
-        block: CtxSupplier<RetryContext, R>,
+    inline fun <R, T> decorateCtxSupplier(
+        noinline resultMapper: ResultMapper<R, T> = defaultResultMapper(),
+        crossinline block: CtxSupplier<RetryContext, R>
     ): Supplier<T?> {
         return { executeCtxSupplier(resultMapper) { block(it) } }
     }
@@ -213,8 +214,8 @@ class Retry(
      * @see [decorateSupplier]
      * @see [decorateBiFunction]
      */
-    fun <A, R> decorateFunction(
-        block: Function<A, R>,
+    inline fun <A, R> decorateFunction(
+        crossinline block: Function<A, R>,
     ): Function<A, R?> {
         return { executeOperation(it, Unit, defaultResultMapper<R, R>()) { _, a, _ -> block(a) } }
     }
@@ -228,9 +229,9 @@ class Retry(
      * @see [decorateCtxSupplier]
      * @see [decorateCtxBiFunction]
      */
-    fun <A, R, T> decorateCtxFunction(
-        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
-        block: CtxFunction<RetryContext, A, R>,
+    inline fun <A, R, T> decorateCtxFunction(
+        noinline resultMapper: ResultMapper<R, T> = defaultResultMapper(),
+        crossinline block: CtxFunction<RetryContext, A, R>,
     ): Function<A, T?> {
         return { executeOperation(it, Unit, resultMapper) { ctx, a, _ -> block(ctx, a) } }
     }
@@ -241,8 +242,8 @@ class Retry(
      * @see [decorateSupplier]
      * @see [decorateFunction]
      */
-    fun <A, B, R> decorateBiFunction(
-        block: BiFunction<A, B, R>,
+    inline fun <A, B, R> decorateBiFunction(
+        crossinline block: BiFunction<A, B, R>,
     ): BiFunction<A, B, R?> {
         return { a, b -> executeOperation(a, b, defaultResultMapper<R, R>()) { _, a2, b2 -> block(a2, b2) } }
     }
@@ -256,9 +257,9 @@ class Retry(
      * @see [decorateCtxSupplier]
      * @see [decorateCtxFunction]
      */
-    fun <A, B, R, T> decorateCtxBiFunction(
-        resultMapper: ResultMapper<R, T> = defaultResultMapper(),
-        block: CtxBiFunction<RetryContext, A, B, R>,
+    inline fun <A, B, R, T> decorateCtxBiFunction(
+        noinline resultMapper: ResultMapper<R, T> = defaultResultMapper(),
+        crossinline block: CtxBiFunction<RetryContext, A, B, R>,
     ): BiFunction<A, B, T?> {
         return { a, b -> executeOperation(a, b, resultMapper) { ctx, a2, b2 -> block(ctx, a2, b2) } }
     }
@@ -269,12 +270,8 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onRetry(action: suspend (RetryOnRetry) -> Unit) =
-        scope.launch {
-            events
-                .filterIsInstance<RetryOnRetry>()
-                .collect { action(it) }
-        }
+    suspend fun onRetry(action: suspend (RetryOnRetry) -> Unit): Job =
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when an error occurs during a retry attempt.
@@ -282,12 +279,8 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onError(action: suspend (RetryOnError) -> Unit) =
-        scope.launch {
-            events
-                .filterIsInstance<RetryOnError>()
-                .collect { action(it) }
-        }
+    suspend fun onError(action: suspend (RetryOnError) -> Unit): Job =
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when an error is ignored during a retry attempt.
@@ -296,24 +289,16 @@ class Retry(
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onIgnoredError(action: suspend (RetryOnIgnoredError) -> Unit) =
-        scope.launch {
-            events
-                .filterIsInstance<RetryOnIgnoredError>()
-                .collect { action(it) }
-        }
+    suspend fun onIgnoredError(action: suspend (RetryOnIgnoredError) -> Unit): Job =
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when a retry is successful.
      * The underlying event is emitted when the operation is completed successfully after a retry.
      * @see [onEvent]
      */
-    suspend fun onSuccess(action: suspend (RetryOnSuccess) -> Unit) =
-        scope.launch {
-            events
-                .filterIsInstance<RetryOnSuccess>()
-                .collect { action(it) }
-        }
+    suspend fun onSuccess(action: suspend (RetryOnSuccess) -> Unit): Job =
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when a retry event occurs.
@@ -324,8 +309,7 @@ class Retry(
      * @see [onSuccess]
      * @see [cancelListeners]
      */
-    override suspend fun onEvent(action: suspend (RetryEvent) -> Unit) {
+    override suspend fun onEvent(action: suspend (RetryEvent) -> Unit): Job =
         super.onEvent(action)
-    }
 
 }

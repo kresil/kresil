@@ -1,8 +1,6 @@
 package kresil.circuitbreaker
 
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.launch
 import kresil.circuitbreaker.config.CircuitBreakerConfig
 import kresil.circuitbreaker.config.defaultCircuitBreakerConfig
 import kresil.circuitbreaker.event.CircuitBreakerEvent
@@ -27,6 +25,8 @@ import kresil.circuitbreaker.state.reducer.CircuitBreakerStateReducer
 import kresil.circuitbreaker.state.slidingwindow.CountBasedSlidingWindow
 import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType
 import kresil.core.events.FlowEventListenerImpl
+import kresil.core.oper.Supplier
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
@@ -144,6 +144,7 @@ class CircuitBreaker(
      * Returns the current state of the circuit breaker as a snapshot.
      */
     suspend fun currentState(): CircuitBreakerState {
+        // TODO: have dispatch transform this external event into internal events before calling reducer
         stateReducer.dispatch(FORCE_STATE_UPDATE)
         return stateReducer.currentState()
     }
@@ -153,8 +154,8 @@ class CircuitBreaker(
      * If the circuit breaker is in the [Open] state or in the [HalfOpen] state and the number of calls attempted
      * does exceed the permitted number of calls in the half-open state, a [CallNotPermittedException] is thrown;
      * otherwise, the operation is allowed to proceed.
-     * It also updates the state before throwing the exception.
      */
+    @Throws(CallNotPermittedException::class, CancellationException::class)
     suspend fun wire(): Unit = when (val observedState = currentState()) {
         Closed -> Unit
         is Open -> throwCallIsNotPermitted()
@@ -168,11 +169,13 @@ class CircuitBreaker(
     /**
      * Executes the given operation decorated by this circuit breaker and returns its result,
      * while handling any possible failure and emitting the necessary events.
+     * @throws CallNotPermittedException if the circuit breaker is in the [Open] state or in the [HalfOpen] state
+     * and the permitted number of calls in the [HalfOpen] state has been exceeded.
+     * @throws CancellationException if the coroutine is cancelled while waiting for the operation to be allowed.
      */
     // TODO: add exceptionHandler to map the result of the operation
-    // TODO: support inline function for the block parameter
-    // TODO: add Supplier interface for the block parameter
-    suspend fun <R> executeOperation(block: suspend () -> R): R {
+    @Throws(CallNotPermittedException::class, CancellationException::class)
+    suspend fun <R> executeOperation(block: Supplier<R>): R {
         wire()
         return executeAndDispatch(block)
     }
@@ -201,7 +204,7 @@ class CircuitBreaker(
      * Executes the given operation and dispatches the necessary events based on its
      * result and the configuration.
      */
-    private suspend fun <R> executeAndDispatch(block: suspend () -> R): R {
+    private suspend inline fun <R> executeAndDispatch(block: Supplier<R>): R {
         val result = safeExecute(block)
         if (config.recordResultPredicate(result)) {
             recordFailure()
@@ -214,7 +217,7 @@ class CircuitBreaker(
     /**
      * Executes the given operation and returns its result, while handling any possible failure.
      */
-    private suspend fun <R> safeExecute(block: suspend () -> R): R =
+    private suspend inline fun <R> safeExecute(block: Supplier<R>): R =
         try {
             block()
         } catch (e: Throwable) {
@@ -251,11 +254,7 @@ class CircuitBreaker(
      * @see [cancelListeners]
      */
     suspend fun onCallNotPermitted(action: suspend (CallNotPermitted) -> Unit): Job =
-        scope.launch {
-            events
-                .filterIsInstance<CallNotPermitted>()
-                .collect { action(it) }
-        }
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when the circuit breaker resets.
@@ -263,24 +262,15 @@ class CircuitBreaker(
      * @see [cancelListeners]
      */
     suspend fun onReset(action: suspend (Reset) -> Unit): Job =
-        scope.launch {
-            events
-                .filterIsInstance<Reset>()
-                .collect { action(it) }
-        }
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when the circuit breaker transitions to a new state.
      * @see [onEvent]
      * @see [cancelListeners]
      */
-    suspend fun onStateTransition(
-        action: suspend (StateTransition) -> Unit,
-    ): Job = scope.launch {
-        events
-            .filterIsInstance<StateTransition>()
-            .collect { action(it) }
-    }
+    suspend fun onStateTransition(action: suspend (StateTransition) -> Unit): Job =
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when an operation succeeds.
@@ -288,11 +278,7 @@ class CircuitBreaker(
      * @see [cancelListeners]
      */
     suspend fun onOperationSuccess(action: suspend (RecordedSuccess) -> Unit): Job =
-        scope.launch {
-            events
-                .filterIsInstance<RecordedSuccess>()
-                .collect { action(it) }
-        }
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when an operation fails.
@@ -300,11 +286,7 @@ class CircuitBreaker(
      * @see [cancelListeners]
      */
     suspend fun onOperationFailure(action: suspend (RecordedFailure) -> Unit): Job =
-        scope.launch {
-            events
-                .filterIsInstance<RecordedFailure>()
-                .collect { action(it) }
-        }
+        onSpecificEvent(action)
 
     /**
      * Executes the given [action] when a circuit breaker event occurs.

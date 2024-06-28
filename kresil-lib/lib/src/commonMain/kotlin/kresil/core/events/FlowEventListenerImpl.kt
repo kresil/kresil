@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 
 /**
@@ -34,5 +35,18 @@ open class FlowEventListenerImpl<Event> internal constructor() : FlowEventListen
     override fun cancelListeners() {
         // does not cancel the underlying job (it would with scope.cancel())
         scope.coroutineContext.cancelChildren()
+    }
+
+    /**
+     * Registers a listener that will be called when a specific subtype of [Event] is emitted.
+     * @param action the action to be executed when a specific event is emitted.
+     * @return a [Job] representing the listener, which can be used to cancel it.
+     */
+    suspend inline fun <reified EventType : Event> onSpecificEvent(
+        crossinline action: suspend (EventType) -> Unit,
+    ) = scope.launch {
+        events
+            .filterIsInstance<EventType>()
+            .collect { action(it) }
     }
 }
