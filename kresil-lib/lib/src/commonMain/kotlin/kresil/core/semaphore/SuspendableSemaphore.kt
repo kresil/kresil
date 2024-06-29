@@ -1,5 +1,6 @@
 package kresil.core.semaphore
 
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
 /**
@@ -15,15 +16,18 @@ internal interface SuspendableSemaphore {
      * are not available.
      * @param permits the number of permits to acquire.
      * @param timeout the maximum time to wait for the permits.
-     * @throws IllegalStateException if the specified timeout is exceeded.
+     * @throws IllegalStateException if the specified timeout is exceeded while waiting for the permits.
+     * @throws IllegalArgumentException if the specified permits is non-positive or the timeout is negative.
      */
-    @Throws(IllegalStateException::class)
+    @Throws(IllegalStateException::class, IllegalArgumentException::class)
     suspend fun acquire(permits: Int, timeout: Duration)
 
     /**
      * Releases n [permits] back to the semaphore.
      * @param permits the number of permits to release.
+     * @throws IllegalArgumentException if the specified permits is non-positive.
      */
+    @Throws(IllegalArgumentException::class, CancellationException::class)
     suspend fun release(permits: Int)
 
     // TODO: add drain operation

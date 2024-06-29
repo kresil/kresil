@@ -6,6 +6,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kresil.core.delay.requireNonNegative
 import kresil.core.queue.Node
 import kresil.core.queue.Queue
 import kresil.core.semaphore.SuspendableSemaphore
@@ -40,24 +41,30 @@ internal class RateLimiterSemaphore(
 ) : SuspendableSemaphore {
 
     private val lock = Mutex()
-    private val permitsInUse = semaphoreState.permitsInUse
+    private val permitsInUse
+        get() = semaphoreState.permitsInUse
+    private val currentRefreshTimeMark
+        get() = semaphoreState.refreshTimeMark
 
     private fun isRateLimited(permits: Int): Boolean = permitsInUse + permits > config.totalPermits
 
     // TODO: should be a snapshot of the current refresh time mark? or in lock possession?
     //  this is because the cycle could have been refreshed while waiting for the lock
     private fun rateLimitedException() = RateLimiterRejectedException(
-        retryAfter = getRemainingDuration(semaphoreState.refreshTimeMark, config.refreshPeriod)
+        retryAfter = getRemainingDuration(currentRefreshTimeMark, config.refreshPeriod)
     )
 
     override suspend fun acquire(permits: Int, timeout: Duration) {
+        require(permits > 0) { "Cannot acquire a non-positive number of permits" }
+        timeout.requireNonNegative("Acquisition timeout")
         lock.lock()
-        if (hasExceededDuration(semaphoreState.refreshTimeMark, config.refreshPeriod)) {
+        if (hasExceededDuration(currentRefreshTimeMark, config.refreshPeriod)) {
             // TODO: this set operations could be retrieving data from a database
             //  and potentially holding the lock for a long time
             semaphoreState.setPermits { 0 }
             semaphoreState.setRefreshTimeMark(getCurrentTimeMark())
         }
+        println(isRateLimited(permits))
         if (isRateLimited(permits)) {
             var localRequestNode: Node<RateLimitedRequest>? = null
             // 1. enqueue request
