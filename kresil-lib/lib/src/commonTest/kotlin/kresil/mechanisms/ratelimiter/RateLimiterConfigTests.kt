@@ -9,6 +9,7 @@ import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -26,7 +27,7 @@ class RateLimiterConfigTests {
         assertEquals(50, config.queueLength)
         assertEquals(10.seconds, config.baseTimeoutDuration)
         assertFailsWith<RateLimiterRejectedException> {
-            config.onRejected(RateLimiterRejectedException())
+            config.onRejected(RateLimiterRejectedException(retryAfter = ZERO))
         }
     }
 
@@ -80,7 +81,7 @@ class RateLimiterConfigTests {
 
         // then: the rate limiter should use the custom onRejected handler
         assertFailsWith<WebServiceException> {
-            rateLimiterConfig.onRejected(RateLimiterRejectedException())
+            rateLimiterConfig.onRejected(RateLimiterRejectedException(retryAfter = ZERO))
         }
     }
 }

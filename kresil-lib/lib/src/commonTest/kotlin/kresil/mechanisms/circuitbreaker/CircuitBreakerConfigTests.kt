@@ -103,11 +103,11 @@ class CircuitBreakerConfigTests {
 
     @Test
     fun permittedNumberOfCallsInHalfOpenStateShouldBeGreaterThanOrEqualToZero() = runTest {
-        // given: a circuit breaker configuration with a permitted number of calls in HalfOpen state of -1
+        // given: a circuit breaker configuration with a permitted number of calls in HalfOpen state of (-1)
         val ex = assertFailsWith<IllegalArgumentException> {
             circuitBreakerConfig {
-                // when: the permitted number of calls in HalfOpen state is set to -1
-                permittedNumberOfCallsInHalfOpenState = -1
+                // when: the permitted number of calls in HalfOpen state is set to (-1)
+                permittedNumberOfCallsInHalfOpenState = (-1)
             }
         }
 
@@ -117,11 +117,11 @@ class CircuitBreakerConfigTests {
 
     @Test
     fun waitDurationInHalfOpenStateShouldBeNonNegative() = runTest {
-        // given: a circuit breaker configuration with a wait duration in HalfOpen state of -1 second
+        // given: a circuit breaker configuration with a wait duration in HalfOpen state of (-1) second
         val ex = assertFailsWith<IllegalArgumentException> {
             circuitBreakerConfig {
-                // when: the wait duration in HalfOpen state is set to -1 second
-                maxWaitDurationInHalfOpenState = (-1).seconds
+                // when: the wait duration in HalfOpen state is set to (-1) second
+                maxWaitDurationInHalfOpenState = ((-1)).seconds
             }
         }
 
