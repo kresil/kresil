@@ -10,6 +10,7 @@ import kresil.core.queue.Node
 import kresil.core.queue.Queue
 import kresil.core.semaphore.SuspendableSemaphore
 import kresil.core.timemark.getCurrentTimeMark
+import kresil.core.timemark.getRemainingDuration
 import kresil.core.timemark.hasExceededDuration
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
@@ -41,14 +42,19 @@ internal class RateLimiterSemaphore(
     private val lock = Mutex()
     private val permitsInUse = semaphoreState.permitsInUse
 
-    private fun isRateLimited(permits: Int): Boolean {
-        return permitsInUse + permits > config.totalPermits
-    }
+    private fun isRateLimited(permits: Int): Boolean = permitsInUse + permits > config.totalPermits
+
+    // TODO: should be a snapshot of the current refresh time mark? or in lock possession?
+    //  this is because the cycle could have been refreshed while waiting for the lock
+    private fun rateLimitedException() = RateLimiterRejectedException(
+        retryAfter = getRemainingDuration(semaphoreState.refreshTimeMark, config.refreshPeriod)
+    )
 
     override suspend fun acquire(permits: Int, timeout: Duration) {
         lock.lock()
-        val currentRefreshTimeMark = semaphoreState.refreshTimeMark
-        if (hasExceededDuration(currentRefreshTimeMark, config.refreshPeriod)) {
+        if (hasExceededDuration(semaphoreState.refreshTimeMark, config.refreshPeriod)) {
+            // TODO: this set operations could be retrieving data from a database
+            //  and potentially holding the lock for a long time
             semaphoreState.setPermits { 0 }
             semaphoreState.setRefreshTimeMark(getCurrentTimeMark())
         }
@@ -62,16 +68,17 @@ internal class RateLimiterSemaphore(
                         CompletableDeferred<Unit>().apply {
                             val continuation = Continuation(currentCoroutineContext()) { completeWith(it) }
                             val request = RateLimitedRequest(permits, continuation)
+                            // TODO: shouldn't suspend in lock possession
                             lock.withLock { localRequestNode = queue.enqueue(request) }
                         }.await()
-                    } ?: handleExceptionAndCleanup(localRequestNode, RateLimiterRejectedException())
+                    } ?: handleExceptionAndCleanup(localRequestNode, rateLimitedException())
                 } catch (ex: CancellationException) {
                     handleExceptionAndCleanup(localRequestNode, ex)
                 }
             } else {
-                // 2. reject request because queue is full
+                // 2. reject request because queue is full or length is zero
                 lock.unlock()
-                config.onRejected(RateLimiterRejectedException())
+                config.onRejected(rateLimitedException())
             }
         } else {
             semaphoreState.setPermits { it + permits }
