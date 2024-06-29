@@ -20,7 +20,6 @@ import kotlin.time.Duration
 // TODO:
 //  mention what type of algorithm is used in the rate limiter (e.g. token bucket, leaky bucket, etc.),
 //  combination and what different configurations can be used to get one more than the other
-
 /**
  * The [Rate Limiter](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting) is a **proactive**
  * resilience mechanism that can be used to limit the number of requests that can be made to a system component,
