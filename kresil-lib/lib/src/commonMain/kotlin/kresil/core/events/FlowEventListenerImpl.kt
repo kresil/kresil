@@ -42,7 +42,7 @@ open class FlowEventListenerImpl<Event> internal constructor() : FlowEventListen
      * @param action the action to be executed when a specific event is emitted.
      * @return a [Job] representing the listener, which can be used to cancel it.
      */
-    suspend inline fun <reified EventType : Event> onSpecificEvent(
+    protected suspend inline fun <reified EventType : Event> onSpecificEvent(
         crossinline action: suspend (EventType) -> Unit,
     ) = scope.launch {
         events

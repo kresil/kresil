@@ -82,6 +82,8 @@ kotlin {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.atomicfu)
+                api(libs.kt.logging)
+                api(libs.slf4j.simple)
             }
         }
         val commonTest by getting {

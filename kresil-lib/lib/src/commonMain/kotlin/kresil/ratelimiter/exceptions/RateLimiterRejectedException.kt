@@ -8,6 +8,6 @@ import kotlin.time.Duration
  * @property retryAfter The minimum duration to wait before retrying the request.
  */
 internal class RateLimiterRejectedException(val retryAfter: Duration) : IllegalStateException(
-    "Rate limiter has rejected the request. Retry after $retryAfter"
+    "Rate limiter has rejected the request. Retry after $retryAfter."
 )
 

@@ -44,7 +44,7 @@ class RateLimiterConfigBuilder(
     /**
      * Configures the maximum number of requests that can be queued per key when the rate limiter is exceeded.
      * Should be non-negative.
-     * If set to 0, no requests will be queued.
+     * If set to 0, no requests will be queued and will be rejected immediately.
      */
     var queueLength: Int = baseConfig.queueLength
         set(value) {
@@ -65,6 +65,7 @@ class RateLimiterConfigBuilder(
 
     /**
      * Configures the exception handler that will be called when a request is rejected by the rate limiter.
+     * By default, the exception handler will the caught exception.
      */
     fun onRejected(block: ExceptionHandler) {
         onRejected = block
