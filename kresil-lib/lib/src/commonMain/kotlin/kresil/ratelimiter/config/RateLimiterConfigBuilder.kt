@@ -3,6 +3,7 @@ package kresil.ratelimiter.config
 import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.ExceptionHandler
 import kresil.core.delay.requireNonNegative
+import kresil.core.delay.requirePositive
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -35,9 +36,11 @@ class RateLimiterConfigBuilder(
 
     /**
      * Configures the time period in which the rate limiter will allow [totalPermits] permits.
+     * Should be positive.
      */
     var refreshPeriod: Duration = baseConfig.refreshPeriod
         set(value) {
+            value.requirePositive("Refresh period")
             field = value
         }
 

@@ -72,7 +72,7 @@ class RateLimiterConfigTests {
 
     @Test
     fun customOnRejectedHandlerShouldBeSet() = runTest {
-        // given: a custom onRejected handler
+        // given: a custom exception handler
         val customHandler: ExceptionHandler = { throw WebServiceException("BAM!") }
         val rateLimiterConfig = rateLimiterConfig {
             // when: the custom onRejected handler is set
@@ -83,5 +83,18 @@ class RateLimiterConfigTests {
         assertFailsWith<WebServiceException> {
             rateLimiterConfig.onRejected(RateLimiterRejectedException(retryAfter = ZERO))
         }
+    }
+
+    @Test
+    fun refresPeriodMustBePositive() = runTest {
+        // given: a rate limiter configuration with refresh period set to 0
+        val ex = assertFailsWith<IllegalArgumentException> {
+            rateLimiterConfig {
+                refreshPeriod = ZERO
+            }
+        }
+
+        // then: an exception should be thrown
+        assertEquals("Refresh period duration must be greater than zero", ex.message)
     }
 }
