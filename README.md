@@ -9,26 +9,26 @@ Additionally, Kresil offers extensions for [Ktor](https://ktor.io/) as plugins.
 ## Resilience Mechanisms
 
 - 🔁 [Retry](#retry): Repeats failed executions;
-- ⛔ [Circuit Breaker](#circuit-breaker): Temporarily blocks possible failures (🚧).
+- ⛔ [Circuit Breaker](#circuit-breaker): Temporarily blocks possible failures.
+- ⏳ [Rate Limiter](#rate-limiter): Limits executions per period (🚧).
 
 > [!NOTE]
 > The symbol 🚧 means that the mechanism is under development.
 
-## Modules
+## Relevant Modules
 
 - 📁 [kresil-lib](kresil-lib/lib/README.md): Core module with the resilience mechanisms;
-- 📁 [ktor-client-plugins](ktor-client-plugins/shared/README.md): Mechanisms integration for Ktor Client;
-- 📁 [ktor-server-plugins](ktor-server-plugins/shared/README.md): Mechanisms integration for Ktor Server.
-- 📁 [beta-demo](beta-demo/README.md): Applications for resilience mechanisms demonstration.
+- 📁 [ktor-client-plugins](ktor-client-plugins/shared/README.md): Mechanisms integration for [Ktor Client](https://ktor.io/docs/client-create-new-application.html) as plugins;
+- 📁 [ktor-server-plugins](ktor-server-plugins/shared/README.md): Mechanisms integration for [Ktor Server](https://ktor.io/docs/server-create-a-new-project.html) as plugins;
+- 📁 [beta-demo](beta-demo/README.md): Kotlin/JS applications for resilience mechanisms demonstration.
 
 ## Retry
 
-The [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry)
-is a reactive resilience mechanism
-that can be used to retry an operation when it fails, and the failure is a transient error.
+A [Retry](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry) is a reactive resilience mechanism
+that can be used to retry an operation when it fails and the failure is a transient (temporary) fault. 
 Operations can be decorated and executed on demand.
 A retry mechanism is initialized with a configuration that,
-through pre-configured policies, defines its behaviour.
+through pre-configured policies, define its behaviour.
 
 ### State Machine
 
@@ -64,10 +64,10 @@ val defaultRetry = Retry()
 // use custom policies
 val retry = Retry(
     retryConfig {
-        maxAttempts = 5
-        addRetryPredicate { it is NetworkError }
-        retryOnResultIf { it is "success" }
-        constantDelay(500.milliseconds)
+        maxAttempts = 5 // initial call + 4 retries
+        retryIf { it is NetworkError }
+        retryOnResult { it is "success" }
+        exponentialDelay(initialDelay = 500L.milliseconds, multiplier = 1.0, maxDelay = 1.minutes, randomizationFactor = 0.1)
         // customDelay { attempt, context -> ... }
         // exceptionHandler { exception -> ... }
     }
@@ -91,10 +91,14 @@ val decoratedSupplier = retry.decorateSupplier {
 val result = decoratedSupplier()
 
 // listen to specific events
-retry.onRetry { event -> println(event) }
+retry.onRetry { event ->
+    // action
+}
 
 // listen to all events
-retry.onEvent { event -> println(event) }
+retry.onEvent { event ->
+    // action
+}
 
 // cancel all listeners
 retry.cancelListeners()
@@ -103,11 +107,11 @@ retry.cancelListeners()
 ## Circuit Breaker
 
 The [Circuit Breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
-is a reactive resilience mechanism
+is a **reactive** resilience mechanism
 that can be used to protect a system component from overloading or failing.
 By monitoring the health of the system, the circuit breaker can short-circuit
 execution requests when it detects that the system component is not behaving as expected.
-After a timeout,
+After a configurable timeout,
 the circuit breaker allows a limited number of test requests to pass through to see if the system has recovered.
 Depending on the test results, the circuit breaker can resume normal operation or continue to short-circuit requests.
 A circuit breaker is initialized with a configuration that,
@@ -132,6 +136,18 @@ The circuit breaker implements the following state machine:
                                  +-----------+
 ```
 
+- In the **Closed** state, the circuit breaker allows calls to execute the underlying operation, while
+recording the success or failure of these calls.
+When the failure rate exceeds a (configurable) threshold, the
+circuit breaker transitions to the **Open** state.
+- In the **Open** state,
+the circuit breaker rejects all received calls for a (configurable) amount of time and then transitions
+to the **HalfOpen** state.
+- In the **HalfOpen** state,
+the circuit breaker allows a (configurable) number of calls to test if the underlying operation is still failing.
+After all calls have been attempted, the circuit breaker transitions back to the **Open** state if newly calculated
+failure rate exceeds or equals the threshold; otherwise, it transitions to the **Closed** state.
+
 ### Usage
 
 ```kotlin
@@ -141,13 +157,16 @@ val defaultCircuitBreaker = CircuitBreaker()
 // use custom policies
 val circuitBreaker = CircuitBreaker(
     circuitBreakerConfig {
-        failureRateThreshold = 0.5
-        constantDelayInOpenState(500.milliseconds)
+        failureRateThreshold = 0.5 // 50%
         recordResultPredicate { it is "success" }
         recordExceptionPredicate { it is NetworkError }
+        exponentialDelayInOpenState(initialDelay = 30.seconds, multiplier = 2.0, maxDelay = 10.minutes)
         slidingWindow(size = 5, minimumThroughput = 2, type = COUNT_BASED)
     }
 )
+
+// get the current state of the circuit breaker
+val observedState = circuitBreaker.currentState()
 
 // wire the circuit breaker
 circuitBreaker.wire()
@@ -158,15 +177,31 @@ val result = circuitBreaker.executeOperation {
 }
 
 // listen to specific events
-circuitBreaker.onCallNotPermitted {
+circuitBreaker.onCallNotPermitted { event ->
     // action
 }
 
 // listen to all events
-circuitBreaker.onEvent {
+circuitBreaker.onEvent { event ->
     // action
 }
 
 // cancel all registered listeners
 circuitBreaker.cancelListeners()
+
+// manually:
+// - override the circuit breaker state
+circuitBreaker.transitionToOpen()
+// - reset the circuit breaker
+circuitBreaker.reset()
+// - record an operation success
+circuitBreaker.recordSuccess()
+// - record an operation failure
+circuitBreaker.recordFailure()
 ```
+
+## Rate Limiter
+
+The [Rate Limiter](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting) is a **proactive** resilience mechanism
+that can be used to limit the number of requests that can be made to a system component, thereby controlling the consumption of resources and protecting the system from overloading.
+A rate limiter is initialized with a configuration that, through pre-configured policies, defines its behaviour.

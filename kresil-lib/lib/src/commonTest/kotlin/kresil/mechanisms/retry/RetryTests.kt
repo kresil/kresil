@@ -372,6 +372,11 @@ class RetryTests {
 
         // and: the permitted retry attempts is the max attempts minus one, since the first attempt is not a retry
         assertEquals(expectedMaxAttempts - 1, config.permittedRetryAttempts)
+
+        // and: the exception handler should throw the exception
+        assertFailsWith<WebServiceException> {
+            config.exceptionHandler(WebServiceException("BAM!"))
+        }
     }
 
     @Test

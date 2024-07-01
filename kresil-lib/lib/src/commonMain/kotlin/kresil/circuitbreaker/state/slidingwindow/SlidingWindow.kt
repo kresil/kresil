@@ -1,4 +1,4 @@
-package kresil.circuitbreaker.slidingwindow
+package kresil.circuitbreaker.state.slidingwindow
 
 import kresil.circuitbreaker.config.CircuitBreakerConfig
 

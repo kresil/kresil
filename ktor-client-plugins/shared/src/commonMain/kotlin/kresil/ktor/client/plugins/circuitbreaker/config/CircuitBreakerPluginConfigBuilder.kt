@@ -2,8 +2,8 @@ package kresil.ktor.client.plugins.circuitbreaker.config
 
 import io.ktor.client.statement.*
 import kresil.circuitbreaker.config.CircuitBreakerConfigBuilder
-import kresil.circuitbreaker.slidingwindow.SlidingWindowType
-import kresil.circuitbreaker.slidingwindow.SlidingWindowType.COUNT_BASED
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
 import kresil.core.builders.ConfigBuilder

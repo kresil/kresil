@@ -1,6 +1,6 @@
 package kresil.mechanisms.circuitbreaker.slidingwindow
 
-import kresil.circuitbreaker.slidingwindow.CountBasedSlidingWindow
+import kresil.circuitbreaker.state.slidingwindow.CountBasedSlidingWindow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

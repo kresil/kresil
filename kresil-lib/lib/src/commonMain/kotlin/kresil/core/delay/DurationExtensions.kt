@@ -8,7 +8,7 @@ import kotlin.time.Duration.Companion.ZERO
  * @throws IllegalArgumentException if the duration is less than 0
  */
 @Throws(IllegalArgumentException::class)
-fun Duration.requireNonNegative(qualifier: String) {
+internal fun Duration.requireNonNegative(qualifier: String) {
     require(this >= ZERO) { "$qualifier duration must be greater than or equal to zero" }
 }
 
@@ -17,6 +17,6 @@ fun Duration.requireNonNegative(qualifier: String) {
  * @throws IllegalArgumentException if the duration is less than or equal to 0
  */
 @Throws(IllegalArgumentException::class)
-fun Duration.requirePositive(qualifier: String) {
+internal fun Duration.requirePositive(qualifier: String) {
     require(this > ZERO) { "$qualifier duration must be greater than zero" }
 }

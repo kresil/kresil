@@ -1,6 +1,5 @@
-package kresil.core
+package kresil.core.utils
 
-import kresil.core.utils.RingBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

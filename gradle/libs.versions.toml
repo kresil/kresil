@@ -14,7 +14,8 @@ nexus-publish = "2.0.0-rc-1"
 ktor = "2.3.10"
 logback = "1.5.3"
 atomicfu = "0.24.0"
-kotlinx-html = "0.11.0"
+kt-logging = "6.0.3"
+slf4j = "2.0.13"
 
 [libraries]
 # kotlin
@@ -25,7 +26,6 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
-kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "kotlinx-html" }
 # androidx
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
 # compose
@@ -41,11 +41,12 @@ ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
 ktor-server-configyaml = { module = "io.ktor:ktor-server-config-yaml", version.ref = "ktor" }
-
 # mockative
 mockative = { module = "io.mockative:mockative", version.ref = "mockative" }
 mockative-processor = { module = "io.mockative:mockative-processor", version.ref = "mockative" }
 # other
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+kt-logging = { module = "io.github.oshai:kotlin-logging", version.ref = "kt-logging" }
 nexus-publish = { module = "io.github.gradle-nexus.publish-plugin:io.github.gradle-nexus.publish-plugin.gradle.plugin", version.ref = "nexus-publish" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 

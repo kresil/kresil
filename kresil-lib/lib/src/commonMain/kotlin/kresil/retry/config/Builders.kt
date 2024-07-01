@@ -1,5 +1,6 @@
 package kresil.retry.config
 
+import kresil.core.builders.mechanismConfigBuilder
 import kresil.retry.Retry
 
 /**
@@ -7,14 +8,14 @@ import kresil.retry.Retry
  * @see [Retry]
  */
 fun retryConfig(configure: RetryConfigBuilder.() -> Unit): RetryConfig =
-    RetryConfigBuilder().apply(configure).build()
+    mechanismConfigBuilder(RetryConfigBuilder(), configure)
 
 /**
  * Creates a [RetryConfig] instance using the provided configuration which will be based on the received configuration.
- * * @see [Retry]
+ * @see [Retry]
  */
 fun retryConfig(baseConfig: RetryConfig, configure: RetryConfigBuilder.() -> Unit): RetryConfig =
-    RetryConfigBuilder(baseConfig).apply(configure).build()
+    mechanismConfigBuilder(RetryConfigBuilder(baseConfig), configure)
 
 /**
  * Creates a [RetryConfig] instance using the default configuration.
