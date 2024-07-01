@@ -16,6 +16,8 @@ logback = "1.5.3"
 atomicfu = "0.24.0"
 kt-logging = "6.0.3"
 slf4j = "2.0.13"
+redis-lettuce = "6.3.2.RELEASE"
+kotlinx-serialization = "1.7.1"
 
 [libraries]
 # kotlin
@@ -26,6 +28,7 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 # androidx
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
 # compose
@@ -45,6 +48,7 @@ ktor-server-configyaml = { module = "io.ktor:ktor-server-config-yaml", version.r
 mockative = { module = "io.mockative:mockative", version.ref = "mockative" }
 mockative-processor = { module = "io.mockative:mockative-processor", version.ref = "mockative" }
 # other
+redis-lettuce = { module = "io.lettuce:lettuce-core", version.ref = "redis-lettuce" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 kt-logging = { module = "io.github.oshai:kotlin-logging", version.ref = "kt-logging" }
 nexus-publish = { module = "io.github.gradle-nexus.publish-plugin:io.github.gradle-nexus.publish-plugin.gradle.plugin", version.ref = "nexus-publish" }
@@ -55,6 +59,8 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+# kotlinx
+kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 # google
 google-ksp = { id = "com.google.devtools.ksp", version.ref = "google-ksp" }
 # android
