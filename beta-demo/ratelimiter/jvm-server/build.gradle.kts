@@ -18,3 +18,11 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     api(project(":kresil-lib:lib"))
 }
+
+task<Exec>("redisUp") {
+    commandLine("docker-compose", "up", "-d", "--build", "redis")
+}
+
+task<Exec>("redisDown") {
+    commandLine("docker-compose", "down")
+}
