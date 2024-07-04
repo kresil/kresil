@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kresil.extensions.delayWithRealTime
 import kresil.extensions.randomTo
 import kresil.ratelimiter.KeyedRateLimiter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.FixedWindowCounter
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kotlin.test.Test
@@ -28,9 +29,13 @@ class KeyedRateLimiterTests {
         val totalPermits = 100 randomTo 1000
         val keyedRateLimiter = KeyedRateLimiter<String>(
             config = rateLimiterConfig {
-                this.totalPermits = totalPermits
-                queueLength = 0
-                refreshPeriod = INFINITE
+                algorithm(
+                    FixedWindowCounter(
+                        totalPermits = totalPermits,
+                        refreshPeriod = INFINITE,
+                        queueLength = 0
+                    )
+                )
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             }
