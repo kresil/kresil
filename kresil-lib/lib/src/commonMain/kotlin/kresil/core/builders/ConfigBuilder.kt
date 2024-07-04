@@ -12,6 +12,9 @@ package kresil.core.builders
  * 5. If further modifications are needed, pass the new configuration back to the builder, which will use it as the base configuration;
  * 6. Repeat the process until the desired configuration is achieved.
  *
+ * The builder also has the additional responsibility of validating the configuration parameters,
+ * before applying them to the base configuration object.
+ *
  * @param TConfig the type of the configuration object to be built
  */
 interface ConfigBuilder<TConfig> {
