@@ -4,12 +4,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kresil.core.oper.Supplier
 import kresil.core.queue.Queue
-import kresil.core.utils.CircularDoublyLinkedList
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.config.defaultRateLimiterConfig
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
-import kresil.ratelimiter.semaphore.queue.RateLimitedRequest
 import kresil.ratelimiter.semaphore.state.InMemorySemaphoreState
 import kresil.ratelimiter.semaphore.state.SemaphoreState
 import kotlin.coroutines.cancellation.CancellationException
@@ -41,15 +39,12 @@ import kotlin.time.Duration
  * @param config The configuration defining the behavior of each rate limiter.
  * @param semaphoreStateFactory A factory function to create semaphore states for rate limiters.
  * Defaults to creating an **in-memory** semaphore state for each rate limiter.
- * @param queueFactory A factory function to create queues for rate limiters.
- * Defaults to creating an **in-memory** queue for each rate limiter.
  * @see rateLimiterConfig
  * @see RateLimiter
  */
 class KeyedRateLimiter<Key>(
     val config: RateLimiterConfig = defaultRateLimiterConfig(),
     private val semaphoreStateFactory: () -> SemaphoreState = { InMemorySemaphoreState() },
-    private val queueFactory: () -> Queue<RateLimitedRequest> = { CircularDoublyLinkedList() },
 ) { // TODO: what events could be emitted here?
 
     private val limiters = mutableMapOf<Key, RateLimiter>()
@@ -58,7 +53,7 @@ class KeyedRateLimiter<Key>(
     @PublishedApi
     internal suspend fun getOrCreateRateLimiter(key: Key): RateLimiter = lock.withLock {
         limiters.getOrPut(key) {
-            RateLimiter(config, semaphoreStateFactory(), queueFactory())
+            RateLimiter(config, semaphoreStateFactory())
         }
     }
 

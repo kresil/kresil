@@ -6,7 +6,7 @@ import kotlin.time.ComparableTimeMark
 /**
  * Represents an in-memory state of a semaphore.
  */
-internal class InMemorySemaphoreState : SemaphoreState {
+internal class InMemorySemaphoreState : SemaphoreState() {
     override var permitsInUse: Int = 0
         private set
 

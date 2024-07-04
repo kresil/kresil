@@ -1,4 +1,4 @@
-package kresil.ratelimiter.semaphore.queue
+package kresil.ratelimiter.semaphore.request
 
 import kotlin.coroutines.Continuation
 
@@ -9,7 +9,7 @@ import kotlin.coroutines.Continuation
  * @param canResume A flag indicating whether the request was granted and internal state consistency was maintained.
  * Therefore, the coroutine can be safely resumed.
  */
-class RateLimitedRequest internal constructor(
+internal class RateLimitedRequest(
     val permits: Int,
     val continuation: Continuation<Unit>,
     var canResume: Boolean = false,

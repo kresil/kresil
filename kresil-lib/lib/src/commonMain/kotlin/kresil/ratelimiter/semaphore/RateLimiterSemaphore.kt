@@ -9,14 +9,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kresil.core.delay.requireNonNegative
 import kresil.core.queue.Node
-import kresil.core.queue.Queue
 import kresil.core.semaphore.SuspendableSemaphore
-import kresil.core.timemark.getCurrentTimeMark
-import kresil.core.timemark.getRemainingDuration
-import kresil.core.timemark.hasExceededDuration
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
-import kresil.ratelimiter.semaphore.queue.RateLimitedRequest
+import kresil.ratelimiter.semaphore.request.RateLimitedRequest
 import kresil.ratelimiter.semaphore.state.SemaphoreState
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.cancellation.CancellationException
@@ -30,52 +26,45 @@ import kotlin.time.Duration
  * This implementation behaviour is dependent on the configuration provided (e.g., total permits, queue length, etc.).
  * @param config The configuration for the rate limiter mechanism.
  * @param semaphoreState The state of the semaphore.
- * @param queue The queue to place the *excess* requests.
  * @throws CancellationException if the coroutine is cancelled while waiting for the permits to be available.
  * @throws RateLimiterRejectedException if the request is rejected due to the queue being full or the acquisition timeout being exceeded.
  * @see SuspendableSemaphore
  */
-internal class RateLimiterSemaphore(
+internal abstract class RateLimiterSemaphore(
     private val config: RateLimiterConfig,
     private val semaphoreState: SemaphoreState,
-    private val queue: Queue<RateLimitedRequest>,
-) : SuspendableSemaphore {
+    // TODO: add a distributed queue to manage awaiting requests between multiple instances of this rate limiter, and
+    //  ensure FIFO order of requests
+) : SuspendableSemaphore { // TODO: should also implement Closeable interface
 
-    private val logger = KotlinLogging.logger(
-        RateLimiterSemaphore::class.simpleName ?: error { "Class name is null" }
-    )
+    private companion object {
+        val logger = KotlinLogging.logger(
+            RateLimiterSemaphore::class.simpleName ?: error { "Class name is null" }
+        )
+    }
 
     private val lock = Mutex()
+    private val algorithm = config.algorithm
+
+    // state
     private val permitsInUse
         get() = semaphoreState.permitsInUse
-    private val currentRefreshTimeMark
+    protected val currentRefreshTimeMark
         get() = semaphoreState.refreshTimeMark
-
-    private fun isRateLimited(permits: Int): Boolean = permitsInUse + permits > config.totalPermits
-
-    // TODO: should be a snapshot of the current refresh time mark inside or outside the lock possession?
-    //  this is because the cycle could have been refreshed while waiting for the lock
-    private fun rateLimitedException() = RateLimiterRejectedException(
-        retryAfter = getRemainingDuration(currentRefreshTimeMark, config.refreshPeriod)
-    )
+    private val queue = semaphoreState.queue
 
     override suspend fun acquire(permits: Int, timeout: Duration) {
         require(permits > 0) { "Cannot acquire a non-positive number of permits" }
         timeout.requireNonNegative("Acquisition timeout")
-        lock.lock()
         logger.info { "Trying to acquire ($permits) permits" }
-        if (hasExceededDuration(currentRefreshTimeMark, config.refreshPeriod)) {
-            logger.info { "Refreshing the semaphore state" }
-            // TODO: this set operations could be retrieving data from a database
-            //  and potentially holding the lock for a long time
-            semaphoreState.setPermits { 0 }
-            semaphoreState.setRefreshTimeMark(getCurrentTimeMark())
-        }
+        lock.lock()
+        logger.info { "Lock acquired, refreshing semaphore state" }
+        refreshSemaphoreState()
         if (isRateLimited(permits)) {
             logger.info { "Not enough permits available, rate limiting the request" }
             var localRequestNode: Node<RateLimitedRequest>? = null
             // 1. enqueue request
-            if (queue.size < config.queueLength) {
+            if (queue.size < algorithm.queueLength) {
                 lock.unlock()
                 try {
                     withTimeoutOrNull(timeout) {
@@ -92,7 +81,7 @@ internal class RateLimiterSemaphore(
                         logger.info { "Request coroutine was resumed successfully" }
                     } ?: run {
                         logger.info { "Request timed out" }
-                        handleExceptionAndCleanup(localRequestNode, rateLimitedException())
+                        handleExceptionAndCleanup(localRequestNode, createRateLimitedException(permits))
                     }
                 } catch (ex: CancellationException) {
                     handleExceptionAndCleanup(localRequestNode, ex)
@@ -101,16 +90,16 @@ internal class RateLimiterSemaphore(
                 // 2. reject request because queue is full or length is zero
                 logger.info {
                     "Rejecting request because ${
-                        if (config.queueLength == 0) "queue length is zero"
-                        else "queue with length (${config.queueLength}) is full"
+                        if (algorithm.queueLength == 0) "queue length is zero"
+                        else "queue with length (${algorithm.queueLength}) is full"
                     }"
                 }
                 lock.unlock()
-                config.onRejected(rateLimitedException())
+                config.onRejected(createRateLimitedException(permits))
             }
         } else {
             semaphoreState.setPermits { it + permits }
-            logger.info { "Acquired ($permits) permits. Total (${config.totalPermits}). In use: $permitsInUse" }
+            logger.info { "Acquired ($permits) permits. Total (${algorithm.totalPermits}). In use: $permitsInUse" }
             lock.unlock()
         }
     }
@@ -123,7 +112,7 @@ internal class RateLimiterSemaphore(
         lock.withLock {
             require(permitsInUse - permits >= 0) { "Cannot release more permits than are in use" }
             semaphoreState.setPermits { it - permits }
-            logger.info { "Released ($permits) permits. Total (${config.totalPermits}). In use: $permitsInUse" }
+            logger.info { "Released ($permits) permits. Total (${algorithm.totalPermits}). In use: $permitsInUse" }
             var permitsLeft = permits
             while (queue.headCondition { it.permits <= permitsLeft }) {
                 logger.info { "Raised conditions to resume a pending request" }
@@ -142,11 +131,31 @@ internal class RateLimiterSemaphore(
         }
     }
 
+    /**
+     * Creates a [RateLimiterRejectedException] with the appropriate retry duration. The retry duration
+     * depends on the rate limiting algorithm, the current state of the semaphore and the number of permits requested.
+     * For example, a token bucket algorithm may return a retry duration based on the time left until the requested
+     * permits are available (which may not happen in the next refresh period).
+     * @param permits The number of permits requested.
+     */
+    abstract fun createRateLimitedException(permits: Int): RateLimiterRejectedException
+
+    /**
+     * Depending on the rate limiting algorithm, this function will refresh the semaphore state.
+     * For example, a fixed window counter algorithm may reset the permits to zero at the end of the window.
+     * And a token bucket algorithm may refill the bucket with tokens at a constant rate.
+     */
+    abstract suspend fun refreshSemaphoreState()
+
+    private fun isRateLimited(permits: Int): Boolean = permitsInUse + permits > algorithm.totalPermits
+
+    /**
+     * Deals with the caught exception while maintaining the integrity of the semaphore state.
+     */
     private suspend fun handleExceptionAndCleanup(
         observedRequestNode: Node<RateLimitedRequest>?,
         exception: Exception,
     ): Unit = lock.withLock {
-        println(exception)
         observedRequestNode?.let {
             val request = it.value
             if (!request.canResume) {

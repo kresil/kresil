@@ -4,22 +4,19 @@ import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.Supplier
 import kresil.core.queue.Queue
 import kresil.core.semaphore.SuspendableSemaphore
-import kresil.core.utils.CircularDoublyLinkedList
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.FixedWindowCounter
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.config.defaultRateLimiterConfig
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.event.RateLimiterEvent
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kresil.ratelimiter.semaphore.RateLimiterSemaphore
-import kresil.ratelimiter.semaphore.queue.RateLimitedRequest
+import kresil.ratelimiter.semaphore.implementations.FixedWindowCounterSemaphore
 import kresil.ratelimiter.semaphore.state.InMemorySemaphoreState
 import kresil.ratelimiter.semaphore.state.SemaphoreState
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
-// TODO:
-//  mention what type of algorithm is used in the rate limiter (e.g. token bucket, leaky bucket, etc.),
-//  combination and what different configurations can be used to get one more than the other
 /**
  * The [Rate Limiter](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting) is a **proactive**
  * resilience mechanism that can be used to limit the number of requests that can be made to a system component,
@@ -31,6 +28,7 @@ import kotlin.time.Duration
  * Since a rate limiter can be used in distributed architectures, the semaphore and the queue state
  * can be stored in a shared data store, such as a database,
  * by implementing the [SemaphoreState] and [Queue] interfaces, respectively.
+ * // TODO: revisit this statement after distributed queue implementation
  *
  * **Note**: How long a request holds n permits is determined by the duration of the suspending
  * function that the rate limiter decorates,
@@ -40,17 +38,18 @@ import kotlin.time.Duration
  *
  * @param config The configuration for the rate limiter mechanism.
  * @param semaphoreState The state of the semaphore. Defaults to an in-memory semaphore state.
- * @param queue The queue to place the *excess* requests. Defaults to an in-memory [CircularDoublyLinkedList].
  * @see [rateLimiterConfig]
  * @see [KeyedRateLimiter]
  */
 class RateLimiter(
     val config: RateLimiterConfig = defaultRateLimiterConfig(),
     semaphoreState: SemaphoreState = InMemorySemaphoreState(),
-    queue: Queue<RateLimitedRequest> = CircularDoublyLinkedList(),
 ) : FlowEventListenerImpl<RateLimiterEvent>(), SuspendableSemaphore {
 
-    private val semaphore = RateLimiterSemaphore(config, semaphoreState, queue)
+    private val semaphore: RateLimiterSemaphore = when (config.algorithm) {
+        is FixedWindowCounter -> FixedWindowCounterSemaphore(config, semaphoreState)
+        else -> error("Unsupported rate limiting algorithm: ${config.algorithm}")
+    }
 
     /**
      * Decorates a [Supplier] with this rate limiter.
@@ -74,11 +73,9 @@ class RateLimiter(
         }
     }
 
-    override suspend fun acquire(permits: Int, timeout: Duration) {
+    override suspend fun acquire(permits: Int, timeout: Duration): Unit =
         semaphore.acquire(permits, timeout)
-    }
 
-    override suspend fun release(permits: Int) {
+    override suspend fun release(permits: Int): Unit =
         semaphore.release(permits)
-    }
 }
