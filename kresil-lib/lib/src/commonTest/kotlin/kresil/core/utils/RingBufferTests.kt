@@ -160,4 +160,65 @@ class RingBufferTests {
         assertEquals(capacity, buffer.size)
     }
 
+    @Test
+    fun changingElementAtIndexShouldUpdateBuffer() {
+        // given: a ring buffer with a defined capacity
+        val capacity = 3
+        val buffer = RingBuffer<Int>(capacity)
+
+        // when: elements are added to the buffer
+        repeat(capacity) { buffer.add(it + 1) }
+
+        // then: the buffer should contain elements
+        assertEquals(listOf(1, 2, 3), buffer.toList())
+
+        // when: a value is set in the buffer
+        buffer.set(index = 1, element = 4)
+
+        // then: the buffer should contain elements in the correct positions
+        assertEquals(listOf(1, 4, 3), buffer.toList())
+
+        // when: a value is set in the buffer out of bounds (from the right)
+        assertFailsWith<IndexOutOfBoundsException> { buffer.set(index = 3, element = 5) }
+
+        // then: the buffer should contain elements in the correct positions
+        assertEquals(listOf(1, 4, 3), buffer.toList())
+
+        // when: a value is set in the buffer out of bounds (from the left)
+        assertFailsWith<IndexOutOfBoundsException> { buffer.set(index = -1, element = 5) }
+
+        // then: the buffer should contain elements in the correct positions
+        assertEquals(listOf(1, 4, 3), buffer.toList())
+    }
+
+    @Test
+    fun getEldesEntryShouldReturnTheFirstElement() {
+        // given: a ring buffer with a defined capacity
+        val capacity = 3
+        val buffer = RingBuffer<Int>(capacity)
+
+        // then: the getting the eldest entry should throw an exception
+        assertFailsWith<IllegalStateException> { buffer.eldestEntry }
+
+        // when: elements are added to the buffer until it is full
+        repeat(capacity) {
+            buffer.add(it + 1)
+            // then: the eldest entry should always be the first element added
+            assertEquals(1, buffer.eldestEntry)
+        }
+
+        // when: removing of the eldest entry on a full buffer
+        buffer.add(4)
+
+        // then: the eldest entry should be the second element added
+        assertEquals(2, buffer.eldestEntry)
+
+        // and: so on
+        repeat(1000) {
+            val valueToBeAdded = it + 5
+            buffer.add(valueToBeAdded)
+            assertEquals(valueToBeAdded - (capacity - 1), buffer.eldestEntry)
+        }
+    }
+
 }

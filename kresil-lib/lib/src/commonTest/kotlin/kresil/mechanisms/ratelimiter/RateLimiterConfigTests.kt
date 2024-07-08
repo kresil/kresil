@@ -24,9 +24,9 @@ class RateLimiterConfigTests {
         val algorithm = config.algorithm
 
         // then: the rate limiter should use the default configuration
-        assertEquals(100, algorithm.totalPermits)
-        assertEquals(1.minutes, algorithm.refreshPeriod)
-        assertEquals(50, algorithm.queueLength)
+        assertEquals(1000, algorithm.totalPermits)
+        assertEquals(1.minutes, algorithm.replenishmentPeriod)
+        assertEquals(0, algorithm.queueLength)
         assertEquals(10.seconds, config.baseTimeoutDuration)
         assertFailsWith<RateLimiterRejectedException> {
             config.onRejected(RateLimiterRejectedException(retryAfter = ZERO))
@@ -89,7 +89,7 @@ class RateLimiterConfigTests {
 
     @Test
     fun refresPeriodMustBePositiveDuration() = runTest {
-        // given: a rate limiter configuration with refresh period set to 0
+        // given: a rate limiter configuration with a replenishment period set to 0
         val ex = assertFailsWith<IllegalArgumentException> {
             rateLimiterConfig {
                 algorithm(FixedWindowCounter(100, ZERO, 50))
@@ -97,6 +97,6 @@ class RateLimiterConfigTests {
         }
 
         // then: an exception should be thrown
-        assertEquals("Refresh period duration must be greater than zero", ex.message)
+        assertEquals("Replenishment period duration must be greater than zero", ex.message)
     }
 }

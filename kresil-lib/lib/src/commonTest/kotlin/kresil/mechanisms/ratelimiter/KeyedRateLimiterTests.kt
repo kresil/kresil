@@ -32,7 +32,7 @@ class KeyedRateLimiterTests {
                 algorithm(
                     FixedWindowCounter(
                         totalPermits = totalPermits,
-                        refreshPeriod = INFINITE,
+                        replenishmentPeriod = INFINITE,
                         queueLength = 0
                     )
                 )

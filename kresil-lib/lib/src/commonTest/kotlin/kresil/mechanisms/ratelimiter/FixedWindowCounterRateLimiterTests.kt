@@ -33,15 +33,19 @@ class FixedWindowCounterRateLimiterTests {
         override var permitsInUse: Int = 0
             private set
 
-        override var refreshTimeMark: ComparableTimeMark = getCurrentTimeMark()
+        override var replenishmentTimeMark: ComparableTimeMark = getCurrentTimeMark()
             private set
 
         override fun setPermits(updateFunction: (Int) -> Int) {
             permitsInUse = updateFunction(permitsInUse)
         }
 
-        override fun setRefreshTimeMark(value: ComparableTimeMark) {
-            refreshTimeMark = value
+        override fun setReplenishmentTimeMark(value: ComparableTimeMark) {
+            replenishmentTimeMark = value
+        }
+
+        override fun close() {
+            // TODO: implement close
         }
 
     }
@@ -169,13 +173,13 @@ class FixedWindowCounterRateLimiterTests {
     }
 
     @Test
-    fun shouldRefreshPermitsAfterAPeriodIsOver() = runTest {
-        // given: a rate limiter with 1-permit, no queue, and refresh period of 1 second
-        val refreshPeriod = 1.seconds
+    fun shouldReplenishPermitsAfterAPeriodIsOver() = runTest {
+        // given: a rate limiter with 1-permit, no queue, and replenishment period of 1 second
+        val replenishmentPeriod = 1.seconds
         val permits = 1000
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                algorithm(FixedWindowCounter(permits, refreshPeriod, 1))
+                algorithm(FixedWindowCounter(permits, replenishmentPeriod, 1))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -188,19 +192,19 @@ class FixedWindowCounterRateLimiterTests {
         // then: the permits should be granted
         assertEquals(permits, semaphoreState.permitsInUse)
 
-        // when: waiting for the refresh period to elapse
+        // when: waiting for the replenishment period to elapse
         delayWithRealTime(1.seconds)
 
-        // then: the permits should be not have been refreshed yet,
-        //  because only on acquisition the refresh happens
+        // then: the permits should be not have been replenished yet,
+        //  because only on acquisition the replenishment happens
         assertEquals(permits, semaphoreState.permitsInUse)
 
         // when: acquiring permits within the limit
-        val permitsAfterRefresh = 50
-        rateLimiter.acquire(permitsAfterRefresh, timeout = INFINITE)
+        val permitsAfterReplenishment = 50
+        rateLimiter.acquire(permitsAfterReplenishment, timeout = INFINITE)
 
-        // then: the permits should not only be granted but also refreshed
-        assertEquals(permitsAfterRefresh, semaphoreState.permitsInUse)
+        // then: the permits should not only be granted but also replenished
+        assertEquals(permitsAfterReplenishment, semaphoreState.permitsInUse)
 
     }
 
@@ -368,10 +372,10 @@ class FixedWindowCounterRateLimiterTests {
     @Test
     fun rejectedRequestShouldHaveInformationForWhenToRetry() = runTest {
         // given: a rate limiter with 1-permit and queue length of 0
-        val refreshPeriod = 2.seconds randomTo 5.seconds
+        val replenishmentPeriod = 2.seconds randomTo 5.seconds
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                algorithm(FixedWindowCounter(1, refreshPeriod, 0))
+                algorithm(FixedWindowCounter(1, replenishmentPeriod, 0))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -396,8 +400,8 @@ class FixedWindowCounterRateLimiterTests {
         // then: the permits should not have been granted
         assertEquals(1, semaphoreState.permitsInUse)
 
-        // and: the retry information should be below the refresh period
-        assertTrue(exception.retryAfter in (refreshPeriod - duration - 250.milliseconds)..refreshPeriod)
+        // and: the retry information should be below the replenishment period
+        assertTrue(exception.retryAfter in (replenishmentPeriod - duration - 250.milliseconds)..replenishmentPeriod)
     }
 
     @Test
