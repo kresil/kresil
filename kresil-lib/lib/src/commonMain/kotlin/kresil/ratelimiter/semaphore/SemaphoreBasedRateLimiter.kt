@@ -10,6 +10,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kresil.core.delay.requireNonNegative
 import kresil.core.queue.Node
 import kresil.core.semaphore.SuspendableSemaphore
+import kresil.core.timemark.getCurrentTimeMark
+import kresil.core.timemark.hasExceededDuration
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kresil.ratelimiter.semaphore.request.RateLimitedRequest
@@ -21,7 +23,7 @@ import kotlin.time.Duration
 
 /**
  * A counting suspendable [Semaphore](https://docs.oracle.com/javase%2F8%2Fdocs%2Fapi%2F%2F/java/util/concurrent/Semaphore.html)
- * implementation of a rate limiter that uses a queue to store the excess requests that are waiting for permits
+ * based implementation of a rate limiter that uses a queue to store the excess requests that are waiting for permits
  * to be available.
  * This implementation behaviour is dependent on the configuration provided (e.g., total permits, queue length, etc.).
  * @param config The configuration for the rate limiter mechanism.
@@ -30,16 +32,16 @@ import kotlin.time.Duration
  * @throws RateLimiterRejectedException if the request is rejected due to the queue being full or the acquisition timeout being exceeded.
  * @see SuspendableSemaphore
  */
-internal abstract class RateLimiterSemaphore(
+internal abstract class SemaphoreBasedRateLimiter(
     private val config: RateLimiterConfig,
     private val semaphoreState: SemaphoreState,
     // TODO: add a distributed queue to manage awaiting requests between multiple instances of this rate limiter, and
     //  ensure FIFO order of requests
-) : SuspendableSemaphore { // TODO: should also implement Closeable interface
+) : SuspendableSemaphore {
 
     private companion object {
         val logger = KotlinLogging.logger(
-            RateLimiterSemaphore::class.simpleName ?: error { "Class name is null" }
+            SemaphoreBasedRateLimiter::class.simpleName ?: error { "Class name is null" }
         )
     }
 
@@ -49,8 +51,8 @@ internal abstract class RateLimiterSemaphore(
     // state
     private val permitsInUse
         get() = semaphoreState.permitsInUse
-    protected val currentRefreshTimeMark
-        get() = semaphoreState.refreshTimeMark
+    protected val currentReplenishmentTimeMark
+        get() = semaphoreState.replenishmentTimeMark
     private val queue = semaphoreState.queue
 
     override suspend fun acquire(permits: Int, timeout: Duration) {
@@ -58,8 +60,12 @@ internal abstract class RateLimiterSemaphore(
         timeout.requireNonNegative("Acquisition timeout")
         logger.info { "Trying to acquire ($permits) permits" }
         lock.lock()
-        logger.info { "Lock acquired, refreshing semaphore state" }
-        refreshSemaphoreState()
+        logger.info { "Lock acquired" }
+        if (hasExceededDuration(currentReplenishmentTimeMark, config.algorithm.replenishmentPeriod)) {
+            logger.info { "Current period has expired, replenishing the semaphore state" }
+            replenishSemaphoreState()
+            semaphoreState.setReplenishmentTimeMark(getCurrentTimeMark())
+        }
         if (isRateLimited(permits)) {
             logger.info { "Not enough permits available, rate limiting the request" }
             var localRequestNode: Node<RateLimitedRequest>? = null
@@ -98,7 +104,7 @@ internal abstract class RateLimiterSemaphore(
                 config.onRejected(createRateLimitedException(permits))
             }
         } else {
-            semaphoreState.setPermits { it + permits }
+            updateSemaphoreStatePermits { it + permits }
             logger.info { "Acquired ($permits) permits. Total (${algorithm.totalPermits}). In use: $permitsInUse" }
             lock.unlock()
         }
@@ -111,7 +117,7 @@ internal abstract class RateLimiterSemaphore(
         // check if the permit release can be used to resume any pending requests
         lock.withLock {
             require(permitsInUse - permits >= 0) { "Cannot release more permits than are in use" }
-            semaphoreState.setPermits { it - permits }
+            updateSemaphoreStatePermits { it - permits }
             logger.info { "Released ($permits) permits. Total (${algorithm.totalPermits}). In use: $permitsInUse" }
             var permitsLeft = permits
             while (queue.headCondition { it.permits <= permitsLeft }) {
@@ -119,7 +125,7 @@ internal abstract class RateLimiterSemaphore(
                 val pendingRequestNode = queue.dequeue()
                 val pendingRequest = pendingRequestNode.value
                 pendingRequest.canResume = true
-                semaphoreState.setPermits { it + pendingRequest.permits }
+                updateSemaphoreStatePermits { it + pendingRequest.permits }
                 listOfRequestToResume.add(pendingRequest)
                 permitsLeft -= pendingRequest.permits
             }
@@ -132,21 +138,42 @@ internal abstract class RateLimiterSemaphore(
     }
 
     /**
-     * Creates a [RateLimiterRejectedException] with the appropriate retry duration. The retry duration
-     * depends on the rate limiting algorithm, the current state of the semaphore and the number of permits requested.
-     * For example, a token bucket algorithm may return a retry duration based on the time left until the requested
-     * permits are available (which may not happen in the next refresh period).
+     * Creates a [RateLimiterRejectedException] with the appropriate retry duration.
      * @param permits The number of permits requested.
      */
-    abstract fun createRateLimitedException(permits: Int): RateLimiterRejectedException
+    private fun createRateLimitedException(permits: Int) = RateLimiterRejectedException(
+        retryAfter = calculateRetryDuration(permits)
+    )
 
     /**
-     * Depending on the rate limiting algorithm, this function will refresh the semaphore state.
+     * Calculates the duration after which the request can be retried.
+     * The retry duration depends on the rate limiting algorithm, the current state of the semaphore and the
+     * number of permits requested.
+     * For example, a token bucket algorithm may return a retry duration based on the time left
+     * until the requested permits are available (which may not happen in the next replenishment period).
+     * @param permits The number of permits requested.
+     */
+    protected abstract fun calculateRetryDuration(permits: Int): Duration
+
+    /**
+     * Updates the number of permits in the semaphore state.
+     * @param updateFunction A function that updates the number of permits considering the current value.
+     */
+    protected open fun updateSemaphoreStatePermits(updateFunction: (Int) -> Int) {
+        semaphoreState.setPermits(updateFunction)
+    }
+
+    /**
+     * Depending on the rate limiting algorithm, this function is responsible for replenishing the semaphore state.
      * For example, a fixed window counter algorithm may reset the permits to zero at the end of the window.
      * And a token bucket algorithm may refill the bucket with tokens at a constant rate.
      */
-    abstract suspend fun refreshSemaphoreState()
+    protected abstract suspend fun replenishSemaphoreState()
 
+    /**
+     * Determines if the request should be rate limited based on the current state of the semaphore.
+     * @param permits The number of permits requested.
+     */
     private fun isRateLimited(permits: Int): Boolean = permitsInUse + permits > algorithm.totalPermits
 
     /**

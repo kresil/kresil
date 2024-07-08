@@ -8,12 +8,12 @@ import kresil.circuitbreaker.config.CircuitBreakerConfig
 enum class SlidingWindowType {
 
     /**
-     * A sliding window that counts the number of failures (or successes) that occurred in the last N calls.
+     * A sliding window that counts the number of failures that occurred in the **last N calls**.
      */
     COUNT_BASED,
 
     /**
-     * A sliding window that counts the number of failures (or successes) that occurred in the last N seconds.
+     * A sliding window that counts the number of failures that occurred in the **last N seconds**.
      */
     TIME_BASED,
 }

@@ -2,16 +2,19 @@ package kresil.ratelimiter
 
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.Supplier
-import kresil.core.queue.Queue
 import kresil.core.semaphore.SuspendableSemaphore
 import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.FixedWindowCounter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.SlidingWindowCounter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.TokenBucket
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.config.defaultRateLimiterConfig
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.event.RateLimiterEvent
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
-import kresil.ratelimiter.semaphore.RateLimiterSemaphore
-import kresil.ratelimiter.semaphore.implementations.FixedWindowCounterSemaphore
+import kresil.ratelimiter.semaphore.SemaphoreBasedRateLimiter
+import kresil.ratelimiter.semaphore.implementations.FixedWindowSemaphoreBasedRateLimiter
+import kresil.ratelimiter.semaphore.implementations.SlidingWindowSemaphoreBasedRateLimiter
+import kresil.ratelimiter.semaphore.implementations.TokenBucketSemaphoreBasedRateLimiter
 import kresil.ratelimiter.semaphore.state.InMemorySemaphoreState
 import kresil.ratelimiter.semaphore.state.SemaphoreState
 import kotlin.coroutines.cancellation.CancellationException
@@ -25,14 +28,12 @@ import kotlin.time.Duration
  *
  * In this implementation, the rate limiter uses a **counting semaphore** synchronization primitive to control the number
  * of permits available for requests and **queue** to store the excess requests that are waiting for permits to be available.
- * Since a rate limiter can be used in distributed architectures, the semaphore and the queue state
- * can be stored in a shared data store, such as a database,
- * by implementing the [SemaphoreState] and [Queue] interfaces, respectively.
- * // TODO: revisit this statement after distributed queue implementation
+ * Since a rate limiter can be used in distributed architectures, the semaphore state can be stored in a shared data store,
+ * such as a database, by implementing the [SemaphoreState] interface.
  *
- * **Note**: How long a request holds n permits is determined by the duration of the suspending
+ * **Note**: How long a request holds **n permits** is determined by the duration of the suspending
  * function that the rate limiter decorates,
- * and is therefore is not controlled by the rate limiter itself.
+ * therefore is not controlled by the rate limiter itself.
  * It is the responsibility of the caller to ensure proper timeout handling to avoid a request
  * holding permits indefinitely.
  *
@@ -46,9 +47,13 @@ class RateLimiter(
     semaphoreState: SemaphoreState = InMemorySemaphoreState(),
 ) : FlowEventListenerImpl<RateLimiterEvent>(), SuspendableSemaphore {
 
-    private val semaphore: RateLimiterSemaphore = when (config.algorithm) {
-        is FixedWindowCounter -> FixedWindowCounterSemaphore(config, semaphoreState)
-        else -> error("Unsupported rate limiting algorithm: ${config.algorithm}")
+    private val semaphore: SemaphoreBasedRateLimiter = when (val algorithm = config.algorithm) {
+        is FixedWindowCounter -> FixedWindowSemaphoreBasedRateLimiter(config, semaphoreState)
+        // TODO: missing tests for both
+        is TokenBucket -> TokenBucketSemaphoreBasedRateLimiter(config, semaphoreState)
+        // TODO: removes the ability of the user to provide a custom semaphore state for SlidingWindowSemaphoreBasedRateLimiter
+        //  as it uses additional state that is not part of the SemaphoreState interface
+        is SlidingWindowCounter -> SlidingWindowSemaphoreBasedRateLimiter(config, InMemorySemaphoreState())
     }
 
     /**

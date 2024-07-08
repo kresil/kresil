@@ -3,7 +3,6 @@ package kresil.ratelimiter
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kresil.core.oper.Supplier
-import kresil.core.queue.Queue
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.config.defaultRateLimiterConfig
 import kresil.ratelimiter.config.rateLimiterConfig
@@ -32,9 +31,8 @@ import kotlin.time.Duration
  *              |       +------+                 |
  *              +--------------------------------+
  *```
- * Since each rate limiter can be used in distributed architectures, the semaphore and the queue state
- * can be stored in a shared data store, such as a database,
- * by implementing the [SemaphoreState] and [Queue] interfaces, respectively.
+ * Since each rate limiter can be used in distributed architectures, the semaphore state can be stored
+ * in a shared data store, such as a database, by implementing the [SemaphoreState] interface.
  * @param Key The type of key used to identify different rate limiters.
  * @param config The configuration defining the behavior of each rate limiter.
  * @param semaphoreStateFactory A factory function to create semaphore states for rate limiters.
@@ -50,8 +48,11 @@ class KeyedRateLimiter<Key>(
     private val limiters = mutableMapOf<Key, RateLimiter>()
     private val lock = Mutex()
 
-    @PublishedApi
-    internal suspend fun getOrCreateRateLimiter(key: Key): RateLimiter = lock.withLock {
+    /**
+     * Gets the rate limiter based on the provided key, creating a new one if it doesn't exist.
+     * @param key The key used to identify the rate limiter.
+     */
+    suspend fun getRateLimiter(key: Key): RateLimiter = lock.withLock {
         limiters.getOrPut(key) {
             RateLimiter(config, semaphoreStateFactory())
         }
@@ -73,7 +74,7 @@ class KeyedRateLimiter<Key>(
         timeout: Duration = config.baseTimeoutDuration,
         block: Supplier<R>,
     ): R {
-        val rateLimiter = getOrCreateRateLimiter(key)
+        val rateLimiter = getRateLimiter(key)
         return rateLimiter.call(permits, timeout, block)
     }
 }

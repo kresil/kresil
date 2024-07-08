@@ -10,14 +10,18 @@ internal class InMemorySemaphoreState : SemaphoreState() {
     override var permitsInUse: Int = 0
         private set
 
-    override var refreshTimeMark: ComparableTimeMark = getCurrentTimeMark()
+    override var replenishmentTimeMark: ComparableTimeMark = getCurrentTimeMark()
         private set
 
     override fun setPermits(updateFunction: (Int) -> Int) {
         permitsInUse = updateFunction(permitsInUse)
     }
 
-    override fun setRefreshTimeMark(value: ComparableTimeMark) {
-        refreshTimeMark = value
+    override fun setReplenishmentTimeMark(value: ComparableTimeMark) {
+        replenishmentTimeMark = value
+    }
+
+    override fun close() {
+        // no-operation, GC will take care of the rest
     }
 }

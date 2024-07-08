@@ -1,12 +1,18 @@
 package kresil.core.utils
 
+/**
+ * A ring buffer implementation that allows for a fixed-size buffer to be used as a sliding window.
+ * The buffer is circular and will overwrite the oldest elements when full.
+ * @param capacity The maximum number of elements that the buffer can hold.
+ */
 internal class RingBuffer<T>(val capacity: Int) : Iterable<T> {
 
     @Suppress("UNCHECKED_CAST")
     private val buffer: Array<T?> = arrayOfNulls<Any>(capacity) as Array<T?>
 
     // positional index (pix) - the index of the next element to be added
-    private var pix: Int = 0
+    var pix: Int = 0
+        private set
     private var hasReachedFullCapacity: Boolean = false
 
     fun add(element: T) {
@@ -24,11 +30,20 @@ internal class RingBuffer<T>(val capacity: Int) : Iterable<T> {
             return if (hasReachedFullCapacity) capacity else pix
         }
 
-    fun get(index: Int): T? {
+    val eldestEntry: T
+        get() {
+            val value = if (hasReachedFullCapacity) buffer[pix] else buffer[0]
+            checkNotNull(value) { "Eldest entry is null" }
+            return value
+        }
+
+    operator fun get(index: Int): T {
         if (index < 0 || index >= capacity) {
             throw IndexOutOfBoundsException("Index $index out of bounds for ring buffer of capacity $capacity")
         }
-        return buffer[index]
+        val value = buffer[index]
+        checkNotNull(value) { "Element at index $index is null" }
+        return value
     }
 
     fun toList(): List<T?> {
@@ -51,6 +66,16 @@ internal class RingBuffer<T>(val capacity: Int) : Iterable<T> {
         }
         hasReachedFullCapacity = false
         pix = 0
+    }
+
+    operator fun set(index: Int, element: T) {
+        if (index < 0 || index >= capacity) {
+            throw IndexOutOfBoundsException("Index $index out of bounds for ring buffer of capacity $capacity")
+        }
+        // must have added at least one element before setting
+        val value = buffer[index]
+        checkNotNull(value) { "Element at index $index is null" }
+        buffer[index] = element
     }
 
     override fun iterator(): Iterator<T> = object : Iterator<T> {

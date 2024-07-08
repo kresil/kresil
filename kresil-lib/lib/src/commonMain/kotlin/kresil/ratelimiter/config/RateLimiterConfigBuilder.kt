@@ -5,7 +5,7 @@ import kresil.core.callbacks.ExceptionHandler
 import kresil.core.delay.requireNonNegative
 import kresil.core.delay.requirePositive
 import kresil.ratelimiter.algorithm.RateLimitingAlgorithm
-import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.FixedWindowCounter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -34,15 +34,11 @@ class RateLimiterConfigBuilder(
 
     private fun checkAlgorithmConfig(algorithm: RateLimitingAlgorithm) {
         require(algorithm.totalPermits >= MIN_TOTAL_PERMITS) { "Total permits must be greater than or equal to $MIN_TOTAL_PERMITS" }
-        algorithm.refreshPeriod.requirePositive("Refresh period")
+        algorithm.replenishmentPeriod.requirePositive("Replenishment period")
         require(algorithm.queueLength >= MIN_QUEUE_LENGTH) { "Queue length must be greater than or equal to $MIN_QUEUE_LENGTH" }
         when (algorithm) {
-            is FixedWindowCounter -> Unit // no additional checks
-            is RateLimitingAlgorithm.TokenBucket -> {
-                require(algorithm.tokensPerRefresh > 0) { "Tokens must be greater than 0" }
-            }
-
-            is RateLimitingAlgorithm.SlidingWindowCounter -> {
+            is FixedWindowCounter, is TokenBucket -> Unit // no additional checks
+            is SlidingWindowCounter -> {
                 require(algorithm.segments > 0) { "Segments must be greater than 0" }
             }
         }
@@ -76,9 +72,9 @@ class RateLimiterConfigBuilder(
 
 private val defaultRateLimiterConfig = RateLimiterConfig(
     algorithm = FixedWindowCounter(
-        totalPermits = 100,
-        refreshPeriod = 1.minutes,
-        queueLength = 50
+        totalPermits = 1000,
+        replenishmentPeriod = 1.minutes,
+        queueLength = 0
     ),
     baseTimeoutDuration = 10.seconds,
     onRejected = { throw it }
