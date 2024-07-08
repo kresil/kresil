@@ -1,5 +1,6 @@
 package kresil.ratelimiter
 
+import kotlinx.atomicfu.atomic
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.Supplier
 import kresil.core.semaphore.SuspendableSemaphore
@@ -27,9 +28,12 @@ import kotlin.time.Duration
  * A rate limiter is initialized with a configuration that, through pre-configured policies, defines its behaviour.
  *
  * In this implementation, the rate limiter uses a **counting semaphore** synchronization primitive to control the number
- * of permits available for requests and **queue** to store the excess requests that are waiting for permits to be available.
+ * of permits available for requests and an internal **queue** to store the excess requests that are waiting
+ * for permits to be available (if configured).
  * Since a rate limiter can be used in distributed architectures, the semaphore state can be stored in a shared data store,
  * such as a database, by implementing the [SemaphoreState] interface.
+ * The rate limiter represents a resource that must be closed when it is no longer needed, as it may hold resources
+ * that need to be released (e.g., semaphore state if stored externally).
  *
  * **Note**: How long a request holds **n permits** is determined by the duration of the suspending
  * function that the rate limiter decorates,
@@ -42,10 +46,18 @@ import kotlin.time.Duration
  * @see [rateLimiterConfig]
  * @see [KeyedRateLimiter]
  */
+@OptIn(ExperimentalStdlibApi::class) // TODO: stable in 2.0.0
 class RateLimiter(
     val config: RateLimiterConfig = defaultRateLimiterConfig(),
-    semaphoreState: SemaphoreState = InMemorySemaphoreState(),
-) : FlowEventListenerImpl<RateLimiterEvent>(), SuspendableSemaphore {
+    private val semaphoreState: SemaphoreState = InMemorySemaphoreState(),
+) : FlowEventListenerImpl<RateLimiterEvent>(), SuspendableSemaphore, AutoCloseable {
+
+    private val wasDisposed = atomic(false)
+
+    @PublishedApi
+    internal fun checkDisposed() {
+        check(!wasDisposed.value) { "Rate limiter has been disposed" }
+    }
 
     private val semaphore: SemaphoreBasedRateLimiter = when (val algorithm = config.algorithm) {
         is FixedWindowCounter -> FixedWindowSemaphoreBasedRateLimiter(config, semaphoreState)
@@ -70,6 +82,7 @@ class RateLimiter(
         timeout: Duration = config.baseTimeoutDuration,
         block: Supplier<R>,
     ): R {
+        checkDisposed()
         acquire(permits, timeout)
         return try {
             block()
@@ -78,9 +91,18 @@ class RateLimiter(
         }
     }
 
-    override suspend fun acquire(permits: Int, timeout: Duration): Unit =
+    override suspend fun acquire(permits: Int, timeout: Duration) {
+        checkDisposed()
         semaphore.acquire(permits, timeout)
+    }
 
-    override suspend fun release(permits: Int): Unit =
+    override suspend fun release(permits: Int) {
+        checkDisposed()
         semaphore.release(permits)
+    }
+
+    override fun close() {
+        if (wasDisposed.value) return
+        semaphoreState.use { }
+    }
 }

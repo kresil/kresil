@@ -1,5 +1,9 @@
 package kresil.ratelimiter
 
+import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kresil.core.oper.Supplier
@@ -40,11 +44,14 @@ import kotlin.time.Duration
  * @see rateLimiterConfig
  * @see RateLimiter
  */
+@OptIn(ExperimentalStdlibApi::class)
 class KeyedRateLimiter<Key>(
     val config: RateLimiterConfig = defaultRateLimiterConfig(),
     private val semaphoreStateFactory: () -> SemaphoreState = { InMemorySemaphoreState() },
-) { // TODO: what events could be emitted here?
+) : AutoCloseable {
 
+    @PublishedApi
+    internal val wasDisposed = atomic(false)
     private val limiters = mutableMapOf<Key, RateLimiter>()
     private val lock = Mutex()
 
@@ -56,6 +63,14 @@ class KeyedRateLimiter<Key>(
         limiters.getOrPut(key) {
             RateLimiter(config, semaphoreStateFactory())
         }
+    }
+
+    /**
+     * Removes the rate limiter based on the provided key.
+     * Before removing the rate limiter, it is closed to release any resources it may hold.
+     */
+    suspend fun removeRateLimiter(key: Key) {
+        lock.withLock { limiters.remove(key) }?.use { }
     }
 
     /**
@@ -74,7 +89,32 @@ class KeyedRateLimiter<Key>(
         timeout: Duration = config.baseTimeoutDuration,
         block: Supplier<R>,
     ): R {
+        check(!wasDisposed.value) { "Rate limiter has been disposed" }
         val rateLimiter = getRateLimiter(key)
         return rateLimiter.call(permits, timeout, block)
     }
+
+    override fun close() {
+        if (wasDisposed.value) return
+        CoroutineScope(Dispatchers.Default).launch {
+            val rateLimiters = lock.withLock {
+                wasDisposed.value = true
+                limiters.values
+            }
+            var exception: Exception? = null
+            rateLimiters.forEach {
+                try {
+                    it.close()
+                } catch (e: Exception) {
+                    if (exception == null) {
+                        exception = e
+                    } else {
+                        exception?.addSuppressed(e)
+                    }
+                }
+            }
+            exception?.let { throw it }
+        }
+    }
+
 }
