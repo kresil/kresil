@@ -4,6 +4,8 @@ import kresil.core.builders.ConfigBuilder
 import kresil.core.callbacks.ExceptionHandler
 import kresil.core.delay.requireNonNegative
 import kresil.core.delay.requirePositive
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -23,37 +25,24 @@ class RateLimiterConfigBuilder(
 
     // state
     private var onRejected: ExceptionHandler = baseConfig.onRejected
+    private var algorithm: RateLimitingAlgorithm = baseConfig.algorithm
 
-    /**
-     * Configures the total number of permits that can be allowed in a given [refreshPeriod].
-     * Should be greater than 0.
-     */
-    var totalPermits: Int = baseConfig.totalPermits
-        set(value) {
-            require(value >= MIN_TOTAL_PERMITS) { "Total permits must be greater than or equal to $MIN_TOTAL_PERMITS" }
-            field = value
-        }
+    fun algorithm(algorithm: RateLimitingAlgorithm) {
+        checkAlgorithmConfig(algorithm)
+        this.algorithm = algorithm
+    }
 
-    /**
-     * Configures the time period in which the rate limiter will allow [totalPermits] permits.
-     * Should be positive.
-     */
-    var refreshPeriod: Duration = baseConfig.refreshPeriod
-        set(value) {
-            value.requirePositive("Refresh period")
-            field = value
+    private fun checkAlgorithmConfig(algorithm: RateLimitingAlgorithm) {
+        require(algorithm.totalPermits >= MIN_TOTAL_PERMITS) { "Total permits must be greater than or equal to $MIN_TOTAL_PERMITS" }
+        algorithm.replenishmentPeriod.requirePositive("Replenishment period")
+        require(algorithm.queueLength >= MIN_QUEUE_LENGTH) { "Queue length must be greater than or equal to $MIN_QUEUE_LENGTH" }
+        when (algorithm) {
+            is FixedWindowCounter, is TokenBucket -> Unit // no additional checks
+            is SlidingWindowCounter -> {
+                require(algorithm.segments > 0) { "Segments must be greater than 0" }
+            }
         }
-
-    /**
-     * Configures the maximum number of requests that can be queued per key when the rate limiter is exceeded.
-     * Should be non-negative.
-     * If set to 0, no requests will be queued and will be rejected immediately.
-     */
-    var queueLength: Int = baseConfig.queueLength
-        set(value) {
-            require(value >= MIN_QUEUE_LENGTH) { "Queue length must be greater than or equal to $MIN_QUEUE_LENGTH" }
-            field = value
-        }
+    }
 
     /**
      * Configures the default duration a request will be placed in the queue if the rate limiter is full.
@@ -75,18 +64,18 @@ class RateLimiterConfigBuilder(
     }
 
     override fun build() = RateLimiterConfig(
-        totalPermits,
-        refreshPeriod,
-        queueLength,
-        baseTimeoutDuration,
-        onRejected
+        algorithm = algorithm,
+        baseTimeoutDuration = baseTimeoutDuration,
+        onRejected = onRejected
     )
 }
 
 private val defaultRateLimiterConfig = RateLimiterConfig(
-    totalPermits = 100,
-    refreshPeriod = 1.minutes,
-    queueLength = 50,
+    algorithm = FixedWindowCounter(
+        totalPermits = 1000,
+        replenishmentPeriod = 1.minutes,
+        queueLength = 0
+    ),
     baseTimeoutDuration = 10.seconds,
     onRejected = { throw it }
 )

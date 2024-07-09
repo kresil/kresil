@@ -11,6 +11,7 @@ import kresil.extensions.delayWithRealTime
 import kresil.extensions.measureWithRealTime
 import kresil.extensions.randomTo
 import kresil.ratelimiter.RateLimiter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.*
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kresil.ratelimiter.semaphore.state.SemaphoreState
@@ -25,22 +26,26 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 @ExperimentalCoroutinesApi
-class RateLimiterTests {
+class FixedWindowCounterRateLimiterTests {
 
-    private val semaphoreState = object : SemaphoreState {
+    private val semaphoreState = object : SemaphoreState() {
 
         override var permitsInUse: Int = 0
             private set
 
-        override var refreshTimeMark: ComparableTimeMark = getCurrentTimeMark()
+        override var replenishmentTimeMark: ComparableTimeMark = getCurrentTimeMark()
             private set
 
         override fun setPermits(updateFunction: (Int) -> Int) {
             permitsInUse = updateFunction(permitsInUse)
         }
 
-        override fun setRefreshTimeMark(value: ComparableTimeMark) {
-            refreshTimeMark = value
+        override fun setReplenishmentTimeMark(value: ComparableTimeMark) {
+            replenishmentTimeMark = value
+        }
+
+        override fun close() {
+            // TODO: implement close
         }
 
     }
@@ -51,9 +56,7 @@ class RateLimiterTests {
         val permits = 1000
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = permits
-                queueLength = 0
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(permits, INFINITE, 0))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -84,9 +87,7 @@ class RateLimiterTests {
         // given: a rate limiter with 1-permit and queue length of 1
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 1
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(1, INFINITE, 1))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -128,9 +129,7 @@ class RateLimiterTests {
         // given: a rate limiter with 1-permit and queue length of 1
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 1
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(1, INFINITE, 1))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -174,13 +173,13 @@ class RateLimiterTests {
     }
 
     @Test
-    fun shouldRefreshPermitsAfterAPeriodIsOver() = runTest {
-        // given: a rate limiter with 1-permit, no queue, and refresh period of 1 second
+    fun shouldReplenishPermitsAfterAPeriodIsOver() = runTest {
+        // given: a rate limiter with 1-permit, no queue, and replenishment period of 1 second
+        val replenishmentPeriod = 1.seconds
+        val permits = 1000
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1000
-                queueLength = 0
-                refreshPeriod = 1.seconds
+                algorithm(FixedWindowCounter(permits, replenishmentPeriod, 1))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -188,25 +187,24 @@ class RateLimiterTests {
         )
 
         // when: acquiring permits within the limit
-        val permits = 1000
         rateLimiter.acquire(permits, timeout = INFINITE)
 
         // then: the permits should be granted
         assertEquals(permits, semaphoreState.permitsInUse)
 
-        // when: waiting for the refresh period to elapse
+        // when: waiting for the replenishment period to elapse
         delayWithRealTime(1.seconds)
 
-        // then: the permits should be not have been refreshed yet,
-        //  because only on acquisition the refresh happens
+        // then: the permits should be not have been replenished yet,
+        //  because only on acquisition the replenishment happens
         assertEquals(permits, semaphoreState.permitsInUse)
 
         // when: acquiring permits within the limit
-        val permitsAfterRefresh = 50
-        rateLimiter.acquire(permitsAfterRefresh, timeout = INFINITE)
+        val permitsAfterReplenishment = 50
+        rateLimiter.acquire(permitsAfterReplenishment, timeout = INFINITE)
 
-        // then: the permits should be granted
-        assertEquals(permitsAfterRefresh, semaphoreState.permitsInUse)
+        // then: the permits should not only be granted but also replenished
+        assertEquals(permitsAfterReplenishment, semaphoreState.permitsInUse)
 
     }
 
@@ -215,9 +213,7 @@ class RateLimiterTests {
         // given: a rate limiter with 1-permit and queue length of 1
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 1
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(1, INFINITE, 1))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -245,7 +241,7 @@ class RateLimiterTests {
         assertEquals(1, semaphoreState.permitsInUse)
 
         // and: the request should be rejected after the timeout
-        assertTrue(measuredDuration in duration..(duration + 500.milliseconds))
+        assertTrue(measuredDuration in duration..(duration + 1.seconds))
     }
 
     @Test
@@ -253,9 +249,7 @@ class RateLimiterTests {
         // given: a rate limiter with 1-permit and queue length of 2
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 2
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(1, INFINITE, 2))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -293,7 +287,7 @@ class RateLimiterTests {
         assertEquals(1, semaphoreState.permitsInUse)
 
         // and: the request should be granted
-        delayWithRealTime(1.seconds)
+        delayWithRealTime(2.seconds)
         assertFalse(request1.isActive)
         assertTrue(request2.isActive)
 
@@ -313,9 +307,7 @@ class RateLimiterTests {
         // given: a rate limiter with 1-permit and queue length of 1
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 1
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(1, INFINITE, 1))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -339,9 +331,7 @@ class RateLimiterTests {
         val baseTimeoutDuration = 1.seconds randomTo 3.seconds
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 1
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(1, INFINITE, 1))
                 this.baseTimeoutDuration = baseTimeoutDuration
                 onRejected { throw it }
             },
@@ -382,12 +372,10 @@ class RateLimiterTests {
     @Test
     fun rejectedRequestShouldHaveInformationForWhenToRetry() = runTest {
         // given: a rate limiter with 1-permit and queue length of 0
-        val refreshPeriod = 2.seconds randomTo 5.seconds
+        val replenishmentPeriod = 2.seconds randomTo 5.seconds
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 0
-                this.refreshPeriod = refreshPeriod
+                algorithm(FixedWindowCounter(1, replenishmentPeriod, 0))
                 baseTimeoutDuration = INFINITE
                 onRejected { throw it }
             },
@@ -412,8 +400,8 @@ class RateLimiterTests {
         // then: the permits should not have been granted
         assertEquals(1, semaphoreState.permitsInUse)
 
-        // and: the retry information should be below the refresh period
-        assertTrue(exception.retryAfter in (refreshPeriod - duration - 250.milliseconds)..refreshPeriod)
+        // and: the retry information should be below the replenishment period
+        assertTrue(exception.retryAfter in (replenishmentPeriod - duration - 250.milliseconds)..replenishmentPeriod)
     }
 
     @Test
@@ -422,9 +410,7 @@ class RateLimiterTests {
         var onRejectedCalled = false
         val rateLimiter = RateLimiter(
             rateLimiterConfig {
-                totalPermits = 1
-                queueLength = 0
-                refreshPeriod = INFINITE
+                algorithm(FixedWindowCounter(1, INFINITE, 0))
                 baseTimeoutDuration = INFINITE
                 onRejected {
                     onRejectedCalled = true

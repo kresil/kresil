@@ -1,25 +1,26 @@
 package kresil.ratelimiter
 
+import kotlinx.atomicfu.atomic
 import kresil.core.events.FlowEventListenerImpl
 import kresil.core.oper.Supplier
-import kresil.core.queue.Queue
 import kresil.core.semaphore.SuspendableSemaphore
-import kresil.core.utils.CircularDoublyLinkedList
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.FixedWindowCounter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.SlidingWindowCounter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.TokenBucket
 import kresil.ratelimiter.config.RateLimiterConfig
 import kresil.ratelimiter.config.defaultRateLimiterConfig
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.event.RateLimiterEvent
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
-import kresil.ratelimiter.semaphore.RateLimiterSemaphore
-import kresil.ratelimiter.semaphore.queue.RateLimitedRequest
+import kresil.ratelimiter.semaphore.SemaphoreBasedRateLimiter
+import kresil.ratelimiter.semaphore.implementations.FixedWindowSemaphoreBasedRateLimiter
+import kresil.ratelimiter.semaphore.implementations.SlidingWindowSemaphoreBasedRateLimiter
+import kresil.ratelimiter.semaphore.implementations.TokenBucketSemaphoreBasedRateLimiter
 import kresil.ratelimiter.semaphore.state.InMemorySemaphoreState
 import kresil.ratelimiter.semaphore.state.SemaphoreState
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
-// TODO:
-//  mention what type of algorithm is used in the rate limiter (e.g. token bucket, leaky bucket, etc.),
-//  combination and what different configurations can be used to get one more than the other
 /**
  * The [Rate Limiter](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting) is a **proactive**
  * resilience mechanism that can be used to limit the number of requests that can be made to a system component,
@@ -27,30 +28,45 @@ import kotlin.time.Duration
  * A rate limiter is initialized with a configuration that, through pre-configured policies, defines its behaviour.
  *
  * In this implementation, the rate limiter uses a **counting semaphore** synchronization primitive to control the number
- * of permits available for requests and **queue** to store the excess requests that are waiting for permits to be available.
- * Since a rate limiter can be used in distributed architectures, the semaphore and the queue state
- * can be stored in a shared data store, such as a database,
- * by implementing the [SemaphoreState] and [Queue] interfaces, respectively.
+ * of permits available for requests and an internal **queue** to store the excess requests that are waiting
+ * for permits to be available (if configured).
+ * Since a rate limiter can be used in distributed architectures, the semaphore state can be stored in a shared data store,
+ * such as a database, by implementing the [SemaphoreState] interface.
+ * The rate limiter represents a resource that must be closed when it is no longer needed, as it may hold resources
+ * that need to be released (e.g., semaphore state if stored externally).
  *
- * **Note**: How long a request holds n permits is determined by the duration of the suspending
+ * **Note**: How long a request holds **n permits** is determined by the duration of the suspending
  * function that the rate limiter decorates,
- * and is therefore is not controlled by the rate limiter itself.
+ * therefore is not controlled by the rate limiter itself.
  * It is the responsibility of the caller to ensure proper timeout handling to avoid a request
  * holding permits indefinitely.
  *
  * @param config The configuration for the rate limiter mechanism.
  * @param semaphoreState The state of the semaphore. Defaults to an in-memory semaphore state.
- * @param queue The queue to place the *excess* requests. Defaults to an in-memory [CircularDoublyLinkedList].
  * @see [rateLimiterConfig]
  * @see [KeyedRateLimiter]
  */
+@OptIn(ExperimentalStdlibApi::class) // TODO: stable in 2.0.0
 class RateLimiter(
     val config: RateLimiterConfig = defaultRateLimiterConfig(),
-    semaphoreState: SemaphoreState = InMemorySemaphoreState(),
-    queue: Queue<RateLimitedRequest> = CircularDoublyLinkedList(),
-) : FlowEventListenerImpl<RateLimiterEvent>(), SuspendableSemaphore {
+    private val semaphoreState: SemaphoreState = InMemorySemaphoreState(),
+) : FlowEventListenerImpl<RateLimiterEvent>(), SuspendableSemaphore, AutoCloseable {
 
-    private val semaphore = RateLimiterSemaphore(config, semaphoreState, queue)
+    private val wasDisposed = atomic(false)
+
+    @PublishedApi
+    internal fun checkDisposed() {
+        check(!wasDisposed.value) { "Rate limiter has been disposed" }
+    }
+
+    private val semaphore: SemaphoreBasedRateLimiter = when (val algorithm = config.algorithm) {
+        is FixedWindowCounter -> FixedWindowSemaphoreBasedRateLimiter(config, semaphoreState)
+        // TODO: missing tests for both
+        is TokenBucket -> TokenBucketSemaphoreBasedRateLimiter(config, semaphoreState)
+        // TODO: removes the ability of the user to provide a custom semaphore state for SlidingWindowSemaphoreBasedRateLimiter
+        //  as it uses additional state that is not part of the SemaphoreState interface
+        is SlidingWindowCounter -> SlidingWindowSemaphoreBasedRateLimiter(config, InMemorySemaphoreState())
+    }
 
     /**
      * Decorates a [Supplier] with this rate limiter.
@@ -66,6 +82,7 @@ class RateLimiter(
         timeout: Duration = config.baseTimeoutDuration,
         block: Supplier<R>,
     ): R {
+        checkDisposed()
         acquire(permits, timeout)
         return try {
             block()
@@ -75,10 +92,17 @@ class RateLimiter(
     }
 
     override suspend fun acquire(permits: Int, timeout: Duration) {
+        checkDisposed()
         semaphore.acquire(permits, timeout)
     }
 
     override suspend fun release(permits: Int) {
+        checkDisposed()
         semaphore.release(permits)
+    }
+
+    override fun close() {
+        if (wasDisposed.value) return
+        semaphoreState.use { }
     }
 }

@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import kresil.core.callbacks.ExceptionHandler
 import kresil.exceptions.WebServiceException
 import kresil.ratelimiter.RateLimiter
+import kresil.ratelimiter.algorithm.RateLimitingAlgorithm.FixedWindowCounter
 import kresil.ratelimiter.config.rateLimiterConfig
 import kresil.ratelimiter.exceptions.RateLimiterRejectedException
 import kotlin.test.Test
@@ -20,11 +21,12 @@ class RateLimiterConfigTests {
         // given: a rate limiter instance with no configuration
         val rateLimiter = RateLimiter()
         val config = rateLimiter.config
+        val algorithm = config.algorithm
 
         // then: the rate limiter should use the default configuration
-        assertEquals(100, config.totalPermits)
-        assertEquals(1.minutes, config.refreshPeriod)
-        assertEquals(50, config.queueLength)
+        assertEquals(1000, algorithm.totalPermits)
+        assertEquals(1.minutes, algorithm.replenishmentPeriod)
+        assertEquals(0, algorithm.queueLength)
         assertEquals(10.seconds, config.baseTimeoutDuration)
         assertFailsWith<RateLimiterRejectedException> {
             config.onRejected(RateLimiterRejectedException(retryAfter = ZERO))
@@ -32,11 +34,11 @@ class RateLimiterConfigTests {
     }
 
     @Test
-    fun totalPermitsShouldBeGreaterThanOrEqualToOne() = runTest {
+    fun totalPermitsShouldBeGreaterThanZero() = runTest {
         // given: a rate limiter configuration with total permits set to 0
         val ex = assertFailsWith<IllegalArgumentException> {
             rateLimiterConfig {
-                totalPermits = 0
+                algorithm(FixedWindowCounter(0, 1.minutes, 50))
             }
         }
 
@@ -49,7 +51,7 @@ class RateLimiterConfigTests {
         // given: a rate limiter configuration with queue length set to -1
         val ex = assertFailsWith<IllegalArgumentException> {
             rateLimiterConfig {
-                queueLength = -1
+                algorithm(FixedWindowCounter(100, 1.minutes, -1))
             }
         }
 
@@ -86,15 +88,15 @@ class RateLimiterConfigTests {
     }
 
     @Test
-    fun refresPeriodMustBePositive() = runTest {
-        // given: a rate limiter configuration with refresh period set to 0
+    fun refresPeriodMustBePositiveDuration() = runTest {
+        // given: a rate limiter configuration with a replenishment period set to 0
         val ex = assertFailsWith<IllegalArgumentException> {
             rateLimiterConfig {
-                refreshPeriod = ZERO
+                algorithm(FixedWindowCounter(100, ZERO, 50))
             }
         }
 
         // then: an exception should be thrown
-        assertEquals("Refresh period duration must be greater than zero", ex.message)
+        assertEquals("Replenishment period duration must be greater than zero", ex.message)
     }
 }
