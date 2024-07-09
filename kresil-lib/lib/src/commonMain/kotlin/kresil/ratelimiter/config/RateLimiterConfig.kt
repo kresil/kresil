@@ -12,6 +12,7 @@ import kotlin.time.Duration
  * @param baseTimeoutDuration The default duration a request will be placed in the queue if rate-limited.
  * After this duration, the request will be rejected.
  * @param onRejected The exception handler that will be called when a request is rejected by the rate limiter.
+ * @see RateLimiter
  */
 data class RateLimiterConfig(
     val algorithm: RateLimitingAlgorithm,
