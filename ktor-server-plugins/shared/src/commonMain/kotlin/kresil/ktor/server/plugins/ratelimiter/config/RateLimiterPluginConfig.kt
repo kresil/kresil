@@ -7,7 +7,7 @@ import kresil.ratelimiter.config.RateLimiterConfig
 import kotlin.time.Duration
 
 /**
- * A function that construct a key for rate limiting from the application call.
+ * A function that resolves a key for rate limiting from the application call (e.g., an IP address).
  */
 internal typealias KeyResolver = suspend (call: ApplicationCall) -> String
 
@@ -22,10 +22,10 @@ internal typealias OnRejectedCall = suspend (call: ApplicationCall, retryAfterDu
 internal typealias OnSuccessCall = suspend (call: ApplicationCall) -> Unit
 
 /**
- * A function that determines whether a specific request should be excluded from rate limiting.
+ * A predicate that determines whether a specific request should be excluded from rate limiting.
  * @return `true` if the request should be excluded from rate limiting, `false` otherwise.
  */
-internal typealias ExcludeFromRateLimiting = suspend (call: ApplicationCall) -> Boolean
+internal typealias ExcludePredicate = suspend (call: ApplicationCall) -> Boolean
 
 /**
  * A Ktor [Hook] that intercepts a phase in the application pipeline to apply rate limiting.
@@ -39,7 +39,7 @@ internal typealias InterceptPhase = Hook<suspend (ApplicationCall) -> Unit>
  * @param keyResolver A function to resolve the key for rate limiting from the application call.
  * @param onRejectedCall A callback to handle requests that are rejected due to rate limiting.
  * @param onSuccessCall A callback to handle successful requests.
- * @param excludeFromRateLimiting A function to determine if a request should be excluded from rate limiting.
+ * @param excludePredicate A predicate to determine if a request should be excluded from rate limiting.
  * @param interceptPhase The phase in the application lifecycle where rate limiting is applied.
  */
 data class RateLimiterPluginConfig(
@@ -47,6 +47,6 @@ data class RateLimiterPluginConfig(
     val keyResolver: KeyResolver,
     val onRejectedCall: OnRejectedCall,
     val onSuccessCall: OnSuccessCall,
-    val excludeFromRateLimiting: ExcludeFromRateLimiting,
+    val excludePredicate: ExcludePredicate,
     val interceptPhase: InterceptPhase,
 )

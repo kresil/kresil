@@ -18,16 +18,6 @@ import kresil.ktor.client.plugins.retry.KresilRetryPlugin
 import kresil.ktor.client.plugins.retry.exceptions.RetryOnCallException
 
 /**
- * Predicate to determine if an HTTP call should be retried based on the request and response.
- */
-internal typealias RetryOnCallPredicate = (HttpRequest, HttpResponse) -> Boolean
-
-/**
- * Callback to modify the request between retries.
- */
-internal typealias ModifyRequestOnRetry = (HttpRequestBuilder, attempt: Int) -> Unit
-
-/**
  * Builder for configuring the [KresilRetryPlugin].
  */
 class RetryPluginConfigBuilder(override val baseConfig: RetryPluginConfig) : ConfigBuilder<RetryPluginConfig> {

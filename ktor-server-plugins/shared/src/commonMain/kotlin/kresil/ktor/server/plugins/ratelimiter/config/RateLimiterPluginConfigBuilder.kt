@@ -17,7 +17,7 @@ class RateLimiterPluginConfigBuilder(override val baseConfig: RateLimiterPluginC
     private var keyResolver: KeyResolver = baseConfig.keyResolver
     private var onRejectedCall: OnRejectedCall = baseConfig.onRejectedCall
     private var onSuccessCall: OnSuccessCall = baseConfig.onSuccessCall
-    private var excludeFromRateLimiting: ExcludeFromRateLimiting = baseConfig.excludeFromRateLimiting
+    private var excludeFromRateLimiting: ExcludePredicate = baseConfig.excludePredicate
     private var interceptPhase: InterceptPhase = baseConfig.interceptPhase
 
     /**
@@ -63,8 +63,8 @@ class RateLimiterPluginConfigBuilder(override val baseConfig: RateLimiterPluginC
     /**
      * Sets the function to determine if a request should be excluded from rate limiting.
      */
-    fun excludeFromRateLimiting(excludeFromRateLimiting: ExcludeFromRateLimiting) {
-        this.excludeFromRateLimiting = excludeFromRateLimiting
+    fun excludeFromRateLimiting(excludePredicate: ExcludePredicate) {
+        this.excludeFromRateLimiting = excludePredicate
     }
 
     /**
@@ -79,7 +79,7 @@ class RateLimiterPluginConfigBuilder(override val baseConfig: RateLimiterPluginC
         keyResolver = keyResolver,
         onRejectedCall = onRejectedCall,
         onSuccessCall = onSuccessCall,
-        excludeFromRateLimiting = excludeFromRateLimiting,
+        excludePredicate = excludeFromRateLimiting,
         interceptPhase = interceptPhase
     )
 

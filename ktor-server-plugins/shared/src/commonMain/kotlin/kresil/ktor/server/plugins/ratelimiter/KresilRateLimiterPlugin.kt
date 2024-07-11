@@ -29,7 +29,7 @@ val KresilRateLimiterPlugin = createApplicationPlugin(
 
     on(pluginConfig.interceptPhase) { call ->
         logger.info("Request received: ${call.request.uri}")
-        if (pluginConfig.excludeFromRateLimiting(call)) {
+        if (pluginConfig.excludePredicate(call)) {
             logger.info("Request excluded from rate limiting: ${call.request.uri}")
             return@on
         }
@@ -83,6 +83,6 @@ private val defaultRateLimiterPluginConfig = RateLimiterPluginConfig(
         )
     },
     onSuccessCall = { },
-    excludeFromRateLimiting = { false },
+    excludePredicate = { false },
     interceptPhase = CallSetup
 )
