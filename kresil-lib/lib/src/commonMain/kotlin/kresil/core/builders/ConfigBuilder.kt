@@ -7,13 +7,13 @@ package kresil.core.builders
  * The configuration process is as follows:
  * 1. Begin with a default or initial (base) configuration object;
  * 2. Pass this configuration to a configuration builder;
- * 3. The builder potentially modifies the base configuration;
+ * 3. On top of the builder, apply the desired configuration properties;
  * 4. Generate a new configuration from the builder;
  * 5. If further modifications are needed, pass the new configuration back to the builder, which will use it as the base configuration;
  * 6. Repeat the process until the desired configuration is achieved.
  *
- * The builder also has the additional responsibility of validating the configuration parameters,
- * before applying them to the base configuration object.
+ * Additionally, the builder also has the additional responsibility of validating the configuration properties before
+ * a configuration is generated.
  *
  * @param TConfig the type of the configuration object to be built
  */

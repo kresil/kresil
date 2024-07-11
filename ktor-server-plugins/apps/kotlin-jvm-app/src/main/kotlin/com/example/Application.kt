@@ -1,6 +1,8 @@
 package com.example
 
+import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.application.hooks.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.request.*
@@ -22,6 +24,22 @@ suspend fun main() {
                 )
             )
             baseTimeoutDuration = 3.seconds
+            keyResolver { call -> call.request.uri }
+            onRejectedCall { call, retryAfterDuration ->
+                call.response.header(
+                    name = "Retry-After",
+                    value = retryAfterDuration.inWholeSeconds.toString()
+                )
+                call.respond(
+                    status = HttpStatusCode.TooManyRequests,
+                    message = "Rate limit exceeded. Try again in $retryAfterDuration."
+                )
+            }
+            onSuccessCall { call ->
+                call.response.header("X-Rate-Limited", "false")
+            }
+            excludeFromRateLimiting { call -> call.request.uri == "/exclude" }
+            interceptPhase(CallSetup)
         }
         routing {
             get("/") {
