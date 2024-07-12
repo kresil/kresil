@@ -22,9 +22,16 @@ private val logger = KtorSimpleLogger("kresil.ktor.server.plugins.ratelimiter.Kr
 
 val KresilRateLimiterPlugin = createApplicationPlugin(
     name = "KresilRateLimiterPlugin",
-    createConfiguration = {
-        RateLimiterPluginConfigBuilder(baseConfig = defaultRateLimiterPluginConfig)
-    }
+    createConfiguration = createRateLimiterConfigBuilder(),
+    body = { buildRateLimiterPlugin(logger) }
+)
+
+internal fun createRateLimiterConfigBuilder(): () -> RateLimiterPluginConfigBuilder = {
+    RateLimiterPluginConfigBuilder(baseConfig = defaultRateLimiterPluginConfig)
+}
+
+internal fun PluginBuilder<RateLimiterPluginConfigBuilder>.buildRateLimiterPlugin(
+    logger: Logger,
 ) {
     val pluginConfig = pluginConfig.build()
     val keyedRateLimiter = KeyedRateLimiter<Any>(
@@ -52,16 +59,14 @@ val KresilRateLimiterPlugin = createApplicationPlugin(
             value = RateLimiterAcquisitionData(rateLimiter, permits, key)
         )
     }
-    onCall {
 
-    }
     onCallRespond { call, _ ->
         if (call.attributes.contains(RequestWasNotRateLimitedKey)) {
             call.attributes.remove(RequestWasNotRateLimitedKey)
             return@onCallRespond
         }
         val acquisitionData = call.attributes.getOrNull(RequestWentThroughRateLimiterKey)
-            // return, as a request cannot release permits if it did not acquire them
+        // return, as a request cannot release permits if it did not acquire them
             ?: return@onCallRespond
 
         val (rateLimiter, permits, key) = acquisitionData
@@ -132,5 +137,8 @@ private val RequestWentThroughRateLimiterKey =
 private data class RateLimiterAcquisitionData(
     val rateLimiter: RateLimiter,
     val permits: Int,
-    val key: Any
+    val key: Any,
 )
+
+
+
