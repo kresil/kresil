@@ -12,6 +12,7 @@ import kotlin.time.Duration
 class RateLimiterPluginConfigBuilder(override val baseConfig: RateLimiterPluginConfig) :
     ConfigBuilder<RateLimiterPluginConfig> {
 
+    // state
     private val rateLimiterConfig = baseConfig.rateLimiterConfig
     private val rateLimiterConfigBuilder = RateLimiterConfigBuilder(rateLimiterConfig)
     private var keyResolver: KeyResolver = baseConfig.keyResolver
@@ -19,6 +20,7 @@ class RateLimiterPluginConfigBuilder(override val baseConfig: RateLimiterPluginC
     private var onSuccessCall: OnSuccessCall = baseConfig.onSuccessCall
     private var excludeFromRateLimiting: ExcludePredicate = baseConfig.excludePredicate
     private var interceptPhase: InterceptPhase = baseConfig.interceptPhase
+    private var callWeight: CallWeight = baseConfig.callWeight
 
     /**
      * Sets the rate limiting algorithm.
@@ -74,13 +76,22 @@ class RateLimiterPluginConfigBuilder(override val baseConfig: RateLimiterPluginC
         this.interceptPhase = interceptPhase
     }
 
+    /**
+     * Sets the weight of a call for rate limiting purposes.
+     * The weight is used to determine how many permits a call consumes.
+     */
+    fun callWeight(callWeight: CallWeight) {
+        this.callWeight = callWeight
+    }
+
     override fun build() = RateLimiterPluginConfig(
         rateLimiterConfig = rateLimiterConfigBuilder.build(),
         keyResolver = keyResolver,
         onRejectedCall = onRejectedCall,
         onSuccessCall = onSuccessCall,
         excludePredicate = excludeFromRateLimiting,
-        interceptPhase = interceptPhase
+        interceptPhase = interceptPhase,
+        callWeight = callWeight
     )
 
 }

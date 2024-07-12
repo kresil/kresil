@@ -105,7 +105,7 @@ internal abstract class SemaphoreBasedRateLimiter(
             }
         } else {
             updateSemaphoreStatePermits { it + permits }
-            logger.info { "Acquired ($permits) permits. Total (${algorithm.totalPermits}). In use: $permitsInUse" }
+            logger.info { "Acquired ($permits) permits. Total (${algorithm.totalPermits}). In use: ($permitsInUse)" }
             lock.unlock()
         }
     }
@@ -118,7 +118,7 @@ internal abstract class SemaphoreBasedRateLimiter(
         lock.withLock {
             require(permitsInUse - permits >= 0) { "Cannot release more permits than are in use" }
             updateSemaphoreStatePermits { it - permits }
-            logger.info { "Released ($permits) permits. Total (${algorithm.totalPermits}). In use: $permitsInUse" }
+            logger.info { "Released ($permits) permits. Total (${algorithm.totalPermits}). In use: ($permitsInUse)" }
             var permitsLeft = permits
             while (queue.headCondition { it.permits <= permitsLeft }) {
                 logger.info { "Raised conditions to resume a pending request" }

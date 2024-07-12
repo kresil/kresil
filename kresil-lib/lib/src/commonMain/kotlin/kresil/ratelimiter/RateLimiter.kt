@@ -104,5 +104,6 @@ class RateLimiter(
     override fun close() {
         if (wasDisposed.value) return
         semaphoreState.use { }
+        cancelListeners()
     }
 }
