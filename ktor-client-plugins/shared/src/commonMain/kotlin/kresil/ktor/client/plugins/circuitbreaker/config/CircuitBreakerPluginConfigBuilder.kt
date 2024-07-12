@@ -1,11 +1,10 @@
 package kresil.ktor.client.plugins.circuitbreaker.config
 
-import io.ktor.client.statement.*
 import kresil.circuitbreaker.config.CircuitBreakerConfigBuilder
-import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType
-import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.circuitbreaker.state.CircuitBreakerState.HalfOpen
 import kresil.circuitbreaker.state.CircuitBreakerState.Open
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType
+import kresil.circuitbreaker.state.slidingwindow.SlidingWindowType.COUNT_BASED
 import kresil.core.builders.ConfigBuilder
 import kresil.core.delay.provider.DelayProvider
 import kresil.core.delay.strategy.DelayStrategy
@@ -13,8 +12,6 @@ import kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-
-internal typealias RecordResponsePredicate = (HttpResponse) -> Boolean
 
 /**
  * Builder for configuring the [KresilCircuitBreakerPlugin].

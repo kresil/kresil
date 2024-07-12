@@ -27,25 +27,17 @@ class RateLimiterConfigBuilder(
     private var onRejected: ExceptionHandler = baseConfig.onRejected
     private var algorithm: RateLimitingAlgorithm = baseConfig.algorithm
 
+    /**
+     * Sets the rate limiting algorithm.
+     * See [RateLimitingAlgorithm] for more details.
+     */
     fun algorithm(algorithm: RateLimitingAlgorithm) {
         checkAlgorithmConfig(algorithm)
         this.algorithm = algorithm
     }
 
-    private fun checkAlgorithmConfig(algorithm: RateLimitingAlgorithm) {
-        require(algorithm.totalPermits >= MIN_TOTAL_PERMITS) { "Total permits must be greater than or equal to $MIN_TOTAL_PERMITS" }
-        algorithm.replenishmentPeriod.requirePositive("Replenishment period")
-        require(algorithm.queueLength >= MIN_QUEUE_LENGTH) { "Queue length must be greater than or equal to $MIN_QUEUE_LENGTH" }
-        when (algorithm) {
-            is FixedWindowCounter, is TokenBucket -> Unit // no additional checks
-            is SlidingWindowCounter -> {
-                require(algorithm.segments > 0) { "Segments must be greater than 0" }
-            }
-        }
-    }
-
     /**
-     * Configures the default duration a request will be placed in the queue if the rate limiter is full.
+     * Configures the default duration a request will be placed in the queue if the request is rate-limited.
      * After this duration, the request will be rejected.
      * Should be non-negative.
      */
@@ -68,6 +60,18 @@ class RateLimiterConfigBuilder(
         baseTimeoutDuration = baseTimeoutDuration,
         onRejected = onRejected
     )
+
+    private fun checkAlgorithmConfig(algorithm: RateLimitingAlgorithm) {
+        require(algorithm.totalPermits >= MIN_TOTAL_PERMITS) { "Total permits must be greater than or equal to $MIN_TOTAL_PERMITS" }
+        algorithm.replenishmentPeriod.requirePositive("Replenishment period")
+        require(algorithm.queueLength >= MIN_QUEUE_LENGTH) { "Queue length must be greater than or equal to $MIN_QUEUE_LENGTH" }
+        when (algorithm) {
+            is FixedWindowCounter, is TokenBucket -> Unit // no additional checks
+            is SlidingWindowCounter -> {
+                require(algorithm.segments > 0) { "Segments must be greater than 0" }
+            }
+        }
+    }
 }
 
 private val defaultRateLimiterConfig = RateLimiterConfig(
