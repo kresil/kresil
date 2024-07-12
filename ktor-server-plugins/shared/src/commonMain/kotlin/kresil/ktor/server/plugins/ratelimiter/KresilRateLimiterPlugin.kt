@@ -7,6 +7,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.logging.*
+import kotlinx.coroutines.runBlocking
 import kresil.ktor.server.plugins.ratelimiter.config.RateLimiterPluginConfig
 import kresil.ktor.server.plugins.ratelimiter.config.RateLimiterPluginConfigBuilder
 import kresil.ratelimiter.KeyedRateLimiter
@@ -80,6 +81,13 @@ val KresilRateLimiterPlugin = createApplicationPlugin(
         logger.info("Failed response headers: ${call.response.headers.allValues()}")
     }
 
+    on(MonitoringEvent(ApplicationStopped)) { application ->
+        runBlocking { // TODO: revisit this code
+            logger.info("Application stopped. Closing all rate limiters's resources.")
+            keyedRateLimiter.close()
+        }
+        application.environment.monitor.unsubscribe(ApplicationStopped) {}
+    }
 }
 
 private val defaultRateLimiterPluginConfig = RateLimiterPluginConfig(
