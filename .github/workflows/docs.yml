@@ -12,6 +12,9 @@ on:
   # Allows you to run this workflow manually from the Actions tab (only runs on the default branch)
   workflow_dispatch:
 
+permissions:
+    contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
