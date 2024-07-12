@@ -6,7 +6,7 @@ import io.ktor.util.logging.*
 private val logger = KtorSimpleLogger("kresil.ktor.server.plugins.ratelimiter.KresilRouteRateLimiterPlugin")
 
 val KresilRouteRateLimiterPlugin = createRouteScopedPlugin(
-    name = "KresilRateLimiterPlugin",
+    name = "KresilRouteRateLimiterPlugin",
     createConfiguration = createRateLimiterConfigBuilder(),
     body = { buildRateLimiterPlugin(logger) }
 )

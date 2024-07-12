@@ -86,7 +86,7 @@ fun startRateLimitedServer() {
                 // TODO: improve given information for successful requests
                 call.response.header("X-Rate-Limited", "false")
             }
-            excludeFromRateLimiting { call -> call.request.uri == "/exclude" }
+            excludeFromRateLimiting { call -> call.request.uri == ServerRoutes.EXCLUDE }
             interceptPhase(CallSetup)
         }
         configureRouting()
