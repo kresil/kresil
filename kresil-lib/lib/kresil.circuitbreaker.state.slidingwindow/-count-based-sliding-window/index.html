@@ -1,0 +1,243 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>CountBasedSlidingWindow</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            kresil
+                    </a>            </div>
+            <div class="library-version">0.0.1
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector common-like" data-active="" data-filter=":kresil-lib:lib:dokkaHtmlPartial/commonMain">common</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="kresil-lib::kresil.circuitbreaker.state.slidingwindow/CountBasedSlidingWindow///PointingToDeclaration//-1045492872">
+  <div class="breadcrumbs"><a href="../../index.html">kresil-lib</a><span class="delimiter">/</span><a href="../index.html">kresil.circuitbreaker.state.slidingwindow</a><span class="delimiter">/</span><span class="current">CountBasedSlidingWindow</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Count</span><wbr><span>Based</span><wbr><span>Sliding</span><wbr><span><span>Window</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">internal </span><span class="token keyword">class </span><a href="index.html">CountBasedSlidingWindow</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>capacity<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>minimumThroughput<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span> : <a href="../../kresil.core.slidingwindow/-failure-rate-sliding-window/index.html">FailureRateSlidingWindow</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt; </span><span class="clearfix"><span class="floating-right">(<a href="https://github.com/kresil/kresil/tree/main/kresil-lib/lib/src/commonMain/kotlin/kresil/circuitbreaker/state/slidingwindow/CountBasedSlidingWindow.kt#L16">source</a>)</span></span></div><p class="paragraph">A sliding window implementation that uses a count-based approach. To simplify the implementation, the window will only record boolean values, where <code class="lang-kotlin">true</code> represents a successful operation and <code class="lang-kotlin">false</code> represents a failed operation.</p><h4 class="">Parameters</h4><div class="table"><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span><span>capacity</span></span></u></div></span></div><div><div class="title"><p class="paragraph">the fixed size of the window.</p></div></div></div></div><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span>minimum</span><wbr><span><span>Throughput</span></span></u></div></span></div><div><div class="title"><p class="paragraph">the minimum number of calls that need to be recorded in the window for the failure rate to be calculated. Even if capacity is reached, the failure rate will not be calculated if the number of calls recorded in the window is less than this value.</p></div></div></div></div></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="230039780%2FConstructors%2F-1045492872" anchor-label="CountBasedSlidingWindow" id="230039780%2FConstructors%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-count-based-sliding-window.html"><span>Count</span><wbr><span>Based</span><wbr><span>Sliding</span><wbr><span><span>Window</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="230039780%2FConstructors%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">capacity<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter ">minimumThroughput<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-730614683%2FProperties%2F-1045492872" anchor-label="buffer" id="-730614683%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="buffer.html"><span><span>buffer</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-730614683%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="buffer.html">buffer</a><span class="token operator">: </span><a href="../../kresil.core.utils/-ring-buffer/index.html">RingBuffer</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1408775979%2FProperties%2F-1045492872" anchor-label="capacity" id="1408775979%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="capacity.html"><span><span>capacity</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1408775979%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">val </span><a href="capacity.html">capacity</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-633987075%2FProperties%2F-1045492872" anchor-label="minimumThroughput" id="-633987075%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="minimum-throughput.html"><span>minimum</span><wbr><span><span>Throughput</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-633987075%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="minimum-throughput.html">minimumThroughput</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-707988525%2FProperties%2F-1045492872" anchor-label="records" id="-707988525%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="records.html"><span><span>records</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-707988525%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">var </span><a href="records.html">records</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-long/index.html">Long</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-2136927192%2FFunctions%2F-1045492872" anchor-label="clear" id="-2136927192%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clear.html"><span><span>clear</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2136927192%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="clear.html"><span class="token function">clear</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Clears the window and any underlying state.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1616076660%2FFunctions%2F-1045492872" anchor-label="currentFailureRate" id="1616076660%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="current-failure-rate.html"><span>current</span><wbr><span>Failure</span><wbr><span><span>Rate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1616076660%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="current-failure-rate.html"><span class="token function">currentFailureRate</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-double/index.html">Double</a></div><div class="brief "><p class="paragraph">Returns the current failure rate of the system.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-923198468%2FFunctions%2F-1045492872" anchor-label="recordFailure" id="-923198468%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="record-failure.html"><span>record</span><wbr><span><span>Failure</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-923198468%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="record-failure.html"><span class="token function">recordFailure</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Records a failed operation. The term "failed" depends on the implementation.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="21932444%2FFunctions%2F-1045492872" anchor-label="recordResult" id="21932444%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="record-result.html"><span>record</span><wbr><span><span>Result</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="21932444%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">fun </span><a href="record-result.html"><span class="token function">recordResult</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">result<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="602150819%2FFunctions%2F-1045492872" anchor-label="recordSuccess" id="602150819%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="record-success.html"><span>record</span><wbr><span><span>Success</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="602150819%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="record-success.html"><span class="token function">recordSuccess</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Records a successful operation. The term "successful" depends on the implementation.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2024 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

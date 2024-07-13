@@ -1,0 +1,333 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>FixedWindowSemaphoreBasedRateLimiter</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            kresil
+                    </a>            </div>
+            <div class="library-version">0.0.1
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector common-like" data-active="" data-filter=":kresil-lib:lib:dokkaHtmlPartial/commonMain">common</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="kresil-lib::kresil.ratelimiter.semaphore.implementations/FixedWindowSemaphoreBasedRateLimiter///PointingToDeclaration//-1045492872">
+  <div class="breadcrumbs"><a href="../../index.html">kresil-lib</a><span class="delimiter">/</span><a href="../index.html">kresil.ratelimiter.semaphore.implementations</a><span class="delimiter">/</span><span class="current">FixedWindowSemaphoreBasedRateLimiter</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Fixed</span><wbr><span>Window</span><wbr><span>Semaphore</span><wbr><span>Based</span><wbr><span>Rate</span><wbr><span><span>Limiter</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">internal </span><span class="token keyword">class </span><a href="index.html">FixedWindowSemaphoreBasedRateLimiter</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>config<span class="token operator">: </span><a href="../../kresil.ratelimiter.config/-rate-limiter-config/index.html">RateLimiterConfig</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>semaphoreState<span class="token operator">: </span><a href="../../kresil.ratelimiter.semaphore.state/-semaphore-state/index.html">SemaphoreState</a></span></span><span class="token punctuation">)</span> : <a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/index.html">SemaphoreBasedRateLimiter</a><span class="clearfix"><span class="floating-right">(<a href="https://github.com/kresil/kresil/tree/main/kresil-lib/lib/src/commonMain/kotlin/kresil/ratelimiter/semaphore/implementations/FixedWindowSemaphoreBasedRateLimiter.kt#L32">source</a>)</span></span></div><p class="paragraph">A counting suspendable <a href="https://docs.oracle.com/javase%2F8%2Fdocs%2Fapi%2F%2F/java/util/concurrent/Semaphore.html">Semaphore</a> based implementation of a rate limiter that uses the fixed window counter-algorithm to control the number of permits available for requests. Uses fixed time windows (e.g., 1 second, 1 minute) to enforce the rate limit. At the beginning of each time window, the counter is reset, and requests are counted within that window. This implementation behaviour is dependent on the configuration provided (e.g., total permits, queue length, etc.).</p><h5 class="">Considerations</h5><p class="paragraph">It's important to note that the fixed window counter algorithm can lead to:</p><ul><li><p class="paragraph">Bursts of requests around the boundary time of the fixed window, may result in strained resources as the window counter is reset in the middle of the traffic burst.</p></li><li><p class="paragraph">A stampeding effect, where previously rejected requests are retried simultaneously when the time window resets, causing spikes in traffic and overload the system, especially when dealing with a large number of clients.</p></li></ul><h4 class="">Parameters</h4><div class="table"><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span><span>config</span></span></u></div></span></div><div><div class="title"><p class="paragraph">The configuration for the rate limiter mechanism.</p></div></div></div></div><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span>semaphore</span><wbr><span><span>State</span></span></u></div></span></div><div><div class="title"><p class="paragraph">The state of the semaphore which includes an internal in-memory queue to store the excess requests.</p></div></div></div></div></div><h4 class="">See also</h4><div class="table"><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><a href="../../kresil.core.semaphore/-suspendable-semaphore/index.html"><span>Suspendable</span><wbr><span><span>Semaphore</span></span></a></div></span></div><div></div></div></div></div><h4 class="">Throws</h4><div class="table"><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.coroutines.cancellation/-cancellation-exception/index.html"><span>Cancellation</span><wbr><span><span>Exception</span></span></a></div></span></div><div><div class="title"><p class="paragraph">if the coroutine is cancelled while waiting for the permits to be available.</p></div></div></div></div><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><a href="../../kresil.ratelimiter.exceptions/-rate-limiter-rejected-exception/index.html"><span>Rate</span><wbr><span>Limiter</span><wbr><span>Rejected</span><wbr><span><span>Exception</span></span></a></div></span></div><div><div class="title"><p class="paragraph">if the request is rejected due to the queue being full or the acquisition timeout being exceeded.</p></div></div></div></div></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="720930841%2FConstructors%2F-1045492872" anchor-label="FixedWindowSemaphoreBasedRateLimiter" id="720930841%2FConstructors%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-fixed-window-semaphore-based-rate-limiter.html"><span>Fixed</span><wbr><span>Window</span><wbr><span>Semaphore</span><wbr><span>Based</span><wbr><span>Rate</span><wbr><span><span>Limiter</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="720930841%2FConstructors%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">config<span class="token operator">: </span><a href="../../kresil.ratelimiter.config/-rate-limiter-config/index.html">RateLimiterConfig</a><span class="token punctuation">, </span></span><span class="parameter ">semaphoreState<span class="token operator">: </span><a href="../../kresil.ratelimiter.semaphore.state/-semaphore-state/index.html">SemaphoreState</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-298288117%2FProperties%2F-1045492872" anchor-label="algorithm" id="-298288117%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/algorithm.html"><span><span>algorithm</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-298288117%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/algorithm.html">algorithm</a><span class="token operator">: </span><a href="../../kresil.ratelimiter.algorithm/-rate-limiting-algorithm/index.html">RateLimitingAlgorithm</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="247669525%2FProperties%2F-1045492872" anchor-label="config" id="247669525%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="config.html"><span><span>config</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="247669525%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="config.html">config</a><span class="token operator">: </span><a href="../../kresil.ratelimiter.config/-rate-limiter-config/index.html">RateLimiterConfig</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-27909253%2FProperties%2F-1045492872" anchor-label="currentReplenishmentTimeMark" id="-27909253%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/current-replenishment-time-mark.html"><span>current</span><wbr><span>Replenishment</span><wbr><span>Time</span><wbr><span><span>Mark</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-27909253%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">protected </span><span class="token keyword">val </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/current-replenishment-time-mark.html">currentReplenishmentTimeMark</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-comparable-time-mark/index.html">ComparableTimeMark</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1338834165%2FProperties%2F-1045492872" anchor-label="lock" id="1338834165%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/lock.html"><span><span>lock</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1338834165%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/lock.html">lock</a><span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.sync/Mutex///PointingToDeclaration/">Mutex</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="578947766%2FProperties%2F-1045492872" anchor-label="permitsInUse" id="578947766%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/permits-in-use.html"><span>permits</span><wbr><span>In</span><wbr><span><span>Use</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="578947766%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/permits-in-use.html">permitsInUse</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="123119657%2FProperties%2F-1045492872" anchor-label="queue" id="123119657%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/queue.html"><span><span>queue</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="123119657%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/queue.html">queue</a><span class="token operator">: </span><a href="../../kresil.core.utils/-circular-doubly-linked-list/index.html">CircularDoublyLinkedList</a><span class="token operator">&lt;</span><a href="../../kresil.ratelimiter.semaphore.request/-rate-limited-request/index.html">RateLimitedRequest</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1374483958%2FProperties%2F-1045492872" anchor-label="semaphoreState" id="-1374483958%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="semaphore-state.html"><span>semaphore</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1374483958%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="semaphore-state.html">semaphoreState</a><span class="token operator">: </span><a href="../../kresil.ratelimiter.semaphore.state/-semaphore-state/index.html">SemaphoreState</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-894059307%2FFunctions%2F-1045492872" anchor-label="acquire" id="-894059307%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/acquire.html"><span><span>acquire</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-894059307%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/acquire.html"><span class="token function">acquire</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">permits<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter ">timeout<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Acquires n <a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/acquire.html">permits</a> from the semaphore or suspends for the specified <a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/acquire.html">timeout</a> if the permits are not available.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2092030305%2FFunctions%2F-1045492872" anchor-label="calculateRetryDuration" id="-2092030305%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="calculate-retry-duration.html"><span>calculate</span><wbr><span>Retry</span><wbr><span><span>Duration</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2092030305%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">protected </span><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="calculate-retry-duration.html"><span class="token function">calculateRetryDuration</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">permits<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a></div><div class="brief "><p class="paragraph">Calculates the duration after which the request can be retried. The retry duration depends on the rate limiting algorithm, the current state of the semaphore and the number of permits requested. For example, a token bucket algorithm may return a retry duration based on the time left until the requested permits are available (which may not happen in the next replenishment period).</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="829467533%2FFunctions%2F-1045492872" anchor-label="createRateLimitedException" id="829467533%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/create-rate-limited-exception.html"><span>create</span><wbr><span>Rate</span><wbr><span>Limited</span><wbr><span><span>Exception</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="829467533%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">fun </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/create-rate-limited-exception.html"><span class="token function">createRateLimitedException</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">permits<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../../kresil.ratelimiter.exceptions/-rate-limiter-rejected-exception/index.html">RateLimiterRejectedException</a></div><div class="brief "><p class="paragraph">Creates a <a href="../../kresil.ratelimiter.exceptions/-rate-limiter-rejected-exception/index.html">RateLimiterRejectedException</a> with the appropriate retry duration.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1758572496%2FFunctions%2F-1045492872" anchor-label="handleExceptionAndCleanup" id="-1758572496%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/handle-exception-and-cleanup.html"><span>handle</span><wbr><span>Exception</span><wbr><span>And</span><wbr><span><span>Cleanup</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1758572496%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/handle-exception-and-cleanup.html"><span class="token function">handleExceptionAndCleanup</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">observedRequestNode<span class="token operator">: </span><a href="../../kresil.core.queue/-node/index.html">Node</a><span class="token operator">&lt;</span><a href="../../kresil.ratelimiter.semaphore.request/-rate-limited-request/index.html">RateLimitedRequest</a><span class="token operator">&gt;</span><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter ">exception<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-exception/index.html">Exception</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Deals with the caught exception while maintaining the integrity of the semaphore state.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-717638360%2FFunctions%2F-1045492872" anchor-label="isRateLimited" id="-717638360%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/is-rate-limited.html"><span>is</span><wbr><span>Rate</span><wbr><span><span>Limited</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-717638360%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">fun </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/is-rate-limited.html"><span class="token function">isRateLimited</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">permits<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Determines if the request should be rate limited based on the current state of the semaphore.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-797635439%2FFunctions%2F-1045492872" anchor-label="release" id="-797635439%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/release.html"><span><span>release</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-797635439%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/release.html"><span class="token function">release</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">permits<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Releases n <a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/release.html">permits</a> back to the semaphore.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1846738288%2FFunctions%2F-1045492872" anchor-label="replenishSemaphoreState" id="-1846738288%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="replenish-semaphore-state.html"><span>replenish</span><wbr><span>Semaphore</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1846738288%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">protected </span><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="replenish-semaphore-state.html"><span class="token function">replenishSemaphoreState</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Depending on the rate limiting algorithm, this function is responsible for replenishing the semaphore state. For example, a fixed window counter algorithm may reset the permits to zero at the end of the window. And a token bucket algorithm may refill the bucket with tokens at a constant rate.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1630313302%2FFunctions%2F-1045492872" anchor-label="updateSemaphoreStatePermits" id="-1630313302%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/update-semaphore-state-permits.html"><span>update</span><wbr><span>Semaphore</span><wbr><span>State</span><wbr><span><span>Permits</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1630313302%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">protected </span><span class="token keyword">open </span><span class="token keyword">fun </span><a href="../../kresil.ratelimiter.semaphore/-semaphore-based-rate-limiter/update-semaphore-state-permits.html"><span class="token function">updateSemaphoreStatePermits</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">updateFunction<span class="token operator">: </span><span class="token punctuation">(</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Updates the number of permits in the semaphore state.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2024 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

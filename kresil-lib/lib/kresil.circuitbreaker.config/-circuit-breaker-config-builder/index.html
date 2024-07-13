@@ -1,0 +1,412 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>CircuitBreakerConfigBuilder</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            kresil
+                    </a>            </div>
+            <div class="library-version">0.0.1
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector common-like" data-active="" data-filter=":kresil-lib:lib:dokkaHtmlPartial/commonMain">common</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="kresil-lib::kresil.circuitbreaker.config/CircuitBreakerConfigBuilder///PointingToDeclaration//-1045492872">
+  <div class="breadcrumbs"><a href="../../index.html">kresil-lib</a><span class="delimiter">/</span><a href="../index.html">kresil.circuitbreaker.config</a><span class="delimiter">/</span><span class="current">CircuitBreakerConfigBuilder</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Circuit</span><wbr><span>Breaker</span><wbr><span>Config</span><wbr><span><span>Builder</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">CircuitBreakerConfigBuilder</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>baseConfig<span class="token operator">: </span><a href="../-circuit-breaker-config/index.html">CircuitBreakerConfig</a><span class="token operator"> = </span>defaultCircuitBreakerConfig</span></span><span class="token punctuation">)</span> : <a href="../../kresil.core.builders/-config-builder/index.html">ConfigBuilder</a><span class="token operator">&lt;</span><a href="../-circuit-breaker-config/index.html">CircuitBreakerConfig</a><span class="token operator">&gt; </span><span class="clearfix"><span class="floating-right">(<a href="https://github.com/kresil/kresil/tree/main/kresil-lib/lib/src/commonMain/kotlin/kresil/circuitbreaker/config/CircuitBreakerConfigBuilder.kt#L26">source</a>)</span></span></div><p class="paragraph">Builder for configuring a <a href="../-circuit-breaker-config/index.html">CircuitBreakerConfig</a> instance. Use <a href="../circuit-breaker-config.html">circuitBreakerConfig</a> to create one.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="1444876686%2FConstructors%2F-1045492872" anchor-label="CircuitBreakerConfigBuilder" id="1444876686%2FConstructors%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-circuit-breaker-config-builder.html"><span>Circuit</span><wbr><span>Breaker</span><wbr><span>Config</span><wbr><span><span>Builder</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1444876686%2FConstructors%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">baseConfig<span class="token operator">: </span><a href="../-circuit-breaker-config/index.html">CircuitBreakerConfig</a><span class="token operator"> = </span>defaultCircuitBreakerConfig</span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="212245877%2FClasslikes%2F-1045492872" anchor-label="Companion" id="212245877%2FClasslikes%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-companion/index.html"><span><span>Companion</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="212245877%2FClasslikes%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">object </span><a href="-companion/index.html">Companion</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="215493465%2FProperties%2F-1045492872" anchor-label="baseConfig" id="215493465%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="base-config.html"><span>base</span><wbr><span><span>Config</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="215493465%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">val </span><a href="base-config.html">baseConfig</a><span class="token operator">: </span><a href="../-circuit-breaker-config/index.html">CircuitBreakerConfig</a></div><div class="brief "><p class="paragraph">The base configuration object to be used as a starting point for building the final configuration object.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1247019040%2FProperties%2F-1045492872" anchor-label="delayStrategyInOpenState" id="-1247019040%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="delay-strategy-in-open-state.html"><span>delay</span><wbr><span>Strategy</span><wbr><span>In</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1247019040%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">var </span><a href="delay-strategy-in-open-state.html">delayStrategyInOpenState</a><span class="token operator">: </span><a href="../../kresil.core.delay.strategy/-ctx-delay-strategy/index.html">CtxDelayStrategy</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-unit/index.html">Unit</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1145206140%2FProperties%2F-1045492872" anchor-label="delayStrategyInOpenStateOptions" id="1145206140%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="delay-strategy-in-open-state-options.html"><span>delay</span><wbr><span>Strategy</span><wbr><span>In</span><wbr><span>Open</span><wbr><span>State</span><wbr><span><span>Options</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1145206140%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="delay-strategy-in-open-state-options.html">delayStrategyInOpenStateOptions</a><span class="token operator">: </span><a href="../../kresil.core.delay.strategy/-delay-strategy-options/index.html">DelayStrategyOptions</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1979026379%2FProperties%2F-1045492872" anchor-label="failureRateThreshold" id="1979026379%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="failure-rate-threshold.html"><span>failure</span><wbr><span>Rate</span><wbr><span><span>Threshold</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1979026379%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">var </span><a href="failure-rate-threshold.html">failureRateThreshold</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-double/index.html">Double</a></div><div class="brief "><p class="paragraph">Configures the rate in percentage (e.g., <strong>0.5 for 50%</strong>) of calls recorded as failure that will trigger the circuit breaker to transition to the <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> state, if equalled or exceeded.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="443587402%2FProperties%2F-1045492872" anchor-label="maxWaitDurationInHalfOpenState" id="443587402%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="max-wait-duration-in-half-open-state.html"><span>max</span><wbr><span>Wait</span><wbr><span>Duration</span><wbr><span>In</span><wbr><span>Half</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="443587402%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">var </span><a href="max-wait-duration-in-half-open-state.html">maxWaitDurationInHalfOpenState</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a></div><div class="brief "><p class="paragraph">Configures the maximum duration the circuit breaker will wait in the <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a> state before transitioning to the <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> state automatically. If set to <code class="lang-kotlin">Duration.ZERO</code>, the circuit breaker will wait indefinitely in the <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a> state until <a href="permitted-number-of-calls-in-half-open-state.html">permittedNumberOfCallsInHalfOpenState</a> is reached.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1654699484%2FProperties%2F-1045492872" anchor-label="permittedNumberOfCallsInHalfOpenState" id="1654699484%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="permitted-number-of-calls-in-half-open-state.html"><span>permitted</span><wbr><span>Number</span><wbr><span>Of</span><wbr><span>Calls</span><wbr><span>In</span><wbr><span>Half</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1654699484%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">var </span><a href="permitted-number-of-calls-in-half-open-state.html">permittedNumberOfCallsInHalfOpenState</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></div><div class="brief "><p class="paragraph">Configures the number of calls that are allowed to be made in the <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a> state. If this number is exceeded, further calls will be rejected. If <a href="max-wait-duration-in-half-open-state.html">maxWaitDurationInHalfOpenState</a> is set to <code class="lang-kotlin">Duration.ZERO</code>, the circuit breaker will wait indefinitely in the <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a> state until the permitted number of calls is reached.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-788834061%2FProperties%2F-1045492872" anchor-label="recordExceptionPredicate" id="-788834061%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="record-exception-predicate.html"><span>record</span><wbr><span>Exception</span><wbr><span><span>Predicate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-788834061%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">var </span><a href="record-exception-predicate.html">recordExceptionPredicate</a><span class="token operator">: </span><a href="../../kresil.core.callbacks/-on-exception-predicate/index.html">OnExceptionPredicate</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1071483579%2FProperties%2F-1045492872" anchor-label="recordResultPredicate" id="-1071483579%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="record-result-predicate.html"><span>record</span><wbr><span>Result</span><wbr><span><span>Predicate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1071483579%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">var </span><a href="record-result-predicate.html">recordResultPredicate</a><span class="token operator">: </span><a href="../../kresil.core.callbacks/-on-result-predicate/index.html">OnResultPredicate</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-53862992%2FProperties%2F-1045492872" anchor-label="slidingWindow" id="-53862992%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="sliding-window.html"><span>sliding</span><wbr><span><span>Window</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-53862992%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">var </span><a href="sliding-window.html">slidingWindow</a><span class="token operator">: </span><a href="../../kresil.circuitbreaker.state.slidingwindow/-sliding-window/index.html">SlidingWindow</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-811966976%2FFunctions%2F-1045492872" anchor-label="build" id="-811966976%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="build.html"><span><span>build</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-811966976%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="build.html"><span class="token function">build</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-circuit-breaker-config/index.html">CircuitBreakerConfig</a></div><div class="brief "><p class="paragraph">Builds the final configuration object after applying possible modifications to the base configuration.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2024828159%2FFunctions%2F-1045492872" anchor-label="constantDelayInOpenState" id="-2024828159%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="constant-delay-in-open-state.html"><span>constant</span><wbr><span>Delay</span><wbr><span>In</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2024828159%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="constant-delay-in-open-state.html"><span class="token function">constantDelayInOpenState</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">delay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the circuit breaker delay strategy to use a constant delay between transitions from <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> to <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1829593821%2FFunctions%2F-1045492872" anchor-label="customDelayInOpenState" id="-1829593821%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="custom-delay-in-open-state.html"><span>custom</span><wbr><span>Delay</span><wbr><span>In</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1829593821%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="custom-delay-in-open-state.html"><span class="token function">customDelayInOpenState</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">delayStrategyInOpenState<span class="token operator">: </span><a href="../../kresil.core.delay.strategy/-delay-strategy/index.html">DelayStrategy</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the circuit breaker delay strategy to use a custom delay between transitions from <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> to <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a>, based on the current attempt and additional context. The current attempt is the number of times the circuit breaker is in the <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> state in one cycle.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-612670830%2FFunctions%2F-1045492872" anchor-label="customDelayProviderInOpenState" id="-612670830%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="custom-delay-provider-in-open-state.html"><span>custom</span><wbr><span>Delay</span><wbr><span>Provider</span><wbr><span>In</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-612670830%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="custom-delay-provider-in-open-state.html"><span class="token function">customDelayProviderInOpenState</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">delayProvider<span class="token operator">: </span><a href="../../kresil.core.delay.provider/-delay-provider/index.html">DelayProvider</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the circuit breaker delay strategy to use a custom delay provider between transitions from <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> to <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a>. In contrast to <a href="custom-delay-in-open-state.html">customDelayInOpenState</a>, this method enables caller control over the delay provider (which is the <span data-unresolved-link="kotlinx.coroutines//delay/#kotlin.Long/PointingToDeclaration/">kotlinx.coroutines.delay</span> by default) and optional additional state between transitions. See <a href="../../kresil.core.delay.provider/-delay-provider/index.html">DelayProvider</a> for more information.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-943184144%2FFunctions%2F-1045492872" anchor-label="exponentialDelayInOpenState" id="-943184144%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="exponential-delay-in-open-state.html"><span>exponential</span><wbr><span>Delay</span><wbr><span>In</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-943184144%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="exponential-delay-in-open-state.html"><span class="token function">exponentialDelayInOpenState</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">initialDelay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a><span class="token operator"> = </span>500L.milliseconds<span class="token punctuation">, </span></span><span class="parameter ">multiplier<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-double/index.html">Double</a><span class="token operator"> = </span><span class="token constant">2.0</span><span class="token punctuation">, </span></span><span class="parameter ">maxDelay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a><span class="token operator"> = </span>1.minutes</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the circuit breaker delay strategy to use an exponential backoff algorithm to calculate the next delay duration between transitions from <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> to <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a>. The algorithm is based on the formula:</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-467665390%2FFunctions%2F-1045492872" anchor-label="linearDelayInOpenState" id="-467665390%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="linear-delay-in-open-state.html"><span>linear</span><wbr><span>Delay</span><wbr><span>In</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-467665390%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="linear-delay-in-open-state.html"><span class="token function">linearDelayInOpenState</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">initialDelay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a><span class="token operator"> = </span>500L.milliseconds<span class="token punctuation">, </span></span><span class="parameter ">multiplier<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-double/index.html">Double</a><span class="token operator"> = </span><span class="token constant">1.0</span><span class="token punctuation">, </span></span><span class="parameter ">maxDelay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/index.html">Duration</a><span class="token operator"> = </span>1.minutes</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the circuit breaker delay strategy to use a linear backoff algorithm to calculate the next delay duration between transitions from <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> to <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1300625228%2FFunctions%2F-1045492872" anchor-label="noDelayInOpenState" id="1300625228%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="no-delay-in-open-state.html"><span>no</span><wbr><span>Delay</span><wbr><span>In</span><wbr><span>Open</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1300625228%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="no-delay-in-open-state.html"><span class="token function">noDelayInOpenState</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the circuit breaker delay strategy to use no delay between transitions from <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-open/index.html">Open</a> to <a href="../../kresil.circuitbreaker.state/-circuit-breaker-state/-half-open/index.html">HalfOpen</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1650173111%2FFunctions%2F-1045492872" anchor-label="recordExceptionPredicate" id="1650173111%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="record-exception-predicate.html"><span>record</span><wbr><span>Exception</span><wbr><span><span>Predicate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1650173111%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="record-exception-predicate.html"><span class="token function">recordExceptionPredicate</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">predicate<span class="token operator">: </span><a href="../../kresil.core.callbacks/-on-exception-predicate/index.html">OnExceptionPredicate</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the predicate that determines whether an exception should be recorded as a failure, and as such, increase the failure rate.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="834709854%2FFunctions%2F-1045492872" anchor-label="recordResultPredicate" id="834709854%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="record-result-predicate.html"><span>record</span><wbr><span>Result</span><wbr><span><span>Predicate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="834709854%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="record-result-predicate.html"><span class="token function">recordResultPredicate</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">predicate<span class="token operator">: </span><a href="../../kresil.core.callbacks/-on-result-predicate/index.html">OnResultPredicate</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the predicate that determines whether a result of an operation should be recorded as a failure, and as such, increase the failure rate.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-688668548%2FFunctions%2F-1045492872" anchor-label="slidingWindow" id="-688668548%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="sliding-window.html"><span>sliding</span><wbr><span><span>Window</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-688668548%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">fun </span><a href="sliding-window.html"><span class="token function">slidingWindow</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">size<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter ">minimumThroughput<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">100</span><span class="token punctuation">, </span></span><span class="parameter ">type<span class="token operator">: </span><a href="../../kresil.circuitbreaker.state.slidingwindow/-sliding-window-type/index.html">SlidingWindowType</a><span class="token operator"> = </span>COUNT_BASED</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Configures the sliding window used to record calls and calculate the failure rate.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2024 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

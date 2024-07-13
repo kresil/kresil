@@ -1,0 +1,307 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>RetryAsyncContextImpl</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            kresil
+                    </a>            </div>
+            <div class="library-version">0.0.1
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector common-like" data-active="" data-filter=":kresil-lib:lib:dokkaHtmlPartial/commonMain">common</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="kresil-lib::kresil.retry.context/RetryAsyncContextImpl///PointingToDeclaration//-1045492872">
+  <div class="breadcrumbs"><a href="../../index.html">kresil-lib</a><span class="delimiter">/</span><a href="../index.html">kresil.retry.context</a><span class="delimiter">/</span><span class="current">RetryAsyncContextImpl</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Retry</span><wbr><span>Async</span><wbr><span>Context</span><wbr><span><span>Impl</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">internal </span><span class="token keyword">class </span><a href="index.html">RetryAsyncContextImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>config<span class="token operator">: </span><a href="../../kresil.retry.config/-retry-config/index.html">RetryConfig</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>eventFlow<span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/MutableSharedFlow///PointingToDeclaration/">MutableSharedFlow</span><span class="token operator">&lt;</span><a href="../../kresil.retry.event/-retry-event/index.html">RetryEvent</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span> : <a href="../-retry-async-context/index.html">RetryAsyncContext</a><span class="clearfix"><span class="floating-right">(<a href="https://github.com/kresil/kresil/tree/main/kresil-lib/lib/src/commonMain/kotlin/kresil/retry/context/RetryAsyncContextImpl.kt#L23">source</a>)</span></span></div><p class="paragraph">Represents the asynchronous context implementation of a retry mechanism. Besides defining context behaviour, this implementation is also responsible for:</p><ul><li><p class="paragraph"><strong>state management</strong>;</p></li><li><p class="paragraph"><strong>event emission</strong>.</p></li></ul><p class="paragraph">For each retryable asynchronous operation, a new instance of this class must be created.</p><h4 class="">Parameters</h4><div class="table"><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span><span>config</span></span></u></div></span></div><div><div class="title"><p class="paragraph">The configuration for the retry mechanism.</p></div></div></div></div><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><u><span>event</span><wbr><span><span>Flow</span></span></u></div></span></div><div><div class="title"><p class="paragraph">The shared flow to emit retry events to.</p></div></div></div></div></div><h4 class="">See also</h4><div class="table"><div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><a href="../../kresil.retry/-retry/index.html"><span><span>Retry</span></span></a></div></span></div><div></div></div></div></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="730822024%2FConstructors%2F-1045492872" anchor-label="RetryAsyncContextImpl" id="730822024%2FConstructors%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-retry-async-context-impl.html"><span>Retry</span><wbr><span>Async</span><wbr><span>Context</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="730822024%2FConstructors%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">config<span class="token operator">: </span><a href="../../kresil.retry.config/-retry-config/index.html">RetryConfig</a><span class="token punctuation">, </span></span><span class="parameter ">eventFlow<span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/MutableSharedFlow///PointingToDeclaration/">MutableSharedFlow</span><span class="token operator">&lt;</span><a href="../../kresil.retry.event/-retry-event/index.html">RetryEvent</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="411053556%2FClasslikes%2F-1045492872" anchor-label="Companion" id="411053556%2FClasslikes%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-companion/index.html"><span><span>Companion</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="411053556%2FClasslikes%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">object </span><a href="-companion/index.html">Companion</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-1049535541%2FProperties%2F-1045492872" anchor-label="config" id="-1049535541%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="config.html"><span><span>config</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1049535541%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="config.html">config</a><span class="token operator">: </span><a href="../../kresil.retry.config/-retry-config/index.html">RetryConfig</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2013434033%2FProperties%2F-1045492872" anchor-label="currentRetryAttempt" id="-2013434033%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="current-retry-attempt.html"><span>current</span><wbr><span>Retry</span><wbr><span><span>Attempt</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2013434033%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">var </span><a href="current-retry-attempt.html">currentRetryAttempt</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1316808389%2FProperties%2F-1045492872" anchor-label="eventFlow" id="1316808389%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="event-flow.html"><span>event</span><wbr><span><span>Flow</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1316808389%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="event-flow.html">eventFlow</a><span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/MutableSharedFlow///PointingToDeclaration/">MutableSharedFlow</span><span class="token operator">&lt;</span><a href="../../kresil.retry.event/-retry-event/index.html">RetryEvent</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1497245090%2FProperties%2F-1045492872" anchor-label="isRetryAttempt" id="-1497245090%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-retry-attempt.html"><span>is</span><wbr><span>Retry</span><wbr><span><span>Attempt</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1497245090%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="is-retry-attempt.html">isRetryAttempt</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1690777662%2FProperties%2F-1045492872" anchor-label="isWithinPermittedRetryAttempts" id="-1690777662%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-within-permitted-retry-attempts.html"><span>is</span><wbr><span>Within</span><wbr><span>Permitted</span><wbr><span>Retry</span><wbr><span><span>Attempts</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1690777662%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">val </span><a href="is-within-permitted-retry-attempts.html">isWithinPermittedRetryAttempts</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-106505053%2FProperties%2F-1045492872" anchor-label="lastThrowable" id="-106505053%2FProperties%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="last-throwable.html"><span>last</span><wbr><span><span>Throwable</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-106505053%2FProperties%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">var </span><a href="last-throwable.html">lastThrowable</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-throwable/index.html">Throwable</a><span class="token operator">?</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-362677871%2FFunctions%2F-1045492872" anchor-label="onError" id="-362677871%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-error.html"><span>on</span><wbr><span><span>Error</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-362677871%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="on-error.html"><span class="token function">onError</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">throwable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-throwable/index.html">Throwable</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Handles an error that occurred during the asynchronous operation execution. Such handling may include deciding whether to retry the operation or ignore the error and complete the operation. This method might propagate the error if retrying is no longer possible (e.g., the maximum number of attempts was reached), and the caller did not specify a custom error handler.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1545178609%2FFunctions%2F-1045492872" anchor-label="onResult" id="1545178609%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-result.html"><span>on</span><wbr><span><span>Result</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1545178609%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="on-result.html"><span class="token function">onResult</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">result<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html">Any</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Determines whether a retry should be attempted based on the result of the asynchronous operation.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1244934972%2FFunctions%2F-1045492872" anchor-label="onRetry" id="-1244934972%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-retry.html"><span>on</span><wbr><span><span>Retry</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1244934972%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="on-retry.html"><span class="token function">onRetry</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Initiates a retry attempt by applying the delay strategy.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1397560311%2FFunctions%2F-1045492872" anchor-label="onSuccess" id="-1397560311%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-success.html"><span>on</span><wbr><span><span>Success</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1397560311%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="on-success.html"><span class="token function">onSuccess</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Handles the successful completion of the asynchronous operation. Even if the operation is completed without retrying once, this method is still called.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="573987269%2FFunctions%2F-1045492872" anchor-label="shouldRetry" id="573987269%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="should-retry.html"><span>should</span><wbr><span><span>Retry</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="573987269%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">fun </span><a href="should-retry.html"><span class="token function">shouldRetry</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">throwable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-throwable/index.html">Throwable</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1250003814%2FFunctions%2F-1045492872" anchor-label="shouldRetryOnResult" id="1250003814%2FFunctions%2F-1045492872" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain"></a>
+          <div class="table-row" data-filterable-current=":kresil-lib:lib:dokkaHtmlPartial/commonMain" data-filterable-set=":kresil-lib:lib:dokkaHtmlPartial/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="should-retry-on-result.html"><span>should</span><wbr><span>Retry</span><wbr><span>On</span><wbr><span><span>Result</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1250003814%2FFunctions%2F-1045492872"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":kresil-lib:lib:dokkaHtmlPartial/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword">fun </span><a href="should-retry-on-result.html"><span class="token function">shouldRetryOnResult</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">result<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html">Any</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2024 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
