@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.google.ksp)
-    alias(libs.plugins.dokka)
 }
 
 repositories {
