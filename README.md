@@ -20,7 +20,7 @@ Additionally, Kresil offers extensions for [Ktor](https://ktor.io/) as plugins.
 - 📁 [kresil-lib](kresil-lib/lib/README.md): Core module with the resilience mechanisms;
 - 📁 [ktor-client-plugins](ktor-client-plugins/shared/README.md): Mechanisms integration for [Ktor Client](https://ktor.io/docs/client-create-new-application.html) as plugins;
 - 📁 [ktor-server-plugins](ktor-server-plugins/shared/README.md): Mechanisms integration for [Ktor Server](https://ktor.io/docs/server-create-a-new-project.html) as plugins;
-- 📁 [beta-demo](beta-demo/README.md): Kotlin/JS applications for resilience mechanisms demonstration.
+- 📁 [ktor-plugins-demo](ktor-plugins-demo/README.md): Kotlin/JS applications for demonstrating the mechanisms, namely its integration with Ktor.
 
 ## Retry
 

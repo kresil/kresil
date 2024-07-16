@@ -16,13 +16,13 @@ cd ..
 2. Start the server:
 
 ```shell
-./gradlew :beta-demo:circuitbreaker:jvm-server:run
+./gradlew :ktor-plugins-demo:circuitbreaker:jvm-server:run
 ```
 
 3. Start the client:
 
 ```shell
-./gradlew :beta-demo:circuitbreaker:js-client:browserDevelopmentRun
+./gradlew :ktor-plugins-demo:circuitbreaker:js-client:browserDevelopmentRun
 ```
 
 4. A browser window will open with the demo.
