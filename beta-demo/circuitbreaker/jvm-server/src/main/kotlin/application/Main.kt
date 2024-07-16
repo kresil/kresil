@@ -9,64 +9,45 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.delay
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.milliseconds
+
+private const val PORT = 8080
+
+enum class ServerState {
+    ONLINE, DOWN
+}
 
 fun main() {
-    embeddedServer(Netty, port = 8080) {
+    embeddedServer(Netty, port = PORT) {
         install(CORS) {
             anyHost()
         }
         routing {
+            var currentState = ServerState.ONLINE
 
-            // state
-            var requestCountV1 = 0
-            var cycleCountV1 = 'a'
-            var requestCountV2 = 0
-            var cycleCountV2 = 'a'
-
-            get("/v1") {
-                handleRequest(call = call,
-                    getRequestCount = { requestCountV1 },
-                    incrementRequestCount = { requestCountV1++ },
-                    resetRequestCount = { requestCountV1 = 0 },
-                    getCycleCount = { cycleCountV1 },
-                    incrementCycleCount = { cycleCountV1++ })
+            get("/get-state") {
+                println("Received request to get server state")
+                handleRequest(call, currentState)
             }
-
-            get("/v2") {
-                handleRequest(call = call,
-                    getRequestCount = { requestCountV2 },
-                    incrementRequestCount = { requestCountV2++ },
-                    resetRequestCount = { requestCountV2 = 0 },
-                    getCycleCount = { cycleCountV2 },
-                    incrementCycleCount = { cycleCountV2++ })
+            post("/state") {
+                println("Received request to change server state")
+                val state = call.receiveText()
+                currentState = when (state) {
+                    "online" -> ServerState.ONLINE
+                    "down" -> ServerState.DOWN
+                    else -> throw IllegalArgumentException("Invalid state")
+                }
+                println("Server state changed to $state")
+                call.respondText("Server state changed to $state", status = HttpStatusCode.OK)
             }
         }
     }.start(wait = true)
 }
 
-suspend fun handleRequest(
-    call: ApplicationCall,
-    getRequestCount: () -> Int,
-    incrementRequestCount: () -> Unit,
-    resetRequestCount: () -> Unit,
-    getCycleCount: () -> Char,
-    incrementCycleCount: () -> Unit,
-) {
-    val text = call.receiveText()
-    incrementRequestCount()
-    println("Server received request nr(${getRequestCount()}-${getCycleCount()}): $text")
-    delay(1.seconds) // simulate server processing time
-    when (getRequestCount()) {
-        in 1..2 -> call.respondText("Server is back online", status = HttpStatusCode.OK)
-        in 3..4 -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
-        else -> {
-            delay(4.seconds) // simulate response delay from being overloaded
-            call.respondText("Server is overwhelmed", status = HttpStatusCode.ServiceUnavailable)
-            if (getRequestCount() >= 6) {
-                resetRequestCount()
-                incrementCycleCount()
-            }
-        }
+suspend fun handleRequest(call: ApplicationCall, currentState: ServerState) {
+    delay(500.milliseconds)
+    when (currentState) {
+        ServerState.ONLINE -> call.respondText("Server is online", status = HttpStatusCode.OK)
+        ServerState.DOWN -> call.respondText("Server is down", status = HttpStatusCode.InternalServerError)
     }
 }

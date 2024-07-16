@@ -11,53 +11,38 @@
             margin: 20px;
         }
 
-        #log-container-with-circuit-breaker, #log-container-without-circuit-breaker {
-            width: 45%;
+        #chart-container {
+            width: 70%;
+            min-height: 500px;
             border: 1px solid #ccc;
-            padding: 10px;
-            height: 400px;
-            overflow-y: auto;
+            padding: 20px;
         }
 
         #controls {
             text-align: center;
+            width: 20%;
             margin: 20px;
-        }
-
-        .info-box {
-            border: 1px solid #ccc;
-            padding: 10px;
-            background-color: #f9f9f9;
-            width: 300px;
-            margin: 0 auto;
-            text-align: left;
         }
     </style>
 </head>
 <body>
 <h1>⛔ Kresil Ktor Circuit Breaker Plugin</h1>
 <div id="container">
-    <div id="log-container-with-circuit-breaker">
-        <h2>Client with Circuit Breaker</h2>
-        <div id="messages-with-circuit-breaker"></div>
+    <div id="chart-container">
+        <h2>Response Time</h2>
+        <canvas id="responseTimeChart"></canvas>
     </div>
     <div id="controls">
-        <div class="info-box">
-            <p>Each <b>cycle</b> consists of <b>6 requests</b> each with a <b>1s</b> delay (to simulate server response time).</p>
-            <ul>
-                <li>The first 2 are successful</li>
-                <li>The next 2 are unsuccessful; because the server is down.</li>
-                <li>The last 2 are also unsuccessful, because the server is overloaded and takes <b>4s</b> to respond.</li>
-            </ul>
-            <p>The client that has the Circuit Breaker enabled will open the circuit after the 2nd unsuccessful request and will not send any more requests until the circuit is closed.
-            This allows the client to fail fast and not try to send requests to a server that is possibly down or overloaded.</p>
-        </div>
-    </div>
-    <div id="log-container-without-circuit-breaker">
-        <h2>Client without Circuit Breaker</h2>
-        <div id="messages-without-circuit-breaker"></div>
+        <button id="onlineButton">Set Server Online</button>
+        <button id="downButton">Set Server Down</button>
+        <br><br>
+        <strong>Server Status:</strong> <span id="serverStatus">Did you forget to start the server?</span>
+        <br><br>
+        <button id="resetChartButton">Reset Chart</button>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 <script src="js-client.js"></script>
 </body>
 </html>

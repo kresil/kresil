@@ -6,94 +6,140 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.util.logging.*
 import kotlinx.browser.document
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kresil.circuitbreaker.exceptions.CallNotPermittedException
 import kresil.ktor.client.plugins.circuitbreaker.KresilCircuitBreakerPlugin
-import org.w3c.dom.HTMLDivElement
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLSpanElement
+import kotlin.js.Date
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTimedValue
 
 private val logger = KtorSimpleLogger("cbreaker-client")
 
-private val clientWithoutCBreaker = HttpClient()
-private val clientWithCBreaker = HttpClient {
+private val client = HttpClient {
     install(KresilCircuitBreakerPlugin) {
-        permittedNumberOfCallsInHalfOpenState = 1
+        permittedNumberOfCallsInHalfOpenState = 5
         maxWaitDurationInHalfOpenState = Duration.ZERO
-        constantDelayInOpenState(500.milliseconds)
+        exponentialDelayInOpenState(
+            initialDelay = 100.milliseconds,
+            multiplier = 2.0,
+            maxDelay = 10.seconds
+        )
         failureRateThreshold = 0.5
-        slidingWindow(4, 4)
+        slidingWindow(10, 10)
         recordFailureOnServerErrors()
     }
 }
 
 private object ServerPaths {
     const val BASE = "http://127.0.0.1:8080"
-    const val V1 = "$BASE/v1"
-    const val V2 = "$BASE/v2"
+    const val GET_STATE = "$BASE/get-state"
+    const val POST_STATE = "$BASE/state"
 }
 
-fun main() {
+private object ServerState {
+    const val ONLINE = "online"
+    const val DOWN = "down"
+}
+
+suspend fun main() {
     val scope = MainScope()
-    launchClientWithCBreakerPlugin(scope)
-    launchClientWithoutCBreakerPlugin(scope)
-}
 
-private fun launchClientWithoutCBreakerPlugin(scope: CoroutineScope) {
-    scope.launch {
-        val messagesWithoutCBreaker = document.getElementById("messages-without-circuit-breaker") as HTMLDivElement
-        testServer(
-            messageElement = messagesWithoutCBreaker,
-            usingCBreaker = false,
-        )
+    val chartManager = ChartManager("responseTimeChart")
+    val serverStatusSpan = document.getElementById("serverStatus") as HTMLSpanElement
+    val onlineButton = document.getElementById("onlineButton") as HTMLButtonElement
+    val downButton = document.getElementById("downButton") as HTMLButtonElement
+    val resetChartButton = document.getElementById("resetChartButton") as HTMLButtonElement
+
+    onlineButton.onclick = {
+        scope.launch {
+            setServerState(ServerState.ONLINE, onlineButton, downButton)
+            updateServerStatus(ServerState.ONLINE, serverStatusSpan)
+        }
     }
-}
 
-fun launchClientWithCBreakerPlugin(scope: CoroutineScope) {
-    scope.launch {
-        val messagesWithCBreaker = document.getElementById("messages-with-circuit-breaker") as HTMLDivElement
-        testServer(
-            messageElement = messagesWithCBreaker,
-            usingCBreaker = true,
-        )
+    downButton.onclick = {
+        scope.launch {
+            setServerState(ServerState.DOWN, onlineButton, downButton)
+            updateServerStatus(ServerState.DOWN, serverStatusSpan)
+        }
     }
+
+    resetChartButton.onclick = {
+        chartManager.reset()
+    }
+
+    logger.info("Starting client")
+    testServer(chartManager)
 }
 
-suspend fun testServer(
-    messageElement: HTMLDivElement,
-    usingCBreaker: Boolean,
+private fun updateServerStatus(
+    newStatus: String,
+    serverStatusSpan: HTMLSpanElement,
 ) {
-    while (true) {
-        delay(10.milliseconds)
-        try {
-            messageElement.appendMessage("\uD83D\uDCE8 Sending request")
-            val measuredResponse = measureTimedValue {
-                if (usingCBreaker) clientWithCBreaker.get(ServerPaths.V1)
-                else clientWithoutCBreaker.get(ServerPaths.V2)
-            }
-            val (response, duration) = measuredResponse.value to measuredResponse.duration
-            val emoji = if (response.status.isSuccess()) "✅" else "❌"
-            val message = "$emoji ${response.bodyAsText()} (took ${duration.inWholeSeconds}s)"
-            messageElement.appendMessage(message)
-        } catch (e: CallNotPermittedException) {
-            messageElement.appendMessage("⚡ Circuit Breaker denied call")
-        } catch (e: Exception) {
-            messageElement.appendMessage("❌ Unexpected error: ${e.message}")
-            return
+    serverStatusSpan.textContent = newStatus.replaceFirstChar { it.uppercase() }
+}
+
+private fun updateServerStateButton(
+    state: String,
+    onlineButton: HTMLButtonElement,
+    downButton: HTMLButtonElement,
+) {
+    when (state) {
+        ServerState.ONLINE -> {
+            onlineButton.disabled = true
+            downButton.disabled = false
+        }
+        ServerState.DOWN -> {
+            onlineButton.disabled = false
+            downButton.disabled = true
         }
     }
 }
 
-fun HTMLDivElement.appendMessage(message: String) {
-    val span = document.createElement("span") as HTMLSpanElement
-    span.textContent = message
-    appendChild(span)
-    appendChild(document.createElement("br"))
-    span.scrollIntoView()
-    logger.info(message)
+private suspend fun testServer(chartManager: ChartManager) {
+    while (true) {
+        val measuredResponse = measureTimedValue {
+            logger.info("🚀 Sending request to server")
+            try {
+                client.get(ServerPaths.GET_STATE)
+            } catch (e: CallNotPermittedException) {
+                logger.info("⚡ Circuit Breaker denied call")
+                null
+            } catch (e: Exception) {
+                logger.info("❌ Unexpected error: ${e.message}")
+                return
+            }
+        }
+        val (response, duration) = measuredResponse.value to measuredResponse.duration
+        val durationInMillis = duration.inWholeMilliseconds.toInt()
+        chartManager.addDataPoint(Date().toLocaleTimeString(), durationInMillis)
+        if (response != null) {
+            val emoji = if (response.status == HttpStatusCode.OK) "✅" else "❌"
+            val message = "$emoji ${response.bodyAsText()} (took ${durationInMillis}ms)"
+            logger.info(message)
+        } else {
+            logger.info("⚠️ No response received from the server, request took ${durationInMillis}ms")
+        }
+    }
+}
+
+private suspend fun setServerState(
+    state: String,
+    onlineButton: HTMLButtonElement,
+    downButton: HTMLButtonElement,
+) {
+    try {
+        client.post(ServerPaths.POST_STATE) {
+            setBody(state)
+        }
+        logger.info("Server state set to $state")
+        updateServerStateButton(state, onlineButton, downButton)
+    } catch (e: Exception) {
+        logger.info("Failed to set server state: ${e.message}")
+    }
 }

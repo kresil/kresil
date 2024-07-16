@@ -33,7 +33,7 @@ cd ..
 ### Description 📝
 
 The demo consists of two windows, one for each client, with and without the Circuit Breaker mechanism.
-Both clients make requests to a unreliable server.
+Both clients make requests to an unreliable server.
 Each cycle of requests has 6 requests, each with a 1s delay to simulate server response time:
 - The first 2 are successful.
 - The next 2 are unsuccessful because the server is down.
