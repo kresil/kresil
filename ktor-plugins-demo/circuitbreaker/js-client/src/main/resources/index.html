@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>⛔ Kresil Ktor Circuit Breaker Plugin</title>
+    <style>
+        #container {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start;
+            margin: 20px;
+        }
+
+        #chart-container {
+            width: 70%;
+            min-height: 500px;
+            border: 1px solid #ccc;
+            padding: 20px;
+        }
+
+        #controls {
+            text-align: center;
+            width: 20%;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1>⛔ Kresil Ktor Circuit Breaker Plugin</h1>
+<div id="container">
+    <div id="chart-container">
+        <h2>Response Time</h2>
+        <canvas id="responseTimeChart"></canvas>
+    </div>
+    <div id="controls">
+        <button id="onlineButton">Set Server Online</button>
+        <button id="downButton">Set Server Down</button>
+        <br><br>
+        <strong>Server Status:</strong> <span id="serverStatus">Did you forget to start the server?</span>
+        <br><br>
+        <button id="resetChartButton">Reset Chart</button>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="js-client.js"></script>
+</body>
+</html>
