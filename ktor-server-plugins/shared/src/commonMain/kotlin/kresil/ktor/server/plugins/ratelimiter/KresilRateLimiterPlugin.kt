@@ -69,10 +69,11 @@ internal fun PluginBuilder<RateLimiterPluginConfigBuilder>.buildRateLimiterPlugi
         // return, as a request cannot release permits if it did not acquire them
             ?: return@onCallRespond
 
-        val (rateLimiter, permits, key) = acquisitionData
         logger.info("Request successfully processed for key: [${pluginConfig.keyResolver(call)}]")
+        // TODO: only if concurrent rate limiting is enabled (add that option)
+        /*val (rateLimiter, permits, key) = acquisitionData
         logger.info("Releasing ($permits) permits for key: [$key]")
-        rateLimiter.release(permits)
+        rateLimiter.release(permits)*/
         pluginConfig.onSuccessCall(call)
         logger.info("Success response headers: ${call.response.headers.allValues()}")
     }
@@ -139,6 +140,3 @@ private data class RateLimiterAcquisitionData(
     val permits: Int,
     val key: Any,
 )
-
-
-

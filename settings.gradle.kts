@@ -19,7 +19,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "kresil"
-// kresil lib
+// kresil-lib
 include(":kresil-lib:lib")
 include(":kresil-lib:apps:android-app")
 include(":kresil-lib:apps:jvm-app")
@@ -37,8 +37,10 @@ include(":ktor-server-plugins:apps:android-app")
 include(":ktor-server-plugins:apps:jvm-app")
 include(":ktor-server-plugins:apps:kotlin-jvm-app")
 
-// demo
-include(":beta-demo:retry:jvm-server")
-include(":beta-demo:retry:js-client")
-include(":beta-demo:circuitbreaker:jvm-server")
-include(":beta-demo:circuitbreaker:js-client")
+// ktor-plugins-demo
+include(":ktor-plugins-demo:retry:jvm-server")
+include(":ktor-plugins-demo:retry:js-client")
+include(":ktor-plugins-demo:circuitbreaker:jvm-server")
+include(":ktor-plugins-demo:circuitbreaker:js-client")
+include(":ktor-plugins-demo:ratelimiter:jvm-server")
+include(":ktor-plugins-demo:ratelimiter:js-client")
