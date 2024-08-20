@@ -37,4 +37,4 @@ cd ..
 
 ### Video 🎥
 
-- TODO(use embedded video)
+https://github.com/user-attachments/assets/9641a3be-d5fb-491c-8172-4290a703412c
